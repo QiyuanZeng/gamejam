@@ -44,6 +44,8 @@ func _process(delta: float) -> void:
 		3:
 			if g.state == g.State.PLAY:
 				_chk(g.kills == 5, "rewind kills 5, got %d" % g.kills)
+				_chk(absf(g.score_mult - 1.5) < 0.001,
+					"BUG-10: 5 kills -> mult 1.5, got %.2f" % g.score_mult)
 				phase = 4
 				t = 0.0
 			elif t > 5.0:
@@ -76,6 +78,8 @@ func _process(delta: float) -> void:
 				_chk(g.clock_charge >= 17.0 and g.clock_charge <= 17.5,
 					"charge 25-8+regen in [17,17.5], got %.2f" % g.clock_charge)
 				_chk(g.combo == 0, "combo cleared on hit")
+				_chk(absf(g.score_mult - 1.0) < 0.001,
+					"BUG-10: hit decays mult 1.5*0.5->floor 1.0, got %.2f" % g.score_mult)
 				_chk(g.player.hp == g.player.max_hp, "hp untouched (no death mechanic)")
 				# BUG-06：时限归零出结算
 				g.round_timer = 0.02

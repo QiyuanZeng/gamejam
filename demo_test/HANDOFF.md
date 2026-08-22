@@ -72,7 +72,7 @@
 
 1. **BUG-06** 结算评级 C~SS（框架在 `hud.gd` `_rating()` 函数，已有 5档评级逻辑，数值参数需校准）
 2. **BUG-07** 爆裂怪（第四类，连锁伤害）—— 加进 `ENEMY_CFGS` + 敌人自爆逻辑
-3. **BUG-10** 受击惩罚完整化（现已扣充能，还差得分倍率衰减）
+3. ~~**BUG-10** 受击扣得分倍率~~（已完成）：击杀分 = 10 × 倍率；+0.1/杀、上限 3.0、受击减半下限 1.0；HUD 右上显示 ×N.N；参数见 BALANCE.md 第十节
 4. ~~**BUG-13** 清理 v2 死代码~~（已完成）
    - `State.DRAW`/画墨四函数/v2 版 `_begin_dash`/`ink_path`/`dry_pen`/`path_alpha`/`DRAW_ENEMY_FACTOR` 全删
    - `ink_editor.gd` + `ink_editor.tscn` 删除（F1/F10 入口移除）

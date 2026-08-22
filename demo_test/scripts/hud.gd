@@ -75,6 +75,8 @@ func _paint(r: Control) -> void:
 	_text(r, Vector2(244, 56), "TV", 13, GREY)
 	# —— 右上：波次 / 斩杀 / 得分 / 倒计时 ——
 	var stat := "波 %d    斩 %d    分 %d" % [game.wave_idx, game.kills, game.score]
+	if game.score_mult > 1.01:
+		stat += "    ×%.1f" % game.score_mult
 	_text(r, Vector2(w - 20.0, 14), stat, 18, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 340.0)
 	# 倒计时（右上角，时间不多时变红提示）
 	var t_left := int(ceilf(game.round_timer))

@@ -52,6 +52,11 @@ const COMBO_5_HEAL := 30.0
 const COMBO_10_DMG := 40.0
 const COMBO_15_SCORE := 800
 const COMBO_BREAK := 3.0
+## —— 得分倍率（BUG-10）：连杀增长、受击衰减，无死亡机制的"软惩罚" ——
+const SCORE_BASE := 10            # 基础击杀分
+const SCORE_MULT_STEP := 0.1      # 每杀 +0.1 倍率
+const SCORE_MULT_MAX := 3.0       # 20 连杀封顶
+const SCORE_MULT_HIT_DECAY := 0.5 # 受击倍率减半（下限 1.0）
 
 const INK := Color("#1A1714")
 const RED := Color("#C0392B")
@@ -93,6 +98,7 @@ var spell_points: Array[Vector2] = []
 var spell_recognizer := SpellRecognizer.new()
 var spell_caster: SpellCaster
 var score := 0
+var score_mult := 1.0   # 得分倍率（BUG-10）：连杀增长 / 受击减半
 var combo := 0
 var combo_timer := 0.0
 var max_combo := 0
@@ -522,7 +528,8 @@ func _resolve_burst() -> void:
 func _kill_enemy(e: Enemy) -> void:
 	e.dead = true
 	kills += 1
-	score += 10
+	score_mult = minf(SCORE_MULT_MAX, score_mult + SCORE_MULT_STEP)
+	score += int(roundf(SCORE_BASE * score_mult))
 	time_value = minf(TIME_VALUE_MAX, time_value + TIME_VALUE_PER_KILL)
 	combo += 1
 	max_combo = maxi(max_combo, combo)
@@ -631,10 +638,12 @@ func _check_contact() -> void:
 			continue
 		if e.position.distance_to(player.position) <= float(e.cfg.radius) + Player.RADIUS:
 			# P0 BUG-01：玩家不死亡，受击扣回溯充能 + 清 combo
+			# BUG-10：得分倍率减半（下限 1.0）
 			hit_flash = 0.25
 			AudioMgr.play("hit", 0.9, -2.0)
 			player.invuln = Player.INVULN_TIME
 			clock_charge = maxf(0.0, clock_charge - HIT_CHARGE_PENALTY)
+			score_mult = maxf(1.0, score_mult * SCORE_MULT_HIT_DECAY)
 			combo = 0
 			combo_timer = 0.0
 			var away := (e.position - player.position).normalized()
