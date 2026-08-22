@@ -283,6 +283,7 @@ func _ready() -> void:
 	if ResourceLoader.exists("res://assets/bg_game_main.png"):
 		paper_tex = load("res://assets/bg_game_main.png")
 	bg_layer = _make_layer(-100)
+	bg_layer.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	ink_layer = _make_layer(-50)
 	fx_layer = _make_layer(50)
 	bg_layer.paint = _paint_bg
@@ -1270,7 +1271,8 @@ func _update_timers(delta: float) -> void:
 
 func _paint_bg(l: PaintLayer) -> void:
 	if paper_tex != null:
-		l.draw_texture_rect(paper_tex, Rect2(Vector2.ZERO, ARENA), false)
+		# 竞技场 3000x3000 远大于原图 2752x1536，改平铺避免拉伸变形
+		l.draw_texture_rect(paper_tex, Rect2(Vector2.ZERO, ARENA), true)
 	else:
 		l.draw_rect(Rect2(Vector2.ZERO, ARENA), Color("#F5F1E8"))
 		# 円相：背景一枚巨大淡墨圆
