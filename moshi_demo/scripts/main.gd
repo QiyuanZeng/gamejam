@@ -274,8 +274,8 @@ func _ready() -> void:
 	if shader != null:
 		key_mat = ShaderMaterial.new()
 		key_mat.shader = shader
-	if ResourceLoader.exists("res://assets/bg_game_1.png"):
-		paper_tex = load("res://assets/bg_game_1.png")
+	if ResourceLoader.exists("res://assets/bg_game_main.png"):
+		paper_tex = load("res://assets/bg_game_main.png")
 	bg_layer = _make_layer(-100)
 	ink_layer = _make_layer(-50)
 	fx_layer = _make_layer(50)
