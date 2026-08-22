@@ -73,7 +73,11 @@
 1. **BUG-06** 结算评级 C~SS（框架在 `hud.gd` `_rating()` 函数，已有 5档评级逻辑，数值参数需校准）
 2. **BUG-07** 爆裂怪（第四类，连锁伤害）—— 加进 `ENEMY_CFGS` + 敌人自爆逻辑
 3. **BUG-10** 受击惩罚完整化（现已扣充能，还差得分倍率衰减）
-4. **BUG-13** 清理 v2 死代码（`State.DRAW` 不可达 + bleed_canvas 等遗留）
+4. ~~**BUG-13** 清理 v2 死代码~~（已完成）
+   - `State.DRAW`/画墨四函数/v2 版 `_begin_dash`/`ink_path`/`dry_pen`/`path_alpha`/`DRAW_ENEMY_FACTOR` 全删
+   - `ink_editor.gd` + `ink_editor.tscn` 删除（F1/F10 入口移除）
+   - **保留**：`bleed_canvas.gd`（v0.3 冲刺/回溯墨痕在用）、`InkStyle` autoload（bleed/renderer 依赖）、ink 资源（combo 回墨在用；完全清理由 P3 task-11 处理）
+   - BUG-15 顺带：`tests/smoke.gd` 重写为 v0.3 协议，13 断言全绿（含子弹时间/受击不死亡/时限）
 
 ### 🟢 P3 锦上添花
 

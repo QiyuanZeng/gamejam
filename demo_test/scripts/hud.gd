@@ -36,8 +36,6 @@ func _paint(r: Control) -> void:
 	var w := 1152.0
 	var h := 648.0
 	# —— 全屏调子 ——
-	if game.state == game.State.DRAW:
-		r.draw_rect(Rect2(0, 0, w, h), Color(0, 0, 0, 0.05))
 	if game.state == game.State.SPELL_DRAW:
 		r.draw_rect(Rect2(0, 0, w, h), Color(0.32, 0.68, 0.62, 0.04))
 	if game.state == game.State.REWIND:
@@ -56,8 +54,7 @@ func _paint(r: Control) -> void:
 	_text(r, Vector2(244, 14), "体", 13, GREY)
 	var ink_f: float = clampf(game.ink / game.ink_max(), 0.0, 1.0)
 	r.draw_rect(Rect2(20, 42, 220, 10), Color(0, 0, 0, 0.10))
-	var ink_col := INK if not game.dry_pen else GREY
-	r.draw_rect(Rect2(20, 42, 220.0 * ink_f, 10), ink_col)
+	r.draw_rect(Rect2(20, 42, 220.0 * ink_f, 10), INK)
 	r.draw_rect(Rect2(20, 42, 220, 10), Color(0, 0, 0, 0.35), false, 1.0)
 	_text(r, Vector2(244, 36), "墨", 13, GREY)
 	# —— 时间值 TV 条（施法资源，淡青） ——
@@ -130,7 +127,7 @@ func _paint(r: Control) -> void:
 	if game.kills == 0 and game.help_t > 0.0:
 		var ha: float = clampf(game.help_t, 0.0, 1.0)
 		_text_center(r, w * 0.5, h - 34.0,
-			"左键按住 画墨 · 松开 冲斩 · 右键按住 画咒施法 · 时钟满按 R 回溯",
+			"左键点击 朝指针方向斩击 · 右键按住 画咒施法 · 时钟满按 R 回溯",
 			15, Color(GREY.r, GREY.g, GREY.b, ha * 0.85))
 	# —— 施法提示 ——
 	if game.state == game.State.SPELL_DRAW:

@@ -189,7 +189,19 @@ Godot：C:\Users\N32955\AppData\Local\Microsoft\WinGet\Packages\GodotEngine.Godo
 
 ---
 
-## 五、测试日志（QA 填写）
+## 五、自动化回归（headless）
+
+```
+godot --headless --path demo_test tests/smoke.tscn        # 13 断言：斩击/回溯/子弹时间/受击/时限
+godot --headless --path demo_test tests/ink_style_test.tscn
+godot --headless --path demo_test tests/bleed_test.tscn
+```
+
+smoke.gd 已升级 v0.3 协议（BUG-15）：左键直冲、R 回溯、右键子弹时间 time_scale 断言、受击不死亡扣充能、60s 时限结算。任一 FAIL 阻塞合入。
+
+---
+
+## 六、测试日志（QA 填写）
 
 | 用例 | 测试人 | 结果 | 备注 |
 |---|---|---|---|

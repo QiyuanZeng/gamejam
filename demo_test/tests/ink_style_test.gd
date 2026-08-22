@@ -24,16 +24,6 @@ func _ready() -> void:
 	InkStyle.reset_default()
 	_chk(absf(InkStyle.current.width_start - 13.0) < 0.001, "reset_default")
 	_chk(InkStyle.current.ink_color == Color("#1A1714"), "reset ink_color")
-	# 编辑器场景实例化 + 关闭路径
-	var ed = load("res://scenes/ink_editor.tscn").instantiate()
-	add_child(ed)
-	_chk(ed != null, "editor instantiated")
-	await get_tree().process_frame
-	await get_tree().process_frame
-	ed._on_close()
-	_chk(not get_tree().paused, "editor close unpauses tree")
-	await get_tree().process_frame
-	_chk(not is_instance_valid(ed), "editor freed")
 	# 渲染器冒烟：静态函数在无 CanvasItem 情况下不崩
 	var tri := Geometry2D.triangulate_polygon(
 		InkRenderer.ribbon_poly(

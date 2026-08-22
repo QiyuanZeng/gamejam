@@ -1,6 +1,7 @@
 extends Node
-## 冒烟测试：状态机全链路 PLAY→DRAW→DASH→BURST→PLAY→REWIND→GAMEOVER。
+## 冒烟测试 v0.3：左键时钟斩 → BURST → R 回溯 → 右键子弹时间 → 受击不死亡 → 时限结算。
 ## headless 直调 Game 内部 API + 伪造输入事件，确定性断言。
+## 运行：godot --headless --path demo_test tests/smoke.tscn
 
 var g: Game
 var phase := 0
@@ -17,15 +18,11 @@ func _process(delta: float) -> void:
 	match phase:
 		0:
 			if t > 0.5:
-				_place(3)
+				# 左键时钟斩：指针打到 0°(+x)，沿线放 3 只 fast（HP18 < 斩伤20）
+				g.swing_deg = 0.0
+				_place(3, "fast", Vector2(60.0, 0))
 				g._input(_btn(MOUSE_BUTTON_LEFT, true))
-				_chk(g.state == g.State.DRAW, "LMB press -> DRAW")
-				g.ink_path.append(Vector2(400, 324))
-				g.ink_path.append(Vector2(500, 324))
-				g.ink_path.append(Vector2(650, 324))
-				_chk(g.ink_path.size() >= 2, "ink path recorded")
-				g._input(_btn(MOUSE_BUTTON_LEFT, false))
-				_chk(g.state == g.State.DASH, "LMB release -> DASH")
+				_chk(g.state == g.State.DASH, "LMB click -> DASH, got %d" % g.state)
 				phase = 1
 				t = 0.0
 		1:
@@ -37,47 +34,59 @@ func _process(delta: float) -> void:
 				_chk(false, "dash/burst timeout at state %d" % g.state)
 				phase = 9
 		2:
-			_place(2)
+			# R 回溯：重放斩击路径，路径上再放 2 只
 			g.clock_charge = g.CLOCK_TIME
+			_place(2, "fast", Vector2(-260.0, 0))
 			g._input(_key(KEY_R))
-			_chk(g.state == g.State.REWIND, "R -> REWIND")
+			_chk(g.state == g.State.REWIND, "R -> REWIND, got %d" % g.state)
 			phase = 3
 			t = 0.0
 		3:
 			if g.state == g.State.PLAY:
 				_chk(g.kills == 5, "rewind kills 5, got %d" % g.kills)
-				phase = 6
+				phase = 4
 				t = 0.0
 			elif t > 5.0:
 				_chk(false, "rewind timeout")
 				phase = 9
-		6:
-			# F1 打开墨笔编辑器（同帧防重入）
-			g._input(_key(KEY_F1))
-			_chk(g.ink_editor != null, "F1 opens editor")
-			_chk(get_tree().paused, "tree paused while editor open")
-			if g.ink_editor != null:
-				g.ink_editor._input(_key(KEY_F1))
-			phase = 7
-			t = 0.0
-		7:
-			if t > 0.1:
-				_chk(g.ink_editor == null, "editor closed by F1")
-				_chk(not get_tree().paused, "tree unpaused after close")
-				phase = 4
-				t = 0.0
 		4:
-			g.player.invuln = 0.0
-			g.player.hp = 5.0
-			_place(1, true)
+			# task-8 子弹时间：右键进 SPELL_DRAW，全局 0.3 倍速；松开恢复
+			g.time_value = 100.0
+			g._input(_btn(MOUSE_BUTTON_RIGHT, true))
+			_chk(g.state == g.State.SPELL_DRAW, "RMB hold -> SPELL_DRAW, got %d" % g.state)
+			_chk(absf(Engine.time_scale - g.SPELL_TIMESCALE) < 0.001,
+				"time_scale %.2f == %.2f" % [Engine.time_scale, g.SPELL_TIMESCALE])
+			g._input(_btn(MOUSE_BUTTON_RIGHT, false))
+			_chk(g.state == g.State.PLAY, "RMB release -> PLAY, got %d" % g.state)
+			_chk(absf(Engine.time_scale - 1.0) < 0.001, "time_scale restored 1.0")
 			phase = 5
 			t = 0.0
 		5:
+			# P0 BUG-01：受击不死亡，扣充能 + 清 combo（充能设满防自然回复干扰断言）
+			g.player.invuln = 0.0
+			g.clock_charge = g.CLOCK_TIME
+			g.combo = 9
+			_place(1, "blob", Vector2.ZERO)
+			phase = 6
+			t = 0.0
+		6:
+			if t > 0.3:
+				_chk(g.state != g.State.GAMEOVER, "hit does NOT gameover")
+				# 满充 25 - 8 惩罚 = 17，随后 0.3s 自然回复 ≈ +0.3
+				_chk(g.clock_charge >= 17.0 and g.clock_charge <= 17.5,
+					"charge 25-8+regen in [17,17.5], got %.2f" % g.clock_charge)
+				_chk(g.combo == 0, "combo cleared on hit")
+				_chk(g.player.hp == g.player.max_hp, "hp untouched (no death mechanic)")
+				# BUG-06：时限归零出结算
+				g.round_timer = 0.02
+				phase = 7
+				t = 0.0
+		7:
 			if g.state == g.State.GAMEOVER:
-				_chk(true, "contact -> GAMEOVER")
+				_chk(absf(Engine.time_scale - 1.0) < 0.001, "time_scale 1.0 at gameover")
 				phase = 9
-			elif t > 5.0:
-				_chk(false, "gameover timeout, state %d hp %f" % [g.state, g.player.hp])
+			elif t > 3.0:
+				_chk(false, "gameover timeout, state %d" % g.state)
 				phase = 9
 		9:
 			for f in fails:
@@ -85,14 +94,12 @@ func _process(delta: float) -> void:
 			print("SMOKE ", "PASS" if fails.is_empty() else "FAIL")
 			get_tree().quit(1 if not fails.is_empty() else 0)
 
-func _place(n: int, on_player := false) -> void:
+## 沿玩家 +x 斩击线放 n 只怪（offset 为相对玩家位置的起点，横向均布 80px）
+func _place(n: int, cfg_name: String, offset: Vector2) -> void:
 	for i in n:
 		var e := Enemy.new()
-		e.setup(g.ENEMY_CFGS["blob"].duplicate(), g, null)
-		if on_player:
-			e.position = g.player.position + Vector2(2, 0)
-		else:
-			e.position = g.player.position + Vector2(-120.0 + 110.0 * i, 0)
+		e.setup(g.ENEMY_CFGS[cfg_name].duplicate(), g, null)
+		e.position = g.player.position + offset + Vector2(80.0 * i, 0)
 		e.spawn_left = 0.0
 		g.add_child(e)
 		g.enemies.append(e)

@@ -1,15 +1,14 @@
 class_name Game
 extends Node2D
-## 《墨时》主控制器 —— PLAY / DRAW / DASH / BURST / REWIND 五态机 + 波次 + 特效。
-## 不画不动，画即冲刺；冲刺过门不结算，到达终点顿帧集中引爆。
+## 《墨时》主控制器 —— PLAY / DASH / BURST / REWIND / SPELL_DRAW 状态机 + 波次 + 特效。
+## 左键时钟斩即唯一移动；回溯大招二次引爆斩击路径。
 
-enum State { PLAY, DRAW, DASH, BURST, REWIND, GAMEOVER, SPELL_DRAW }
+enum State { PLAY, DASH, BURST, REWIND, GAMEOVER, SPELL_DRAW }
 
 const ARENA := Vector2(3000.0, 3000.0)
 const VIEWPORT := Vector2(1152.0, 648.0)   # 渲染视口尺寸（bleed/相机参考）
 const INK_MAX_BASE := 100.0
 const INK_REGEN_BASE := 26.0
-const INK_COST_PER_PX := 0.075
 const DASH_SPEED := 2400.0
 const DASH_RADIUS := 70.0
 const DASH_DMG := 20.0
@@ -26,7 +25,6 @@ const PLAYER_HP := 100.0
 const TRAIL_INTERVAL := 0.03
 const TRAIL_FADE := 0.4
 const FLASH_TIME := 0.1
-const DRAW_ENEMY_FACTOR := 0.08
 const MAX_ENEMIES := 130
 const HIT_CHARGE_PENALTY := 8.0  # 受击扣回溯充能秒数（P0 BUG-01，无死亡机制）
 
@@ -99,9 +97,6 @@ var combo := 0
 var combo_timer := 0.0
 var max_combo := 0
 
-var ink_path := PackedVector2Array()
-var dry_pen := false
-var path_alpha := 0.0
 var dash_pts := PackedVector2Array()
 var dash_i := 0
 var dash_d := 0.0
@@ -139,7 +134,6 @@ var ink_layer: PaintLayer
 var fx_layer: PaintLayer
 var clock_layer: PaintLayer
 var hud: HUD
-var ink_editor: CanvasLayer
 var key_mat: ShaderMaterial
 var paper_tex: Texture2D
 
@@ -189,10 +183,6 @@ func _make_layer(z: int) -> PaintLayer:
 # ============================== 输入 ==============================
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode in [KEY_F1, KEY_F10]:
-		_toggle_editor()
-		get_viewport().set_input_as_handled()  # 吞掉本次按键：防同事件派发给新编辑器秒关
-		return
 	if state == State.GAMEOVER:
 		var key: bool = event is InputEventKey and event.pressed \
 			and event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_R]
@@ -206,9 +196,7 @@ func _input(event: InputEvent) -> void:
 				_begin_swing_dash()
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			if event.pressed:
-				if state == State.DRAW:
-					_cancel_draw()
-				elif state == State.PLAY:
+				if state == State.PLAY:
 					if time_value < TV_MIN_CAST:
 						numbers.append({
 							"pos": player.position + Vector2(0, -20.0),
@@ -221,23 +209,6 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_R:
 		if state == State.PLAY and clock_charge >= CLOCK_TIME:
 			_begin_rewind()
-
-func _toggle_editor() -> void:
-	if ink_editor != null:
-		return  # 关闭由编辑器自行处理（暂停期间本节点不收输入）
-	ink_editor = load("res://scenes/ink_editor.tscn").instantiate()
-	ink_editor.closed.connect(_on_editor_closed)
-	add_child(ink_editor)
-	get_tree().paused = true
-
-func _on_editor_closed() -> void:
-	ink_editor = null
-	get_tree().paused = false
-	if state == State.DRAW:
-		_cancel_draw()  # 编辑器打开期间松开左键，墨迹作废
-	elif state == State.SPELL_DRAW:
-		_exit_bullet_time()  # 暂停期间松开右键，防子弹时间残留
-		state = State.PLAY
 
 func _clamped_mouse() -> Vector2:
 	return get_global_mouse_position()
@@ -269,9 +240,6 @@ func _process(delta: float) -> void:
 				if clock_charge >= CLOCK_TIME:
 					AudioMgr.play("clock", 1.0, -4.0)
 			_update_waves(delta, 1.0)
-		State.DRAW:
-			_sample_ink()
-			_update_waves(delta, DRAW_ENEMY_FACTOR)
 		State.SPELL_DRAW:
 			_update_spell(delta)
 		State.DASH:
@@ -282,12 +250,12 @@ func _process(delta: float) -> void:
 			_update_rewind(delta)
 		State.GAMEOVER:
 			pass
-	if state == State.PLAY or state == State.DRAW or state == State.SPELL_DRAW:
+	if state == State.PLAY or state == State.SPELL_DRAW:
 		_check_contact()
 		_separate()
 	if state != State.BURST:
 		_update_fx(delta)
-	# BUG-06 时限倒计时：PLAY/DRAW/SPELL_DRAW 态才消耗时间
+	# BUG-06 时限倒计时：非 GAMEOVER 态持续消耗
 	if state != State.GAMEOVER:
 		round_timer -= delta
 		if round_timer <= 0.0:
@@ -316,8 +284,6 @@ func enemy_speed_factor() -> float:
 			return 1.0
 		State.DASH:
 			return 1.0      # 移动即攻击，怪不停 = 割草压力
-		State.DRAW:
-			return 0.35    # 画墨半慢，留思考空间但不卡死
 		State.SPELL_DRAW:
 			return 1.0      # task-8：全局 time_scale=0.3 已减速，因子归一防双重减速
 		State.BURST:
@@ -332,49 +298,6 @@ func ink_max() -> float:
 
 func ink_regen() -> float:
 	return INK_REGEN_BASE + 12.0 * float(upgrades.ink_regen)
-
-# ============================== DRAW 画墨 ==============================
-
-func _begin_draw() -> void:
-	if ink < 1.0:
-		return
-	state = State.DRAW
-	dry_pen = false
-	path_alpha = 1.0
-	ink_path = PackedVector2Array()
-	ink_path.append(_clamped_mouse())
-	AudioMgr.play("draw", 1.2, -8.0)
-
-func _sample_ink() -> void:
-	if ink_path.is_empty() or dry_pen:
-		return
-	var m := _clamped_mouse()
-	var last: Vector2 = ink_path[ink_path.size() - 1]
-	var d := m.distance_to(last)
-	if d < SAMPLE_DIST:
-		return
-	var cost := d * INK_COST_PER_PX
-	if ink < cost:
-		# 墨尽：只画到买得起的位置，笔尖干涸
-		var afford := ink / INK_COST_PER_PX
-		if afford >= 3.0:
-			ink_path.append(last + (m - last).normalized() * afford)
-		ink = 0.0
-		dry_pen = true
-		return
-	ink_path.append(m)
-	ink -= cost
-
-func _cancel_draw() -> void:
-	state = State.PLAY
-	ink_path = PackedVector2Array()
-	AudioMgr.play("cancel", 1.0, -8.0)
-
-func _end_draw() -> void:
-	if ink_path.size() >= 2:
-		_begin_dash()
-	else:
-		state = State.PLAY
 
 # ============================== SPELL 施法（老版移植） ==============================
 
@@ -502,29 +425,6 @@ func _paint_clock(l: PaintLayer) -> void:
 		else:
 			l.draw_arc(p, 3.0, 0.0, TAU, 16, Color("#4A443C"), 1.5)
 
-func _begin_dash() -> void:
-	state = State.DASH
-	dash_stamp += 1
-	# 先冲向墨迹起点，再沿墨迹掠过
-	dash_pts = PackedVector2Array([player.position])
-	for p in ink_path:
-		dash_pts.append(p)
-	dash_i = 0
-	dash_d = 0.0
-	# 视觉轨迹从墨迹起点开始（不含玩家接近段，避免起点发夹弯自交）
-	dash_done = PackedVector2Array([ink_path[0]])
-	trail.clear()
-	trail_acc = TRAIL_INTERVAL
-	player.invuln = 999.0
-	AudioMgr.play("dash", 1.0, -4.0)
-	# 记录回溯历史（最近 N 条墨迹）
-	rewind_hist.append(ink_path.duplicate())
-	var slots := REWIND_SLOTS + int(upgrades.rewind_slots)
-	while rewind_hist.size() > slots:
-		rewind_hist.remove_at(0)
-	# 墨迹盖进渗墨画布（纸上留痕、缓慢晕开）
-	bleed.stamp(ink_path, false)
-
 func _update_dash(delta: float) -> void:
 	var prev := player.position
 	var move := DASH_SPEED * delta
@@ -616,7 +516,6 @@ func _resolve_burst() -> void:
 	_apply_combo_rewards()
 	state = State.PLAY
 	player.invuln = POST_DASH_INVULN
-	path_alpha = 1.0
 	if burst_rewind:
 		ghost_trail.clear()
 
@@ -745,7 +644,6 @@ func _check_contact() -> void:
 func _game_over() -> void:
 	_exit_bullet_time()  # 时限耗尽可能发生在 SPELL_DRAW 中，恢复时间流速
 	state = State.GAMEOVER
-	ink_path = PackedVector2Array()
 	AudioMgr.play("over", 1.0, 0.0)
 
 # ============================== 波次 ==============================
@@ -846,8 +744,6 @@ func _update_timers(delta: float) -> void:
 		zan_t = maxf(zan_t - delta, 0.0)
 	if help_t > 0.0:
 		help_t = maxf(help_t - delta, 0.0)
-	if state == State.PLAY and path_alpha > 0.0:
-		path_alpha = maxf(path_alpha - delta * 2.2, 0.0)
 
 # ============================== 绘制 ==============================
 
@@ -863,12 +759,6 @@ func _paint_bg(l: PaintLayer) -> void:
 		l.draw_arc(ARENA * 0.5, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.04), 52.0)
 
 func _paint_ink(l: PaintLayer) -> void:
-	# 墨迹：毛笔枯笔飞白（样式参数来自 InkStyle.current，编辑器可实时改）
-	if ink_path.size() >= 2:
-		var alpha := 0.85
-		if state == State.PLAY:
-			alpha = 0.85 * path_alpha
-		InkRenderer.draw_brush_path(l, ink_path, alpha, false)
 	# 施法轨迹：朱砂
 	if state == State.SPELL_DRAW and spell_points.size() >= 2:
 		InkRenderer.draw_brush_path(l, spell_points, 0.9, true)

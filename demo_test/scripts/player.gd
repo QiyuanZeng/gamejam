@@ -7,7 +7,6 @@ const RADIUS := 15.0
 const HP_MAX := 140.0
 const INK_MAX := 100.0
 const INK_REGEN := 16.0
-const INK_COST_PER_PX := 0.045
 const HOMING_SPEED := 220.0
 const STOP_DISTANCE := 30.0
 const INVULN_TIME := 1.2
