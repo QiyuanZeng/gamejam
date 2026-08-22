@@ -9,11 +9,16 @@ enum State { PLAY, SPELL, DASH, BURST, REWIND, LAG, GAMEOVER }
 
 # ============================== §1 全局 ==============================
 
-const ARENA := Vector2(1152.0, 648.0)
+const ARENA := Vector2(3000.0, 3000.0)
 const RUN_LIMIT := 30.0
 const PLAYER_HP := 100.0
 const MAX_ENEMIES := 130
 const SPAWN_MARGIN := 26.0
+
+## 相机死区跟随（移植 proto/clock-swing）：死区内不动，超出 lerp 跟随，超出安全距离强制 snap
+const CAM_DEADZONE := 150.0
+const CAM_SAFE := 400.0
+const CAM_LERP := 15.0
 
 # ============================== §3 表盘 / 行动点 ==============================
 
@@ -26,13 +31,13 @@ const AP_PER_HOUR := 1.0
 const AP_PER_SEC := 0.25
 const AP_PER_MIN := 0.25
 const SLASH_MIN_GAP := 0.15
-const DIAL_RADIUS := 40.0
+const DIAL_RADIUS := 70.0
 
-const DASH_SPEED := 2400.0
-const DASH_RADIUS := 70.0
+const DASH_SPEED := 3200.0
+const DASH_RADIUS := 140.0
 const DASH_DMG := 20.0
-const DASH_DIST_BASE := 260.0
-const DASH_DIST_CAP := 400.0
+const DASH_DIST_BASE := 520.0
+const DASH_DIST_CAP := 800.0
 const POST_DASH_INVULN := 0.3
 const SAMPLE_DIST := 6.0
 
@@ -143,30 +148,39 @@ const RED := Color("#C0392B")
 const GREY := Color("#4A443C")
 
 const ENEMY_CFGS := {
-	"blob": {"type": "blob", "hp": 10.0, "speed": 60.0, "dmg": 8.0, "radius": 15.0,
+	"blob": {"type": "blob", "hp": 10.0, "speed": 60.0, "dmg": 8.0, "radius": 30.0,
 		"score": 10, "coin": 1, "tv": 8.0,
-		"tex_target": 42.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_blob.png"},
-	"fast": {"type": "fast", "hp": 6.0, "speed": 130.0, "dmg": 6.0, "radius": 11.0,
+		"tex_target": 84.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_blob.png"},
+	"fast": {"type": "fast", "hp": 6.0, "speed": 130.0, "dmg": 6.0, "radius": 22.0,
 		"score": 15, "coin": 1, "tv": 10.0,
-		"tex_target": 38.0, "color": Color("#4A443C"), "tex": "res://assets/enemy_fast.png"},
-	"tank": {"type": "tank", "hp": 40.0, "speed": 35.0, "dmg": 15.0, "radius": 27.0,
+		"tex_target": 76.0, "color": Color("#4A443C"), "tex": "res://assets/enemy_fast.png"},
+	"tank": {"type": "tank", "hp": 40.0, "speed": 35.0, "dmg": 15.0, "radius": 54.0,
 		"score": 40, "coin": 3, "tv": 25.0,
-		"tex_target": 86.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_tank.png"},
-	"bomber": {"type": "bomber", "hp": 8.0, "speed": 80.0, "dmg": 10.0, "radius": 13.0,
+		"tex_target": 172.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_tank.png"},
+	"bomber": {"type": "bomber", "hp": 8.0, "speed": 80.0, "dmg": 10.0, "radius": 26.0,
 		"score": 25, "coin": 2, "tv": 12.0,
-		"tex_target": 40.0, "color": Color("#8E3B2C"), "tex": "res://assets/enemy_bomber.png"},
+		"tex_target": 80.0, "color": Color("#8E3B2C"), "tex": "res://assets/enemy_bomber.png"},
+	"mite": {"type": "mite", "hp": 8.0, "speed": 115.0, "dmg": 7.0, "radius": 24.0,
+		"score": 15, "coin": 1, "tv": 10.0,
+		"tex_target": 88.0, "color": Color("#2A2A33"), "tex": "",
+		"anim_dir": "res://assets/art/enemies/shadow_mite/"},
+	"crystal": {"type": "tank", "hp": 40.0, "speed": 38.0, "dmg": 15.0, "radius": 48.0,
+		"score": 45, "coin": 3, "tv": 26.0,
+		"tex_target": 160.0, "color": Color("#3D5A80"), "tex": "",
+		"anim_dir": "res://assets/art/enemies/crystal_sentinel/animations/",
+		"pivot_frac": Vector2(0.5, 0.875)},
 }
 
 ## §7 时段连续生成表
 const WAVE_TABLE := [
 	{"t": 5.0, "interval": 0.80, "cap": 12, "mix": {"blob": 1.0}},
-	{"t": 12.0, "interval": 0.60, "cap": 18, "mix": {"blob": 0.8, "fast": 0.2}},
+	{"t": 12.0, "interval": 0.60, "cap": 18, "mix": {"blob": 0.75, "fast": 0.1, "mite": 0.15}},
 	{"t": 20.0, "interval": 0.50, "cap": 24,
-		"mix": {"blob": 0.6, "fast": 0.25, "tank": 0.1, "bomber": 0.05}},
+		"mix": {"blob": 0.5, "fast": 0.15, "mite": 0.15, "tank": 0.1, "crystal": 0.05, "bomber": 0.05}},
 	{"t": 27.0, "interval": 0.40, "cap": 30,
-		"mix": {"blob": 0.5, "fast": 0.25, "tank": 0.15, "bomber": 0.1}},
+		"mix": {"blob": 0.4, "fast": 0.15, "mite": 0.1, "tank": 0.13, "crystal": 0.12, "bomber": 0.1}},
 	{"t": 30.0, "interval": 0.30, "cap": 40,
-		"mix": {"blob": 0.4, "fast": 0.3, "tank": 0.15, "bomber": 0.15}},
+		"mix": {"blob": 0.3, "fast": 0.2, "mite": 0.1, "tank": 0.13, "crystal": 0.12, "bomber": 0.15}},
 ]
 
 ## §10 局外养成接口（只留数据层，商店 UI 与存档另做）
@@ -265,6 +279,11 @@ var ink_editor: CanvasLayer
 var spell_lab: CanvasLayer
 var key_mat: ShaderMaterial
 var paper_tex: Texture2D
+var camera: Camera2D
+var dial_pointer: Sprite2D
+const DIAL_POINTER_PIVOT_FRAC := Vector2(0.0134, 0.4988)
+const DIAL_POINTER_SRC_LEN := 692.6
+const DIAL_POINTER_LEN := 110.0
 
 func _ready() -> void:
 	randomize()
@@ -273,9 +292,10 @@ func _ready() -> void:
 	if shader != null:
 		key_mat = ShaderMaterial.new()
 		key_mat.shader = shader
-	if ResourceLoader.exists("res://assets/bg_paper.png"):
-		paper_tex = load("res://assets/bg_paper.png")
+	if ResourceLoader.exists("res://assets/bg_game_main.png"):
+		paper_tex = load("res://assets/bg_game_main.png")
 	bg_layer = _make_layer(-100)
+	bg_layer.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	ink_layer = _make_layer(-50)
 	fx_layer = _make_layer(50)
 	bg_layer.paint = _paint_bg
@@ -290,6 +310,24 @@ func _ready() -> void:
 	player.hp = PLAYER_HP
 	player.position = ARENA * 0.5
 	add_child(player)
+	camera = Camera2D.new()
+	camera.position = player.position
+	camera.limit_left = 0
+	camera.limit_top = 0
+	camera.limit_right = int(ARENA.x)
+	camera.limit_bottom = int(ARENA.y)
+	add_child(camera)
+	camera.make_current()
+	if ResourceLoader.exists("res://assets/art/effects/dial_pointer.png"):
+		dial_pointer = Sprite2D.new()
+		dial_pointer.texture = load("res://assets/art/effects/dial_pointer.png")
+		dial_pointer.centered = false
+		var tex_size := dial_pointer.texture.get_size()
+		dial_pointer.offset = -DIAL_POINTER_PIVOT_FRAC * tex_size
+		var s := DIAL_POINTER_LEN / DIAL_POINTER_SRC_LEN
+		dial_pointer.scale = Vector2(s, s)
+		dial_pointer.z_index = 60
+		add_child(dial_pointer)
 	hud = HUD.new()
 	hud.game = self
 	add_child(hud)
@@ -511,14 +549,26 @@ func _process(delta: float) -> void:
 			pass
 	if state == State.PLAY or state == State.SPELL or state == State.LAG:
 		_check_contact()
-		_separate()
+	_separate()
 	_update_status(delta, f)
 	if state != State.BURST:
 		_update_fx(delta)
 	_update_timers(delta)
 	if state != State.GAMEOVER and run_time >= RUN_LIMIT:
 		_settle()
+	_update_camera(delta)
 	_redraw_all()
+
+func _update_camera(delta: float) -> void:
+	if camera == null or player == null:
+		return
+	# 死区跟随：玩家在死区内相机不动（有位移感），超出 lerp 跟随；超安全距离强制 snap 防出框
+	var offset := player.position - camera.position
+	var dist := offset.length()
+	if dist > CAM_SAFE:
+		camera.position = player.position - offset.normalized() * CAM_SAFE
+	elif dist > CAM_DEADZONE:
+		camera.position = camera.position.lerp(player.position, minf(1.0, delta * CAM_LERP))
 
 func _redraw_all() -> void:
 	ink_layer.queue_redraw()
@@ -942,7 +992,10 @@ func _kill_enemy(e: Enemy, source := "normal") -> void:
 			"col": col, "r": randf_range(2.0, 5.0 + r * 0.08),
 		})
 	enemies.erase(e)
-	e.queue_free()
+	if e.has_death_anim():
+		e.play_death()
+	else:
+		e.queue_free()
 	if state != State.BURST:
 		hit_stop = maxf(hit_stop, KILL_FREEZE)
 
@@ -1340,7 +1393,8 @@ func _update_timers(delta: float) -> void:
 
 func _paint_bg(l: PaintLayer) -> void:
 	if paper_tex != null:
-		l.draw_texture_rect(paper_tex, Rect2(Vector2.ZERO, ARENA), false)
+		# 竞技场 3000x3000 远大于原图 2752x1536，改平铺避免拉伸变形
+		l.draw_texture_rect(paper_tex, Rect2(Vector2.ZERO, ARENA), true)
 	else:
 		l.draw_rect(Rect2(Vector2.ZERO, ARENA), Color("#F5F1E8"))
 		# 円相：背景一枚巨大淡墨圆
@@ -1443,20 +1497,25 @@ func _paint_dial(l: PaintLayer) -> void:
 		var ma := -PI * 0.5 + TAU * fmod(dial_t, MIN_PERIOD) / MIN_PERIOD
 		l.draw_line(c, c + Vector2(cos(ma), sin(ma)) * (DIAL_RADIUS - 8.0),
 			Color(GREY.r, GREY.g, GREY.b, 0.5), 2.0)
-	# 时针（唯一锚定斩击方向，粗 4 px）
+	# 时针（唯一锚定斩击方向）：蓝色水晶指针素材，未就位时代码线兜底
 	var ready := ap >= 1.0
-	var hcol := Color(INK.r, INK.g, INK.b, 0.9) if ready else Color(GREY.r, GREY.g, GREY.b, 0.45)
-	l.draw_line(c, c + hour_dir() * (DIAL_RADIUS - 2.0), hcol, 4.0)
-	if ready:
-		l.draw_line(c + hour_dir() * DIAL_RADIUS, c + hour_dir() * (DIAL_RADIUS + 12.0),
-			Color(RED.r, RED.g, RED.b, 0.55), 2.0)
-	l.draw_circle(c, 3.0, hcol)
+	if dial_pointer != null:
+		dial_pointer.global_position = c
+		dial_pointer.rotation = hour_dir().angle()
+		dial_pointer.modulate = Color(1, 1, 1, 1.0) if ready else Color(0.6, 0.6, 0.65, 0.4)
+	else:
+		var hcol := Color(INK.r, INK.g, INK.b, 0.9) if ready else Color(GREY.r, GREY.g, GREY.b, 0.45)
+		l.draw_line(c, c + hour_dir() * (DIAL_RADIUS - 2.0), hcol, 4.0)
+		if ready:
+			l.draw_line(c + hour_dir() * DIAL_RADIUS, c + hour_dir() * (DIAL_RADIUS + 12.0),
+				Color(RED.r, RED.g, RED.b, 0.55), 2.0)
+		l.draw_circle(c, 3.0, hcol)
 	# 头顶 AP 点
 	var n := ap_max()
 	var full := int(floor(ap))
 	var w := 12.0 * float(n - 1)
 	for i in n:
-		var p := c + Vector2(-w * 0.5 + 12.0 * float(i), -34.0)
+		var p := c + Vector2(-w * 0.5 + 12.0 * float(i), -70.0)
 		if i < full:
 			l.draw_circle(p, 4.0, Color(INK.r, INK.g, INK.b, 0.9))
 		else:

@@ -1,51 +1,95 @@
 class_name Game
 extends Node2D
-## 《墨时》主控制器 —— PLAY / DRAW / DASH / BURST / REWIND 五态机 + 波次 + 特效。
-## 不画不动，画即冲刺；冲刺过门不结算，到达终点顿帧集中引爆。
+## 《墨时》主控制器 —— PLAY / DASH / BURST / REWIND / SPELL_DRAW 状态机 + 波次 + 特效。
+## 左键时钟斩即唯一移动；回溯大招二次引爆斩击路径。
 
-enum State { PLAY, DRAW, DASH, BURST, REWIND, GAMEOVER }
+enum State { PLAY, DASH, BURST, REWIND, GAMEOVER, SPELL_DRAW }
 
-const ARENA := Vector2(1152.0, 648.0)
+const ARENA := Vector2(3000.0, 3000.0)
+const VIEWPORT := Vector2(1152.0, 648.0)   # 渲染视口尺寸（bleed/相机参考）
 const INK_MAX_BASE := 100.0
 const INK_REGEN_BASE := 26.0
-const INK_COST_PER_PX := 0.075
 const DASH_SPEED := 2400.0
 const DASH_RADIUS := 70.0
 const DASH_DMG := 20.0
-const REWIND_MULT := 2.0
+const REWIND_MULT := 1.0
 const POST_DASH_INVULN := 0.3
 const SAMPLE_DIST := 6.0
 const CLOCK_TIME := 25.0
-const REWIND_SLOTS := 3
+const REWIND_SLOTS := 5           # 回溯段数（策划案 5 段基础，BUG-04）
 const REWIND_PATH_TIME := 0.15
 const BURST_FREEZE := 0.16
+const ROUND_TIME := 60.0         # 单局时长（BUG-06，30~60s，先用 60s）
 const MARK_RETAIN := 1.5
 const PLAYER_HP := 100.0
 const TRAIL_INTERVAL := 0.03
 const TRAIL_FADE := 0.4
 const FLASH_TIME := 0.1
-const DRAW_ENEMY_FACTOR := 0.08
 const MAX_ENEMIES := 130
+const HIT_CHARGE_PENALTY := 8.0  # 受击扣回溯充能秒数（P0 BUG-01，无死亡机制）
+
+## 时钟斩（v0.3 定案）：左键点击 = 普攻式冲刺，朝指针方向前冲固定距离
+## 指针自转每满一圈 +1 行动点；行动点耗尽则左键无响应
+const CLOCK_SWEEP_DEG := 180.0   # 2s/圈（360/180=2），决策节奏快
+const CLOCK_DASH_DIST := 500.0   # 单次冲刺距离（策划案 500，BUG-03）
+const AP_MAX := 3                # 行动点上限
+const AP_START := 3              # 开局行动点
+
+## 相机死区跟随：玩家在死区内相机不动，超出才跟随；超出安全距离强制 snap
+const CAM_DEADZONE := 150.0      # 死区半径（玩家在此范围内相机不动）
+const CAM_SAFE := 400.0          # 安全距离（超出强制 snap 防出框）
+const CAM_LERP := 15.0           # 跟随速度系数
+
+## —— 时间值（TV）：右键施法资源（老版 SPELL 系统移植） ——
+const TIME_VALUE_MAX := 500.0    # BUG-08 对齐方案（原100，方案500）
+const TIME_VALUE_REGEN := 20.0   # BUG-08 对齐方案（原5/s，方案20/s）
+const TIME_VALUE_PER_KILL := 25.0 # BUG-08 对齐方案（原2/杀，方案25/杀）
+const TV_MIN_CAST := 10.0
+const SPELL_TIMESCALE := 0.3    # task-8：右键施法绘制时全局子弹时间（HUD 用 real_time 补偿）
+## —— 连斩里程碑（老版移植）：回墨 / 五连回春 / 十连清场 / 十五连轮回 ——
+const COMBO_3_INK := 10.0
+const COMBO_5_HEAL := 30.0
+const COMBO_10_DMG := 40.0
+const COMBO_15_SCORE := 800
+const COMBO_BREAK := 3.0
+## —— 得分倍率（BUG-10）：连杀增长、受击衰减，无死亡机制的"软惩罚" ——
+const SCORE_BASE := 10            # 基础击杀分
+const SCORE_MULT_STEP := 0.1      # 每杀 +0.1 倍率
+const SCORE_MULT_MAX := 3.0       # 20 连杀封顶
+const SCORE_MULT_HIT_DECAY := 0.5 # 受击倍率减半（下限 1.0）
 
 const INK := Color("#1A1714")
 const RED := Color("#C0392B")
 const GREY := Color("#4A443C")
 
 const ENEMY_CFGS := {
-	"blob": {"type": "blob", "hp": 10.0, "speed": 60.0, "dmg": 8.0, "radius": 15.0,
+	"blob": {"type": "blob", "hp": 30.0, "speed": 110.0, "dmg": 8.0, "radius": 15.0,
 		"tex_target": 42.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_blob.png"},
-	"fast": {"type": "fast", "hp": 6.0, "speed": 130.0, "dmg": 6.0, "radius": 11.0,
+	"fast": {"type": "fast", "hp": 18.0, "speed": 200.0, "dmg": 6.0, "radius": 11.0,
 		"tex_target": 38.0, "color": Color("#4A443C"), "tex": "res://assets/enemy_fast.png"},
-	"tank": {"type": "tank", "hp": 40.0, "speed": 35.0, "dmg": 15.0, "radius": 27.0,
+	"tank": {"type": "tank", "hp": 90.0, "speed": 65.0, "dmg": 15.0, "radius": 27.0,
 		"tex_target": 86.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_tank.png"},
+	## BUG-07 爆裂怪：被斩杀后连锁爆炸（美术未到位，程序化占位外观）
+	"boom": {"type": "boom", "hp": 16.0, "speed": 95.0, "dmg": 10.0, "radius": 13.0,
+		"tex_target": 40.0, "color": Color("#7A3B2E"), "tex": "res://assets/enemy_boom.png"},
 }
+
+## —— 爆裂怪连锁（BUG-07）——
+const BOOM_RADIUS := 130.0      # 爆炸波及半径
+const BOOM_DMG := 32.0          # 爆炸伤害（一发带走 blob 30 / fast 18）
+const BOOM_CHAIN_DELAY := 0.08  # 连锁传导间隔（级联视觉感）
 
 ## 局外增量接口（P2）：局间购买，立刻生效。浓墨/快笔/重演。
 var upgrades := {"ink_max": 0, "ink_regen": 0, "rewind_slots": 0}
 
 var state: State = State.PLAY
 var sim_time := 0.0
+var real_time := 0.0   # 真实时间（time_scale 补偿），HUD 闪烁动画专用
 var run_time := 0.0
+var round_timer := ROUND_TIME    # BUG-06 单局倒计时
+var swing_deg := -90.0   # 表盘指针角度：-90 = 12点方向为起点
+var action_points := AP_START   # 当前行动点
+var swing_accum := 0.0   # 指针自转累计度数，满 360 回复 1 点行动点
 var ink := INK_MAX_BASE
 var clock_charge := 0.0
 var kills := 0
@@ -56,9 +100,17 @@ var spawn_left := 0
 var spawn_interval := 0.5
 var spawn_timer := 0.0
 
-var ink_path := PackedVector2Array()
-var dry_pen := false
-var path_alpha := 0.0
+## —— SPELL / TV / 评分（老版移植） ——
+var time_value := 40.0
+var spell_points: Array[Vector2] = []
+var spell_recognizer := SpellRecognizer.new()
+var spell_caster: SpellCaster
+var score := 0
+var score_mult := 1.0   # 得分倍率（BUG-10）：连杀增长 / 受击减半
+var combo := 0
+var combo_timer := 0.0
+var max_combo := 0
+
 var dash_pts := PackedVector2Array()
 var dash_i := 0
 var dash_d := 0.0
@@ -85,21 +137,26 @@ var trail: Array = []
 var ghost_trail: Array = []
 var particles: Array = []
 var numbers: Array = []
+var boom_queue: Array = []   # 待爆点列表 {pos, t}（BUG-07 连锁）
 var trail_acc := 0.0
 
 var player: Player
+var camera: Camera2D
 var enemies: Array[Enemy] = []
 var bleed: BleedCanvas
 var bg_layer: PaintLayer
 var ink_layer: PaintLayer
 var fx_layer: PaintLayer
+var clock_layer: PaintLayer
 var hud: HUD
-var ink_editor: CanvasLayer
 var key_mat: ShaderMaterial
 var paper_tex: Texture2D
 
 func _ready() -> void:
 	randomize()
+	# 防御：重开局时 time_scale 残留（Engine.time_scale 不随场景重载重置）
+	Engine.time_scale = 1.0
+	AudioServer.playback_speed_scale = 1.0
 	var shader: Shader = load("res://shaders/paper_key.gdshader")
 	if shader != null:
 		key_mat = ShaderMaterial.new()
@@ -112,6 +169,8 @@ func _ready() -> void:
 	bg_layer.paint = _paint_bg
 	ink_layer.paint = _paint_ink
 	fx_layer.paint = _paint_fx
+	clock_layer = _make_layer(-70)
+	clock_layer.paint = _paint_clock
 	bleed = BleedCanvas.new()
 	bleed.z_index = -80
 	add_child(bleed)
@@ -121,9 +180,14 @@ func _ready() -> void:
 	player.hp = PLAYER_HP
 	player.position = ARENA * 0.5
 	add_child(player)
+	camera = Camera2D.new()
+	camera.position = player.position
+	add_child(camera)
+	camera.make_current()
 	hud = HUD.new()
 	hud.game = self
 	add_child(hud)
+	spell_caster = SpellCaster.new(self)
 
 func _make_layer(z: int) -> PaintLayer:
 	var l := PaintLayer.new()
@@ -134,10 +198,6 @@ func _make_layer(z: int) -> PaintLayer:
 # ============================== 输入 ==============================
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode in [KEY_F1, KEY_F10]:
-		_toggle_editor()
-		get_viewport().set_input_as_handled()  # 吞掉本次按键：防同事件派发给新编辑器秒关
-		return
 	if state == State.GAMEOVER:
 		var key: bool = event is InputEventKey and event.pressed \
 			and event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_R]
@@ -147,53 +207,56 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			if event.pressed and state == State.PLAY:
-				_begin_draw()
-			elif not event.pressed and state == State.DRAW:
-				_end_draw()
-		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and state == State.DRAW:
-			_cancel_draw()
+			if event.pressed and state == State.PLAY and action_points > 0:
+				_begin_swing_dash()
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.pressed:
+				if state == State.PLAY:
+					if time_value < TV_MIN_CAST:
+						numbers.append({
+							"pos": player.position + Vector2(0, -20.0),
+							"val": 0, "red": false, "t": 0.0,
+						})
+					else:
+						_begin_spell()
+			elif not event.pressed and state == State.SPELL_DRAW:
+				_release_spell()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_R:
 		if state == State.PLAY and clock_charge >= CLOCK_TIME:
 			_begin_rewind()
 
-func _toggle_editor() -> void:
-	if ink_editor != null:
-		return  # 关闭由编辑器自行处理（暂停期间本节点不收输入）
-	ink_editor = load("res://scenes/ink_editor.tscn").instantiate()
-	ink_editor.closed.connect(_on_editor_closed)
-	add_child(ink_editor)
-	get_tree().paused = true
-
-func _on_editor_closed() -> void:
-	ink_editor = null
-	get_tree().paused = false
-	if state == State.DRAW:
-		_cancel_draw()  # 编辑器打开期间松开左键，墨迹作废
-
 func _clamped_mouse() -> Vector2:
-	var m := get_global_mouse_position()
-	return Vector2(
-		clampf(m.x, 8.0, ARENA.x - 8.0),
-		clampf(m.y, 8.0, ARENA.y - 8.0))
+	return get_global_mouse_position()
 
 # ============================== 主循环 ==============================
 
 func _process(delta: float) -> void:
 	sim_time += delta
+	real_time += delta / maxf(Engine.time_scale, 0.05)
 	if state != State.GAMEOVER:
 		run_time += delta
+	if combo_timer > 0.0 and state != State.GAMEOVER:
+		combo_timer -= delta
+		if combo_timer <= 0.0:
+			combo = 0
 	match state:
 		State.PLAY:
+			var new_deg := swing_deg + CLOCK_SWEEP_DEG * delta
+			swing_accum += CLOCK_SWEEP_DEG * delta
+			# 指针自转满一圈 +1 行动点
+			while swing_accum >= 360.0:
+				swing_accum -= 360.0
+				action_points = mini(action_points + 1, AP_MAX)
+			swing_deg = fmod(new_deg, 360.0)
 			ink = minf(ink + ink_regen() * delta, ink_max())
+			time_value = minf(TIME_VALUE_MAX, time_value + TIME_VALUE_REGEN * delta)
 			if clock_charge < CLOCK_TIME:
 				clock_charge = minf(clock_charge + delta, CLOCK_TIME)
 				if clock_charge >= CLOCK_TIME:
 					AudioMgr.play("clock", 1.0, -4.0)
 			_update_waves(delta, 1.0)
-		State.DRAW:
-			_sample_ink()
-			_update_waves(delta, DRAW_ENEMY_FACTOR)
+		State.SPELL_DRAW:
+			_update_spell(delta)
 		State.DASH:
 			_update_dash(delta)
 		State.BURST:
@@ -202,25 +265,49 @@ func _process(delta: float) -> void:
 			_update_rewind(delta)
 		State.GAMEOVER:
 			pass
-	if state == State.PLAY or state == State.DRAW:
+	if state == State.PLAY or state == State.SPELL_DRAW:
 		_check_contact()
 		_separate()
 	if state != State.BURST:
 		_update_fx(delta)
+	_update_booms(delta)  # BUG-07：连锁爆点与状态机解耦，随时结算
+	# BUG-06 时限倒计时：非 GAMEOVER 态持续消耗
+	if state != State.GAMEOVER:
+		round_timer -= delta
+		if round_timer <= 0.0:
+			round_timer = 0.0
+			_game_over()
 	_update_timers(delta)
 	ink_layer.queue_redraw()
 	fx_layer.queue_redraw()
 	bg_layer.queue_redraw()
+	clock_layer.queue_redraw()
 	hud.request_redraw()
+	if camera != null and player != null:
+		# 死区跟随：玩家在死区内相机不动（有位移感），超出才跟随；超安全距离强制 snap
+		var offset := player.position - camera.position
+		var dist := offset.length()
+		if dist > CAM_SAFE:
+			# 强制 snap：相机贴到距玩家 CAM_SAFE 处，防出框
+			camera.position = player.position - offset.normalized() * CAM_SAFE
+		elif dist > CAM_DEADZONE:
+			# 死区外：lerp 跟随
+			camera.position = camera.position.lerp(player.position, minf(1.0, delta * CAM_LERP))
 
 func enemy_speed_factor() -> float:
 	match state:
 		State.PLAY:
 			return 1.0
-		State.DRAW:
-			return DRAW_ENEMY_FACTOR
+		State.DASH:
+			return 1.0      # 移动即攻击，怪不停 = 割草压力
+		State.SPELL_DRAW:
+			return 1.0      # task-8：全局 time_scale=0.3 已减速，因子归一防双重减速
+		State.BURST:
+			return 0.2     # 顿帧微冻，引爆瞬间戏剧性
+		State.REWIND:
+			return 0.4     # 回溯慢镜但不完全冻
 		_:
-			return 0.0
+			return 0.0     # GAMEOVER
 
 func ink_max() -> float:
 	return INK_MAX_BASE + 40.0 * float(upgrades.ink_max)
@@ -228,73 +315,132 @@ func ink_max() -> float:
 func ink_regen() -> float:
 	return INK_REGEN_BASE + 12.0 * float(upgrades.ink_regen)
 
-# ============================== DRAW 画墨 ==============================
+# ============================== SPELL 施法（老版移植） ==============================
 
-func _begin_draw() -> void:
-	if ink < 1.0:
-		return
-	state = State.DRAW
-	dry_pen = false
-	path_alpha = 1.0
-	ink_path = PackedVector2Array()
-	ink_path.append(_clamped_mouse())
+func _begin_spell() -> void:
+	state = State.SPELL_DRAW
+	spell_points.clear()
+	spell_points.append(_clamped_mouse())
+	# task-8 子弹时间：全局减速（怪/波次/特效/音效），鼠标采样不受影响
+	Engine.time_scale = SPELL_TIMESCALE
+	AudioServer.playback_speed_scale = SPELL_TIMESCALE
 	AudioMgr.play("draw", 1.2, -8.0)
 
-func _sample_ink() -> void:
-	if ink_path.is_empty() or dry_pen:
-		return
-	var m := _clamped_mouse()
-	var last: Vector2 = ink_path[ink_path.size() - 1]
-	var d := m.distance_to(last)
-	if d < SAMPLE_DIST:
-		return
-	var cost := d * INK_COST_PER_PX
-	if ink < cost:
-		# 墨尽：只画到买得起的位置，笔尖干涸
-		var afford := ink / INK_COST_PER_PX
-		if afford >= 3.0:
-			ink_path.append(last + (m - last).normalized() * afford)
-		ink = 0.0
-		dry_pen = true
-		return
-	ink_path.append(m)
-	ink -= cost
+func _update_spell(delta: float) -> void:
+	_add_spell_point(_clamped_mouse())
+	_update_waves(delta, 1.0)  # time_scale 已全局减速，波次因子归一
+	ink_layer.queue_redraw()
+	fx_layer.queue_redraw()
 
-func _cancel_draw() -> void:
-	state = State.PLAY
-	ink_path = PackedVector2Array()
-	AudioMgr.play("cancel", 1.0, -8.0)
+func _add_spell_point(p: Vector2) -> void:
+	if spell_points.is_empty():
+		spell_points.append(p)
+		return
+	var last: Vector2 = spell_points[spell_points.size() - 1]
+	if p.distance_to(last) < SAMPLE_DIST:
+		return
+	spell_points.append(p)
 
-func _end_draw() -> void:
-	if ink_path.size() >= 2:
-		_begin_dash()
-	else:
+func _release_spell() -> void:
+	_exit_bullet_time()
+	var result := spell_recognizer.recognize(spell_points)
+	if not bool(result.get("match", false)):
 		state = State.PLAY
+		numbers.append({
+			"pos": player.position + Vector2(0, -30.0),
+			"val": 0, "red": false, "t": 0.0,
+		})
+		return
+	var spell_id := String(result["spell_id"])
+	var cost: float = SpellRecognizer.SPELLS[spell_id]["time_cost"]
+	time_value = maxf(0.0, time_value - cost)
+	spell_caster.cast(spell_id)
+	state = State.PLAY
+
+func start_rewind_from_spell() -> void:
+	_begin_rewind()
+
+func _exit_bullet_time() -> void:
+	Engine.time_scale = 1.0
+	AudioServer.playback_speed_scale = 1.0
+
+func kill_list(died: Array) -> void:
+	for e in died:
+		if not e.dead:
+			_kill_enemy(e)
 
 # ============================== DASH 冲刺 ==============================
 
-func _begin_dash() -> void:
+## 时钟斩：左键点击 → 朝表盘指针方向直线冲刺，击杀/等待 → 给右键咒语充能
+func _begin_swing_dash() -> void:
 	state = State.DASH
 	dash_stamp += 1
-	# 先冲向墨迹起点，再沿墨迹掠过
-	dash_pts = PackedVector2Array([player.position])
-	for p in ink_path:
-		dash_pts.append(p)
+	action_points = maxi(action_points - 1, 0)
+	var dir := Vector2.from_angle(deg_to_rad(swing_deg))
+	var end := player.position + dir * CLOCK_DASH_DIST
+	dash_pts = PackedVector2Array([player.position, end])
 	dash_i = 0
 	dash_d = 0.0
-	# 视觉轨迹从墨迹起点开始（不含玩家接近段，避免起点发夹弯自交）
-	dash_done = PackedVector2Array([ink_path[0]])
+	dash_done = PackedVector2Array([player.position])
 	trail.clear()
 	trail_acc = TRAIL_INTERVAL
 	player.invuln = 999.0
+	player.facing = dir
 	AudioMgr.play("dash", 1.0, -4.0)
-	# 记录回溯历史（最近 N 条墨迹）
-	rewind_hist.append(ink_path.duplicate())
+	rewind_hist.append(dash_pts.duplicate())
 	var slots := REWIND_SLOTS + int(upgrades.rewind_slots)
 	while rewind_hist.size() > slots:
 		rewind_hist.remove_at(0)
-	# 墨迹盖进渗墨画布（纸上留痕、缓慢晕开）
-	bleed.stamp(ink_path, false)
+	bleed.stamp(dash_pts, false)
+
+## 时钟表盘：脚下圆环 + 时针 + 预测轨迹（指针指哪→冲刺去哪）+ 落点朱砂
+func _paint_clock(l: PaintLayer) -> void:
+	if player == null:
+		return
+	var c := player.position
+	var dir := Vector2.from_angle(deg_to_rad(swing_deg))
+	var r := 36.0
+	# 预测轨迹（脚下→落点的淡色虚线，玩家一眼看出即将往哪走）
+	var end := c + dir * CLOCK_DASH_DIST
+	var seg := 14.0
+	var gap := 8.0
+	var total := CLOCK_DASH_DIST
+	var t := 0.0
+	while t < total:
+		var a := c + dir * t
+		var b := c + dir * minf(t + seg, total)
+		l.draw_line(a, b, Color(0.75, 0.22, 0.17, 0.35), 3.0)
+		t += seg + gap
+	# 落点朱砂十字（预判命中位置）
+	l.draw_line(end + Vector2(-6, 0), end + Vector2(6, 0), Color("#C0392B"), 2.0)
+	l.draw_line(end + Vector2(0, -6), end + Vector2(0, 6), Color("#C0392B"), 2.0)
+	# 底盘
+	l.draw_circle(c, r, Color(0.0, 0.0, 0.0, 0.12))
+	l.draw_arc(c, r, 0.0, TAU, 48, Color("#1A1714"), 2.5)
+	# 12 点刻度（顺时针起点，加粗提示"总是从这里开始"）
+	l.draw_line(c + Vector2(0, -r), c + Vector2(0, -r + 6), Color("#1A1714"), 3.0)
+	# 3/6/9 点次要刻度
+	l.draw_line(c + Vector2(r, 0), c + Vector2(r - 4, 0), Color("#4A443C"), 1.5)
+	l.draw_line(c + Vector2(0, r), c + Vector2(0, r - 4), Color("#4A443C"), 1.5)
+	l.draw_line(c + Vector2(-r, 0), c + Vector2(-r + 4, 0), Color("#4A443C"), 1.5)
+	# 时针（粗黑，朱砂针尖 = 斩击方向）；行动点耗尽时针体变灰提示
+	var hand_col := Color("#4A443C") if action_points <= 0 else Color("#1A1714")
+	var tip_col := Color("#4A443C") if action_points <= 0 else Color("#C0392B")
+	l.draw_line(c, c + dir * (r - 4.0), hand_col, 5.0)
+	l.draw_circle(c + dir * (r - 4.0), 4.0, tip_col)
+	# 顺时针方向提示箭头（外圈小弧）
+	var next_ang := deg_to_rad(swing_deg + 24.0)
+	var next_dir := Vector2.from_angle(next_ang)
+	l.draw_line(c + dir * (r + 3), c + next_dir * (r + 3), Color("#4A443C"), 1.5)
+	# 行动点圆点（表盘上方外圈弧形分布，已用=朱砂实心、可用=灰描边）
+	for i in AP_MAX:
+		# 3 点均布在 -150°~-30° 上弧（12 点上方），避免与时针/预测轨迹重叠
+		var ang := deg_to_rad(-150.0 + 120.0 * float(i) / float(AP_MAX - 1 if AP_MAX > 1 else 1))
+		var p := c + Vector2.from_angle(ang) * (r + 7.0)
+		if i < action_points:
+			l.draw_circle(p, 3.0, Color("#C0392B"))
+		else:
+			l.draw_arc(p, 3.0, 0.0, TAU, 16, Color("#4A443C"), 1.5)
 
 func _update_dash(delta: float) -> void:
 	var prev := player.position
@@ -380,17 +526,30 @@ func _resolve_burst() -> void:
 		zan_t = 0.5
 		zan_red = burst_rewind
 		zan_text = "斬"
+	# 一斩 ≥3 杀：回墨（老版移植，策略：憋大招）
+	if combo_kills >= 3:
+		var bonus := COMBO_3_INK + 3.0 * float(combo_kills - 3)
+		ink = minf(ink_max(), ink + minf(bonus, 25.0))
+	_apply_combo_rewards()
 	state = State.PLAY
 	player.invuln = POST_DASH_INVULN
-	path_alpha = 1.0
 	if burst_rewind:
 		ghost_trail.clear()
 
 func _kill_enemy(e: Enemy) -> void:
 	e.dead = true
 	kills += 1
+	score_mult = minf(SCORE_MULT_MAX, score_mult + SCORE_MULT_STEP)
+	score += int(roundf(SCORE_BASE * score_mult))
+	time_value = minf(TIME_VALUE_MAX, time_value + TIME_VALUE_PER_KILL)
+	combo += 1
+	max_combo = maxi(max_combo, combo)
+	combo_timer = COMBO_BREAK
 	var pos: Vector2 = e.position
 	var r: float = float(e.cfg.radius)
+	# BUG-07：爆裂怪死亡 → 排入连锁爆点（延迟起爆，级联可见）
+	if e.cfg.type == "boom":
+		boom_queue.append({"pos": pos, "t": BOOM_CHAIN_DELAY})
 	var n := 4 + randi() % 3
 	for i in n:
 		var ang := randf() * TAU
@@ -403,6 +562,67 @@ func _kill_enemy(e: Enemy) -> void:
 		})
 	enemies.erase(e)
 	e.queue_free()
+
+## —— 爆裂怪连锁（BUG-07）：延迟起爆 + 范围伤害，杀死爆裂怪则继续排队 ——
+func _update_booms(delta: float) -> void:
+	for i in range(boom_queue.size() - 1, -1, -1):
+		boom_queue[i].t -= delta
+		if boom_queue[i].t <= 0.0:
+			var pos: Vector2 = boom_queue[i].pos
+			boom_queue.remove_at(i)
+			_boom_explode(pos)
+
+func _boom_explode(pos: Vector2) -> void:
+	AudioMgr.play("burst", 1.15, -3.0)
+	# 冲击粒子：朱砂放射 + 外圈墨点
+	for i in 14:
+		var ang := TAU * float(i) / 14.0 + randf() * 0.3
+		var sp := randf_range(180.0, 360.0)
+		particles.append({
+			"pos": pos, "vel": Vector2(cos(ang), sin(ang)) * sp,
+			"life": 0.0, "max": randf_range(0.25, 0.45),
+			"col": RED if i % 3 != 0 else INK, "r": randf_range(3.0, 6.0),
+		})
+	# 范围伤害：只打怪，不打玩家（奖励型连锁）
+	var died: Array = []
+	for e in enemies:
+		if e.dead or e.spawn_left > 0.0:
+			continue
+		if e.position.distance_to(pos) <= BOOM_RADIUS + float(e.cfg.radius):
+			e.hp -= BOOM_DMG
+			numbers.append({
+				"pos": e.position + Vector2(0, -float(e.cfg.radius)),
+				"val": int(BOOM_DMG), "red": true, "t": 0.0,
+			})
+			if e.hp <= 0.0:
+				died.append(e)
+	kill_list(died)
+
+## —— 连斩里程碑（老版移植）：一斩≥3回墨 / 五连回春 / 十连清场 / 十五连轮回 ——
+func _apply_combo_rewards() -> void:
+	if combo >= 15:
+		score += COMBO_15_SCORE
+		zan_t = 0.5
+		zan_red = false
+		zan_text = "十五连轮回"
+		AudioMgr.play("burst", 1.0, -3.0)
+	elif combo >= 10:
+		var died: Array = []
+		for e in enemies.duplicate():
+			if e.dead:
+				continue
+			e.hp -= COMBO_10_DMG
+			if e.hp <= 0.0:
+				died.append(e)
+		kill_list(died)
+		zan_t = 0.5
+		zan_red = false
+		zan_text = "十连清场"
+	elif combo >= 5:
+		player.hp = minf(player.max_hp, player.hp + COMBO_5_HEAL)
+		zan_t = 0.5
+		zan_red = false
+		zan_text = "五连回春"
 
 # ============================== REWIND 回溯 ==============================
 
@@ -466,28 +686,33 @@ func _check_contact() -> void:
 		if e.dead or e.spawn_left > 0.0:
 			continue
 		if e.position.distance_to(player.position) <= float(e.cfg.radius) + Player.RADIUS:
-			if player.take_hit(float(e.cfg.dmg)):
-				hit_flash = 0.25
-				AudioMgr.play("hit", 0.9, -2.0)
-				var away := (e.position - player.position).normalized()
-				e.position += away * 26.0
-			if player.hp <= 0.0:
-				_game_over()
+			# P0 BUG-01：玩家不死亡，受击扣回溯充能 + 清 combo
+			# BUG-10：得分倍率减半（下限 1.0）
+			hit_flash = 0.25
+			AudioMgr.play("hit", 0.9, -2.0)
+			player.invuln = Player.INVULN_TIME
+			clock_charge = maxf(0.0, clock_charge - HIT_CHARGE_PENALTY)
+			score_mult = maxf(1.0, score_mult * SCORE_MULT_HIT_DECAY)
+			combo = 0
+			combo_timer = 0.0
+			var away := (e.position - player.position).normalized()
+			e.position += away * 26.0
 			return
 
 func _game_over() -> void:
+	_exit_bullet_time()  # 时限耗尽可能发生在 SPELL_DRAW 中，恢复时间流速
 	state = State.GAMEOVER
-	ink_path = PackedVector2Array()
 	AudioMgr.play("over", 1.0, 0.0)
 
 # ============================== 波次 ==============================
 
 func _wave_config(w: int) -> Dictionary:
 	if w <= 2:
-		return {"count": 6 + 3 * (w - 1), "interval": 0.5, "blob": 1.0}
+		return {"count": 12 + 4 * (w - 1), "interval": 0.25, "blob": 1.0}
 	elif w <= 4:
-		return {"count": 6 + 3 * (w - 1), "interval": 0.45, "blob": 0.7, "fast": 0.3}
-	return {"count": 8 + 3 * (w - 5), "interval": 0.4, "blob": 0.6, "fast": 0.25, "tank": 0.15}
+		return {"count": 12 + 4 * (w - 1), "interval": 0.22, "blob": 0.7, "fast": 0.3}
+	return {"count": 16 + 4 * (w - 5), "interval": 0.2,
+		"blob": 0.5, "fast": 0.22, "tank": 0.13, "boom": 0.15}
 
 func _update_waves(delta: float, factor: float) -> void:
 	if spawn_left > 0:
@@ -518,7 +743,7 @@ func _spawn_enemy() -> void:
 	var roll := randf()
 	var acc := 0.0
 	var type := "blob"
-	for k in ["blob", "fast", "tank"]:
+	for k in ["blob", "fast", "tank", "boom"]:
 		if wave_comp.has(k):
 			acc += float(wave_comp[k])
 			if roll <= acc:
@@ -531,16 +756,11 @@ func _spawn_enemy() -> void:
 	enemies.append(e)
 
 func _edge_pos() -> Vector2:
-	var m := 26.0
-	match randi() % 4:
-		0:
-			return Vector2(randf_range(m, ARENA.x - m), m)
-		1:
-			return Vector2(ARENA.x - m, randf_range(m, ARENA.y - m))
-		2:
-			return Vector2(randf_range(m, ARENA.x - m), ARENA.y - m)
-		_:
-			return Vector2(m, randf_range(m, ARENA.y - m))
+	# 玩家周围环形刷怪：半径 500-700px，随机角度（无固定边缘方向）
+	var center := player.position if player != null else ARENA * 0.5
+	var ang := randf() * TAU
+	var r := randf_range(500.0, 700.0)
+	return center + Vector2(cos(ang), sin(ang)) * r
 
 func _separate() -> void:
 	for i in enemies.size():
@@ -583,14 +803,14 @@ func _update_timers(delta: float) -> void:
 		zan_t = maxf(zan_t - delta, 0.0)
 	if help_t > 0.0:
 		help_t = maxf(help_t - delta, 0.0)
-	if state == State.PLAY and path_alpha > 0.0:
-		path_alpha = maxf(path_alpha - delta * 2.2, 0.0)
 
 # ============================== 绘制 ==============================
 
 func _paint_bg(l: PaintLayer) -> void:
+	# 纸纹平铺到世界坐标（tile=true），ARENA 3000×3000 全铺
+	# 相机移动时纸纹相对屏幕滚动，有"在空间里穿行"的移动感
 	if paper_tex != null:
-		l.draw_texture_rect(paper_tex, Rect2(Vector2.ZERO, ARENA), false)
+		l.draw_texture_rect(paper_tex, Rect2(Vector2.ZERO, ARENA), true)
 	else:
 		l.draw_rect(Rect2(Vector2.ZERO, ARENA), Color("#F5F1E8"))
 		# 円相：背景一枚巨大淡墨圆
@@ -598,12 +818,9 @@ func _paint_bg(l: PaintLayer) -> void:
 		l.draw_arc(ARENA * 0.5, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.04), 52.0)
 
 func _paint_ink(l: PaintLayer) -> void:
-	# 墨迹：毛笔枯笔飞白（样式参数来自 InkStyle.current，编辑器可实时改）
-	if ink_path.size() >= 2:
-		var alpha := 0.85
-		if state == State.PLAY:
-			alpha = 0.85 * path_alpha
-		InkRenderer.draw_brush_path(l, ink_path, alpha, false)
+	# 施法轨迹：朱砂
+	if state == State.SPELL_DRAW and spell_points.size() >= 2:
+		InkRenderer.draw_brush_path(l, spell_points, 0.9, true)
 	# 冲刺掠过的轨迹
 	if state == State.DASH or state == State.BURST:
 		InkRenderer.draw_brush_path(l, dash_done, 0.95, false)

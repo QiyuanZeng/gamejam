@@ -8,6 +8,7 @@ var t := 0.0
 var total_t := 0.0
 var _tick := 0
 var ent_d0 := 0.0                # 树人刚召出来时离敌人多远，用来验它有没有往前挪
+var moved := false               # 地震阶段是否已经把玩家挪过位（靶子只补一次）
 var fails: Array[String] = []
 
 func _ready() -> void:
@@ -56,7 +57,9 @@ func _process(delta: float) -> void:
 			_next(3)
 		3:
 			# 跑够 6 轮的时长，途中把玩家挪走验「跟随」：新震源应打到新位置的怪
-			if t > 0.2 and not g.quakes.is_empty():
+			# 只补一次靶子 —— 每帧补的话新怪会源源不断盖过地震的战果，断言变成看运气
+			if not moved and t > 0.2 and not g.quakes.is_empty():
+				moved = true
 				g.player.position = Vector2(200, 200)
 				_place_at(Vector2(230, 210))
 			if t > float(g.QUAKE_WAVES) * g.QUAKE_GAP + 0.3:
@@ -91,7 +94,8 @@ func _process(delta: float) -> void:
 			_chk(g.floods.size() == g.FLOOD_DIRS, "推出 %d 道水浪" % g.floods.size())
 			_next(7)
 		7:
-			if t > 1.2:
+			# 射程 640 / 速度 540 ≈ 1.19s，但斩杀顿帧会冻住驻场效果的推进，多给半秒余量
+			if t > g.FLOOD_RANGE / g.FLOOD_SPEED + 0.5:
 				_chk(g.floods.is_empty(), "水浪走完射程自动消散")
 				_chk(_total_hp() < 8.0 * 10.0, "八向水浪打到环阵（余血 %.0f）" % _total_hp())
 				_next(8)

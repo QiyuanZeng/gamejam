@@ -1,0 +1,540 @@
+{
+  "pack": "Crystal Sentinel Godot 4 2D Asset Pack",
+  "version": "1.0.0",
+  "engine": "Godot 4.x",
+  "canvas": [
+    256,
+    256
+  ],
+  "pivot_px": [
+    128,
+    224
+  ],
+  "direction": "facing_right",
+  "animations": {
+    "idle": {
+      "frames": 12,
+      "fps": 12,
+      "loop": true
+    },
+    "move": {
+      "frames": 8,
+      "fps": 12,
+      "loop": false
+    },
+    "attack_shard_barrage": {
+      "frames": 10,
+      "fps": 12,
+      "loop": false
+    },
+    "attack_halo_beam": {
+      "frames": 8,
+      "fps": 12,
+      "loop": false
+    },
+    "spawn": {
+      "frames": 10,
+      "fps": 12,
+      "loop": false
+    },
+    "death": {
+      "frames": 12,
+      "fps": 12,
+      "loop": false
+    }
+  },
+  "vfx": [
+    "crystal_projectile",
+    "halo_beam",
+    "spawn_crystal_vortex",
+    "death_shards",
+    "hit_spark"
+  ],
+  "source_generation": "OpenAI built-in image generation guided by the supplied authoritative reference sheet; alpha reconstructed from neutral checkerboard output",
+  "files": [
+    {
+      "path": "animations/attack_halo_beam/attack_halo_beam_000.png",
+      "sha256": "28572addab854a1604b28cc10119ea95651207fd2d0935c8cb275105995703e1"
+    },
+    {
+      "path": "animations/attack_halo_beam/attack_halo_beam_001.png",
+      "sha256": "3aa8fb365194a9d7cf8a372dea86f12066c21405f063e1bb6727d4d3a336a2ec"
+    },
+    {
+      "path": "animations/attack_halo_beam/attack_halo_beam_002.png",
+      "sha256": "0d0697e8867c1d4e2caa7f6b6f220bf5e0985164cd6db99686be0b7b28023f55"
+    },
+    {
+      "path": "animations/attack_halo_beam/attack_halo_beam_003.png",
+      "sha256": "cbc071c164cb218bf37c774bc595322c56fb61873dc1844722dcd4a69adc299e"
+    },
+    {
+      "path": "animations/attack_halo_beam/attack_halo_beam_004.png",
+      "sha256": "317dc55b21f2f1fcd8f8cfff40738c5f5861521218b5f63a055d52c06100398f"
+    },
+    {
+      "path": "animations/attack_halo_beam/attack_halo_beam_005.png",
+      "sha256": "0291a3b256d595f79eb44b6be1bcbed364f449e68b795e2d11c7a390fccd6135"
+    },
+    {
+      "path": "animations/attack_halo_beam/attack_halo_beam_006.png",
+      "sha256": "8ee350276805bc72dcb2466bc3bf50c547bd1b392b117e89b65dcf12e72a7f40"
+    },
+    {
+      "path": "animations/attack_halo_beam/attack_halo_beam_007.png",
+      "sha256": "a0f81ed701a45ec00b529ccd18df0eeac6ffe3fe992ba29c442ba02479f025ab"
+    },
+    {
+      "path": "animations/attack_halo_beam_spritesheet.png",
+      "sha256": "62f141629cd55c5da03022a8efa28b1e3ba0636471d332f57e8d4901de644189"
+    },
+    {
+      "path": "animations/attack_shard_barrage/attack_shard_barrage_000.png",
+      "sha256": "28572addab854a1604b28cc10119ea95651207fd2d0935c8cb275105995703e1"
+    },
+    {
+      "path": "animations/attack_shard_barrage/attack_shard_barrage_001.png",
+      "sha256": "75c242bdef8c146f091bfe33fbd8d16e02610d54e6559ce6d12049b08698b899"
+    },
+    {
+      "path": "animations/attack_shard_barrage/attack_shard_barrage_002.png",
+      "sha256": "3e7b67ea67d3f90a9229ae33c69d98301b2fddf66a45bc894c8ea2b61af12e01"
+    },
+    {
+      "path": "animations/attack_shard_barrage/attack_shard_barrage_003.png",
+      "sha256": "4dcd65be8a44afe2439ce535b684a2941d4b096f2b9f4c2659391761a73a8d5e"
+    },
+    {
+      "path": "animations/attack_shard_barrage/attack_shard_barrage_004.png",
+      "sha256": "bc7500d27e83e23364dc844f418301f87e3883574c184437e223f05193467208"
+    },
+    {
+      "path": "animations/attack_shard_barrage/attack_shard_barrage_005.png",
+      "sha256": "02bdfd893c3464c671ec7678d98fd2a0f0d65466ddfa9adf06849d3eee79f6d4"
+    },
+    {
+      "path": "animations/attack_shard_barrage/attack_shard_barrage_006.png",
+      "sha256": "627d0bda5e03b350c15876cbef93261568c1af1721156aae9794ef7920b0997c"
+    },
+    {
+      "path": "animations/attack_shard_barrage/attack_shard_barrage_007.png",
+      "sha256": "50ee5129e7100d98e957b7371c76df4780cd99dfd601748ee53afb85d078868a"
+    },
+    {
+      "path": "animations/attack_shard_barrage/attack_shard_barrage_008.png",
+      "sha256": "456269b1fded8fa74b996a76a9006beb88719e1f46abc995dafc83e7986102ed"
+    },
+    {
+      "path": "animations/attack_shard_barrage/attack_shard_barrage_009.png",
+      "sha256": "32239c4f95edf4c82f2c876b776b0972b87d9b7c3654d8690fb3ab46c65cb74e"
+    },
+    {
+      "path": "animations/attack_shard_barrage_spritesheet.png",
+      "sha256": "f164c965cc34ece16b21cc7c144a13b0e526595de4e6f64e4412a28d638f1963"
+    },
+    {
+      "path": "animations/death/death_000.png",
+      "sha256": "c021d8beb7aa0dbc6785342d6ff4814e0356e219996353ba981f610502821309"
+    },
+    {
+      "path": "animations/death/death_001.png",
+      "sha256": "1bad94bd8a4b1c8950842c0d8832593345d22c488b8817e14addbe62ebcb8452"
+    },
+    {
+      "path": "animations/death/death_002.png",
+      "sha256": "1554bfd8f1b56e1299672a05d31779641bc1afbba131d3ce035850edc8203a87"
+    },
+    {
+      "path": "animations/death/death_003.png",
+      "sha256": "902d0cc9da5ca47e07b159bdada0d25c6d4567f0541d2ef669ae33ee752159ed"
+    },
+    {
+      "path": "animations/death/death_004.png",
+      "sha256": "8be62d2ceb68eec8b690057cf0c26cf8955500b95690783b6eee3773b40a4da9"
+    },
+    {
+      "path": "animations/death/death_005.png",
+      "sha256": "2edabcc51717b1a6de9d8dc2a712c75bee5d304ad208e8d6a3f05ce49ead86c9"
+    },
+    {
+      "path": "animations/death/death_006.png",
+      "sha256": "60d47c4ebeba0add9bc56ce74d53e234c630ae7135fb92812347ac595f644e79"
+    },
+    {
+      "path": "animations/death/death_007.png",
+      "sha256": "1977d7fe5c9d679e36cbf9961e91e1bd2a22011dd311dc660d330d7cc3057996"
+    },
+    {
+      "path": "animations/death/death_008.png",
+      "sha256": "d4a9b08de8a28c783bc8e5bbc42cde59b5c77075f6c0d233fb025a67fe9ef57f"
+    },
+    {
+      "path": "animations/death/death_009.png",
+      "sha256": "867c6bbbe1ec734e981c3cf9ee39eab66451c8dbbbc0120e9794e5bd86af9a0a"
+    },
+    {
+      "path": "animations/death/death_010.png",
+      "sha256": "b311580e7113970293c711b0590ab29733ebfe5cce67a7f9d5b31745c462defe"
+    },
+    {
+      "path": "animations/death/death_011.png",
+      "sha256": "70a213096a8a3aa52d8b05ee5ff5f8d14305a01d51f9305d2555880a4a2b458c"
+    },
+    {
+      "path": "animations/death_spritesheet.png",
+      "sha256": "9a2d49336bb7a69c6fda4328236e66af5ae662ab51620efbd96599b6be8d6503"
+    },
+    {
+      "path": "animations/idle/idle_000.png",
+      "sha256": "28572addab854a1604b28cc10119ea95651207fd2d0935c8cb275105995703e1"
+    },
+    {
+      "path": "animations/idle/idle_001.png",
+      "sha256": "9b7ab7574ba46050cac58c1800a47a84c442a3180c862026acce16a48598ce5e"
+    },
+    {
+      "path": "animations/idle/idle_002.png",
+      "sha256": "14e994243d66d8d4cf4a8c73a7cbdb8a8af83c856926f1df696d613e63fd6665"
+    },
+    {
+      "path": "animations/idle/idle_003.png",
+      "sha256": "006000e679b5fdad4e56841dce11a0cc9d77928e33b7f7182e8e314ee4241ce3"
+    },
+    {
+      "path": "animations/idle/idle_004.png",
+      "sha256": "14e994243d66d8d4cf4a8c73a7cbdb8a8af83c856926f1df696d613e63fd6665"
+    },
+    {
+      "path": "animations/idle/idle_005.png",
+      "sha256": "9b7ab7574ba46050cac58c1800a47a84c442a3180c862026acce16a48598ce5e"
+    },
+    {
+      "path": "animations/idle/idle_006.png",
+      "sha256": "28572addab854a1604b28cc10119ea95651207fd2d0935c8cb275105995703e1"
+    },
+    {
+      "path": "animations/idle/idle_007.png",
+      "sha256": "d0d8f038c00cab6c1822cf2fa975cb608bb6bf79bea91fba7e5f9eac298c001b"
+    },
+    {
+      "path": "animations/idle/idle_008.png",
+      "sha256": "54255bba702b10166c185ec0d188178def0349ff2cf0e40421b346dbb4324b91"
+    },
+    {
+      "path": "animations/idle/idle_009.png",
+      "sha256": "ca783d2c0a1833e8f545e03b8c2e032af5f9c79a70dc923f96f2478720582cda"
+    },
+    {
+      "path": "animations/idle/idle_010.png",
+      "sha256": "54255bba702b10166c185ec0d188178def0349ff2cf0e40421b346dbb4324b91"
+    },
+    {
+      "path": "animations/idle/idle_011.png",
+      "sha256": "d0d8f038c00cab6c1822cf2fa975cb608bb6bf79bea91fba7e5f9eac298c001b"
+    },
+    {
+      "path": "animations/idle_spritesheet.png",
+      "sha256": "ffc24d2738f890fa3856285ae3a1fcca43dae05b794b469a8206d2e0227290aa"
+    },
+    {
+      "path": "animations/move/move_000.png",
+      "sha256": "28572addab854a1604b28cc10119ea95651207fd2d0935c8cb275105995703e1"
+    },
+    {
+      "path": "animations/move/move_001.png",
+      "sha256": "3a0dc1957ccb6f8f43f794aed0afc3169880caeec7f338ce9cba26032ffccdfe"
+    },
+    {
+      "path": "animations/move/move_002.png",
+      "sha256": "c212da2be02bdedf86abd224b2837185ec9ef669468c76d373341e45d6f99c1a"
+    },
+    {
+      "path": "animations/move/move_003.png",
+      "sha256": "3a0dc1957ccb6f8f43f794aed0afc3169880caeec7f338ce9cba26032ffccdfe"
+    },
+    {
+      "path": "animations/move/move_004.png",
+      "sha256": "f9430ab1e7775df2812173bf63bc6656861f3bf13d573ac633816afc7d13073a"
+    },
+    {
+      "path": "animations/move/move_005.png",
+      "sha256": "59753ba86f5cf2873f1069a1c405a5523154e6af3e0a34c3d2fb5c1549a5484e"
+    },
+    {
+      "path": "animations/move/move_006.png",
+      "sha256": "715a101903d2409267c25e15cab7e427d6f03d2bf778e153e3e6cce5ea42e699"
+    },
+    {
+      "path": "animations/move/move_007.png",
+      "sha256": "59753ba86f5cf2873f1069a1c405a5523154e6af3e0a34c3d2fb5c1549a5484e"
+    },
+    {
+      "path": "animations/move_spritesheet.png",
+      "sha256": "3ae27644b2ae6a04e30f077bd076eaf54b6ebc1007bfcabe2c97cc813e62aedf"
+    },
+    {
+      "path": "animations/spawn/spawn_000.png",
+      "sha256": "909e50bb602deb421ee0a7b843e8972f1f8da314a3098e16dfd15e5a9b6b77fd"
+    },
+    {
+      "path": "animations/spawn/spawn_001.png",
+      "sha256": "ed201638c245c8f206eab368a76d425d93d3b000669c576763556f63ec63ef36"
+    },
+    {
+      "path": "animations/spawn/spawn_002.png",
+      "sha256": "e99a491919b03989209bab27ca632471d28c6835408a0258ad57c202db02c0de"
+    },
+    {
+      "path": "animations/spawn/spawn_003.png",
+      "sha256": "f2d5e8882faac6a8b1b60cfaa6981eba26ea969f1476eda9adfd013571582c11"
+    },
+    {
+      "path": "animations/spawn/spawn_004.png",
+      "sha256": "f1932e0931b1d9dd429b175a99a48e2fbb8ccab1336b6029a48546b919802810"
+    },
+    {
+      "path": "animations/spawn/spawn_005.png",
+      "sha256": "14db410955d6059bab09a5522bc4395192a9781949b5b7c460676392e2d26a62"
+    },
+    {
+      "path": "animations/spawn/spawn_006.png",
+      "sha256": "44051cb6f8bc793a7091f81f1672f9054d01b4397a0f27f2283dab5c017a581e"
+    },
+    {
+      "path": "animations/spawn/spawn_007.png",
+      "sha256": "7e0a7bf7e999db0e8842ca0d648aa2fbb15b3b386f462954ce4588dd8d6081c7"
+    },
+    {
+      "path": "animations/spawn/spawn_008.png",
+      "sha256": "73f9be1f68cb353c15848c5193ad507dda73b0a6636f656bd6721ec14b36dc94"
+    },
+    {
+      "path": "animations/spawn/spawn_009.png",
+      "sha256": "422a74e60c3af811414939f6aef1d0ee81c756a74e068a6322e96564ff492332"
+    },
+    {
+      "path": "animations/spawn_spritesheet.png",
+      "sha256": "bc557b88d112ea6f5e5072d6cfab460142edc47832633826ac7647404a25e945"
+    },
+    {
+      "path": "characters/crystal_sentinel_full.png",
+      "sha256": "f6152c41821a68cd2909330e8d709df71e10721e0c6bac75ae12a6ca4ede3524"
+    },
+    {
+      "path": "characters/part_body_and_cape.png",
+      "sha256": "211b3eb7ffb4f0cad505fd85a626ed18ddbe0714dc1d84298afb487b2ff82adf"
+    },
+    {
+      "path": "characters/part_floating_sword_left.png",
+      "sha256": "0ac9178784d7187f9e99452cdae86cd9bc8a9426cfe785e2b9459e70e4a00825"
+    },
+    {
+      "path": "characters/part_floating_sword_right.png",
+      "sha256": "3b79d0ff24800e6fac945d518c30717f3f435e6a5f2b3aa12260a5b4a2fea8a8"
+    },
+    {
+      "path": "characters/part_head.png",
+      "sha256": "779caca9041084ad763f4922bd3126f090b2e10d729b88c9b3cf9f486fd6f382"
+    },
+    {
+      "path": "characters/part_mana_core.png",
+      "sha256": "8178e2a751fdc9f8b60c2b795a0ac1b7ccb4730ae83d4e2faa15e54b4393738c"
+    },
+    {
+      "path": "characters/part_ornate_halo.png",
+      "sha256": "ac773c67dcc7ccd4b61e6b0560e29baa5b5b53f83d36ffedbe516e795f26b2ba"
+    },
+    {
+      "path": "godot_resources/crystal_sentinel.tscn",
+      "sha256": "2374ecb0ab8637e2784fdf683d963454593e29f319823a3e4d7c0b67cee02820"
+    },
+    {
+      "path": "godot_resources/crystal_sentinel_sprite_frames.tres",
+      "sha256": "12b1a2b439beb6bc819f0a8c5a4485438e056621ec2e8cf4f6428418321badfc"
+    },
+    {
+      "path": "godot_resources/crystal_sentinel_vfx.tscn",
+      "sha256": "7081b5083c31e09a2c5cb9f24f40e5ec1f0ae5a7641e2ef38c9a989cf7699e1e"
+    },
+    {
+      "path": "godot_resources/crystal_sentinel_vfx_sprite_frames.tres",
+      "sha256": "ce3270326e6c9a051fc6fd502d0d498cd3b0b2c709805162f793d4786bac93ed"
+    },
+    {
+      "path": "project.godot",
+      "sha256": "742893d037919339c1189cbc82bc6bf3f0ddf47d1d7c20e32aa63961b40c1439"
+    },
+    {
+      "path": "vfx/crystal_projectile/crystal_projectile_000.png",
+      "sha256": "a7ce55edde6d04dbd61a2520cb3a80bca1c4046ebc5edf2b02adadd95685a239"
+    },
+    {
+      "path": "vfx/crystal_projectile/crystal_projectile_001.png",
+      "sha256": "5994379e66a7e32892671dbcf9e79e0be52f44df17254880efc10d5f1ad0d889"
+    },
+    {
+      "path": "vfx/crystal_projectile/crystal_projectile_002.png",
+      "sha256": "f355a3f219e5218eb33bf7032c0d5e25a77f0e919ac81ab3e0aad9297a7fb844"
+    },
+    {
+      "path": "vfx/crystal_projectile/crystal_projectile_003.png",
+      "sha256": "ba6cbc95dc60367a856f5aa67b0835bc89f950f1c6e2b7d912d3125057b5326a"
+    },
+    {
+      "path": "vfx/crystal_projectile/crystal_projectile_004.png",
+      "sha256": "bb4a555c07d2d99d0c1fd7116ec0b1013c7e1c00fe43ca73a3aeda42518900e8"
+    },
+    {
+      "path": "vfx/crystal_projectile/crystal_projectile_005.png",
+      "sha256": "e20bbd2f64e695ef23c63df3928796d3012462fe7e13ce85eb490477810b01f3"
+    },
+    {
+      "path": "vfx/crystal_projectile_spritesheet.png",
+      "sha256": "02e16c7d79e60904b131b8a65fe4b53a1e07ad1b5a38bbaf6d6510811d7434b4"
+    },
+    {
+      "path": "vfx/death_shards/death_shards_000.png",
+      "sha256": "6c776f973c6bdce55ea245891b9b94213fc735f8d82f4abdaaca76e883c642ca"
+    },
+    {
+      "path": "vfx/death_shards/death_shards_001.png",
+      "sha256": "e0d29cdefe04ddc88911d5494e4f4e4b37c95d241240928a5296574286dca3b8"
+    },
+    {
+      "path": "vfx/death_shards/death_shards_002.png",
+      "sha256": "b38f2770e32e90d7546f8636e18350f6e6c078de1d511a32d44a815477194fc4"
+    },
+    {
+      "path": "vfx/death_shards/death_shards_003.png",
+      "sha256": "a8479bb5079c5214a7ca93bad22e5ff687e7e3e6120ce2c483073b29c358a084"
+    },
+    {
+      "path": "vfx/death_shards/death_shards_004.png",
+      "sha256": "6881497f1b882799eb6a286eab7395e9978220bc757c2d16bf3bf0d6e35af8f7"
+    },
+    {
+      "path": "vfx/death_shards/death_shards_005.png",
+      "sha256": "1eb737f8b222bb1a118aad6b38ad2b0541ca0383bd29e7b907c6758a459a57cb"
+    },
+    {
+      "path": "vfx/death_shards/death_shards_006.png",
+      "sha256": "ab43df65042047c414184c34ecb15512c4e52556c787f9d741e2b41b377f6f35"
+    },
+    {
+      "path": "vfx/death_shards/death_shards_007.png",
+      "sha256": "cef75b66a27048076733879a81de58e4422217716a2692a0f300ff849c047333"
+    },
+    {
+      "path": "vfx/death_shards_spritesheet.png",
+      "sha256": "01a3e297a1bd5cf41d1a740a326413db69ac69501657ae2dd12bf729ee6f0915"
+    },
+    {
+      "path": "vfx/halo_beam/halo_beam_000.png",
+      "sha256": "163c136f1a2fc6511b048d1d66e53c33252c27774e2a469ed1bf09909d2326bf"
+    },
+    {
+      "path": "vfx/halo_beam/halo_beam_001.png",
+      "sha256": "446c2f27b1304eccd5433b4416b048d79f07400707de1c5de5b6057d55eec2a1"
+    },
+    {
+      "path": "vfx/halo_beam/halo_beam_002.png",
+      "sha256": "2f86a8301cd4ed26220ec60122388a715333c0bd3dab0b5a564071aeb673f347"
+    },
+    {
+      "path": "vfx/halo_beam/halo_beam_003.png",
+      "sha256": "f53aa23486a49dd6c66c020134bb479247096197382bab1c245f733e3fafd761"
+    },
+    {
+      "path": "vfx/halo_beam/halo_beam_004.png",
+      "sha256": "a4cc2ce8f75af1cf6c228ca82d6e38eea3f2b932e89dfb1c8b39043bfce2248b"
+    },
+    {
+      "path": "vfx/halo_beam/halo_beam_005.png",
+      "sha256": "73c83d8d237cd6d84c5d64ddeef789c137ccff3d691aa816982da074c73faf28"
+    },
+    {
+      "path": "vfx/halo_beam/halo_beam_006.png",
+      "sha256": "e90691702a6d9d70d98d415d5663dd4dc509d2dc5cf4bf6a41f77493687cddbb"
+    },
+    {
+      "path": "vfx/halo_beam/halo_beam_007.png",
+      "sha256": "2f86a8301cd4ed26220ec60122388a715333c0bd3dab0b5a564071aeb673f347"
+    },
+    {
+      "path": "vfx/halo_beam_spritesheet.png",
+      "sha256": "6083b4457f628aa5e8f848b4bf975428b89fca2dc5b1d597525589cae486fa06"
+    },
+    {
+      "path": "vfx/hit_spark/hit_spark_000.png",
+      "sha256": "704c523a9fd947b17840aa86d634586d5e004d91ae14106129fec9e8aaa73cbd"
+    },
+    {
+      "path": "vfx/hit_spark/hit_spark_001.png",
+      "sha256": "f07346ac47fccf88d2dac977412a1c4b886590cd1be3755c42008701b31e2ad8"
+    },
+    {
+      "path": "vfx/hit_spark/hit_spark_002.png",
+      "sha256": "2f044710da75633be446b2abe6aff6677c433942218b70953afb077d33eda64f"
+    },
+    {
+      "path": "vfx/hit_spark/hit_spark_003.png",
+      "sha256": "b77d0c3b1bf4baed79509281f36ae268461513a61e9ed8efb27aed33d3f412c8"
+    },
+    {
+      "path": "vfx/hit_spark/hit_spark_004.png",
+      "sha256": "a12e65c2ab067a559c9b060fef412055cf449928e2bcb003f70aa454583d9dda"
+    },
+    {
+      "path": "vfx/hit_spark/hit_spark_005.png",
+      "sha256": "066eed1d1970e17cac4945f2738e95b60280266cb0a597cd34f83d97d8458308"
+    },
+    {
+      "path": "vfx/hit_spark_spritesheet.png",
+      "sha256": "18491ac75ff45ae7ef496ef4e115225f8d4066e88d78f0c7270c07ef78a827fe"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex/spawn_crystal_vortex_000.png",
+      "sha256": "fac62b6875c9d5974c81d84a858711f751b1b33da8d121d76a6fbae0bcfc91da"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex/spawn_crystal_vortex_001.png",
+      "sha256": "225562a4c24fac948a2f2ddb119a78a720dc11bfec49a9af5bf2ecf38a42ca06"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex/spawn_crystal_vortex_002.png",
+      "sha256": "e082156e0d0c4043e7149b8fbc98eb319e5aadf4e6ad047d0ec8d966380ec54d"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex/spawn_crystal_vortex_003.png",
+      "sha256": "a8f406ac2e8c4a37b98d2b3eec700e2f87f206ca7dbbf71aa12a4d9002fca937"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex/spawn_crystal_vortex_004.png",
+      "sha256": "b3d2e2e0fdce15ee7f9912334682c8d023a70bd480dff1b3270d206658b72e0a"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex/spawn_crystal_vortex_005.png",
+      "sha256": "c5f868ec86397bb3230db928e4c1f8f4dd13f2579381fc8e15d1dbd69d896090"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex/spawn_crystal_vortex_006.png",
+      "sha256": "0bc52acff5eda84ea55cec61e99d2115436d64b8d2fa569ec1069f02f865e146"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex/spawn_crystal_vortex_007.png",
+      "sha256": "bafeac13a5f50a4cd99456618c20c74dfeb3beacad00b22395b9f85491c26a0b"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex/spawn_crystal_vortex_008.png",
+      "sha256": "b859bcdebdd1aec9b6d855ddec74fe8ff2d0c9ca39004df61ab673ee93966350"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex/spawn_crystal_vortex_009.png",
+      "sha256": "ee3ae0cc1a982b9f9c71e53acf58f6bdf24718a9ce0c2ae41b52b6ce4e25c75a"
+    },
+    {
+      "path": "vfx/spawn_crystal_vortex_spritesheet.png",
+      "sha256": "4ecf44bbbd564b81ccde3af5ff20c75e937ef488a6d488c0df5d312f555706e3"
+    }
+  ]
+}

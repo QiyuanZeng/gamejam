@@ -19,14 +19,40 @@ var game
 var texture: Texture2D
 var sprite: Sprite2D
 
+# 帧动画支持（可选）：cfg.anim_dir 指向按状态分目录的成品帧（idle/move/hit/death…）
+var anims: Dictionary = {}
+var anim_state := "idle"
+var anim_idx := 0
+var anim_timer := 0.0
+var anim_fps := 12.0
+var dying := false
+var death_left := 0.0
+var hit_flash := 0.0
+var _last_hp := 0.0
+
 func setup(p_cfg: Dictionary, p_game, p_mat: ShaderMaterial) -> void:
 	cfg = p_cfg
 	hp = float(cfg.hp)
+	_last_hp = hp
 	game = p_game
 	seed_v = randf() * TAU
+	if String(cfg.get("anim_dir", "")) != "":
+		_load_anim(String(cfg.anim_dir))
 	if ResourceLoader.exists(String(cfg.tex)):
 		texture = load(String(cfg.tex))
-	if texture != null:
+	if not anims.is_empty() and anims.has("idle"):
+		sprite = Sprite2D.new()
+		var tex0: Texture2D = anims["idle"][0]
+		sprite.texture = tex0
+		var s := float(cfg.tex_target) / float(maxf(tex0.get_width(), tex0.get_height()))
+		sprite.scale = Vector2(s, s)
+		if cfg.has("pivot_frac"):
+			# 美术包固定 pivot（如 crystal_sentinel 的脚底锚点 (0.5, 0.8125)）：锚点对齐节点原点
+			var pf: Vector2 = cfg.pivot_frac
+			sprite.centered = false
+			sprite.offset = Vector2(-pf.x * tex0.get_width(), -pf.y * tex0.get_height())
+		add_child(sprite)
+	elif texture != null:
 		sprite = Sprite2D.new()
 		sprite.texture = texture
 		var s := float(cfg.tex_target) / float(maxf(texture.get_width(), texture.get_height()))
@@ -39,9 +65,92 @@ func setup(p_cfg: Dictionary, p_game, p_mat: ShaderMaterial) -> void:
 		if d.length() > 1.0:
 			velocity = d.normalized() * float(cfg.speed) * 0.5
 
+func _load_anim(dir: String) -> void:
+	# 目录自动发现：anim_dir 下每个子目录 = 一个动画状态（目录名任意，兼容
+	# shadow_mite / crystal_sentinel 等任意美术包命名）；状态目录内所有 .png
+	# 按文件名排序即帧序列，不依赖具体命名规则。effects 子目录跳过（特效另行接入）。
+	var d := DirAccess.open(dir)
+	if d == null:
+		return
+	d.list_dir_begin()
+	var states: Array[String] = []
+	var sub_name := d.get_next()
+	while sub_name != "":
+		if d.current_is_dir() and not sub_name.begins_with(".") and sub_name != "effects":
+			states.append(sub_name)
+		sub_name = d.get_next()
+	d.list_dir_end()
+	for state in states:
+		var sd := DirAccess.open(dir.path_join(state))
+		if sd == null:
+			continue
+		var files: Array[String] = []
+		sd.list_dir_begin()
+		var f := sd.get_next()
+		while f != "":
+			if f.get_extension().to_lower() == "png" and not f.begins_with("."):
+				files.append(f)
+			f = sd.get_next()
+		sd.list_dir_end()
+		files.sort()
+		var frames: Array[Texture2D] = []
+		for fname in files:
+			frames.append(load(dir.path_join(state).path_join(fname)))
+		if not frames.is_empty():
+			anims[state] = frames
+
+func has_death_anim() -> bool:
+	return anims.has("death")
+
+func play_death() -> void:
+	dying = true
+	death_left = float(anims["death"].size()) / anim_fps
+	anim_state = ""
+	_play("death", 0.0)
+
+func _play(state: String, delta: float, once := false) -> void:
+	if not anims.has(state):
+		state = "idle"
+	if not anims.has(state):
+		return
+	if state != anim_state:
+		anim_state = state
+		anim_idx = 0
+		anim_timer = 0.0
+		_set_frame()
+	var frames: Array = anims[state]
+	anim_timer += delta
+	if anim_timer >= 1.0 / anim_fps:
+		anim_timer -= 1.0 / anim_fps
+		if once and anim_idx >= frames.size() - 1:
+			return
+		anim_idx = (anim_idx + 1) % frames.size()
+		_set_frame()
+
+func _set_frame() -> void:
+	if sprite != null and anims.has(anim_state):
+		sprite.texture = anims[anim_state][anim_idx]
+
 func _process(delta: float) -> void:
+	if dying:
+		_play("death", delta, true)
+		death_left -= delta
+		if death_left <= 0.0:
+			queue_free()
+		return
 	if dead or game == null or cfg.is_empty():
 		return
+	if not anims.is_empty():
+		if hp < _last_hp:
+			hit_flash = 0.22
+		_last_hp = hp
+		var st := "move" if velocity.length() > 5.0 else "idle"
+		if hit_flash > 0.0:
+			hit_flash -= delta
+			st = "hit"
+		if spawn_left > 0.0 and anims.has("spawn"):
+			st = "spawn"
+		_play(st, delta)
 	if spawn_left > 0.0:
 		spawn_left -= delta
 		queue_redraw()
@@ -52,7 +161,7 @@ func _process(delta: float) -> void:
 		var d := to_p.length()
 		if d > 1.0:
 			var dir := to_p / d
-			if cfg.type == "fast":
+			if cfg.type == "fast" or cfg.type == "mite":
 				# 高速惯性：冲过头再拐回来
 				var desired := dir * float(cfg.speed)
 				velocity = velocity.lerp(desired, clampf(2.4 * delta, 0.0, 1.0))
@@ -83,7 +192,7 @@ func apply_mark() -> float:
 	return d
 
 func _draw() -> void:
-	if texture != null or cfg.is_empty():
+	if texture != null or not anims.is_empty() or cfg.is_empty():
 		return
 	var a := 1.0
 	if spawn_left > 0.0:

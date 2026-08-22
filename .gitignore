@@ -9,5 +9,8 @@ output /
 # 日志
 inktest_log.txt
 smoke_log.txt
-run*.log
+*.log
 smoke_out*.txt
+
+# 构建产物
+build/
