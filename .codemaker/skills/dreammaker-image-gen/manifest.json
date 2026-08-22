@@ -1,0 +1,14 @@
+{
+  "name": "dreammaker-image-gen",
+  "version": "1.0.0",
+  "displayName": "DreamMaker 生图工具",
+  "category": "美术与设计",
+  "description": "调用网易内部 DreamMaker AI 平台生成图片的本地化命令行工具。解决 AI 对话中无法直接调用内网生图平台的问题：通过本地 Node.js 代理绕过浏览器 CORS 和 Cookie 限制，封装认证、任务提交、状态轮询、结果下载全流程。核心能力：(1) 单条命令发起生图任务并自动下载结果；(2) 后台并行子代理（--background），多方向同时生图不阻塞；(3) 参考图收件箱机制（F:\\codemaker\\参考图\\）+ auto:N 自动取最新 N 张；(4) preflight.js 生图前体检（防上传超限 413）；(5) compose.js 原件贴合（AI 画容器 + IP 原件零风险贴上去）。支持模型：gpt-image-2、nano-banana-pro 等。使用场景：游戏 UI / 原画 / 运营海报 / 参考图制作。触发词：生图、DreamMaker、网易AI、内网生图、AI图片、Image Generation。",
+  "tags": [
+    "DreamMaker", "生图", "AI图片", "网易AI", "内网生图",
+    "image generation", "gpt-image-2", "nano-banana-pro",
+    "参考图", "图生图", "i2i", "游戏UI", "原画",
+    "后台生图", "批量生图", "图片合成"
+  ],
+  "compat": ["codemaker", "lobsterai", "wuzucat", "claude-desktop"]
+}

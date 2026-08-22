@@ -1,0 +1,4 @@
+# Godot 4 cache
+.godot/
+# 本机 MCP 配置不入库（见 MCP_SETUP.md）
+.mcp.json

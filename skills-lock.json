@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "skills": {
+    "ai-image-generation": {
+      "source": "https://skills.netease.com/api/git/@ai-image-generation.git",
+      "sourceUrl": "https://skills.netease.com/api/git/@ai-image-generation.git",
+      "sourceType": "git",
+      "skillPath": "ai-image-generation/SKILL.md",
+      "computedHash": "0cb296ffe8d9277dff2e4fbd9888fa943a4f6acee4ad218559e60e45c8a06526"
+    },
+    "dreammaker-image-gen": {
+      "source": "https://skills.netease.com/api/git/@dreammaker-image-gen.git",
+      "sourceUrl": "https://skills.netease.com/api/git/@dreammaker-image-gen.git",
+      "sourceType": "git",
+      "skillPath": "dreammaker-image-gen/SKILL.md",
+      "computedHash": "36c9b0e262a3719de1cc75fec98c77356f18620521c4f6f86259249af603c750"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "_注释": "复制此文件为 .config.json 并填写你自己的信息，该文件不会被提交到版本库",
+  "aigwApp":     "your-aigw-app-id",
+  "authUser":    "your-username",
+  "groupId":     "your-group-id",
+  "authKey":     "your-auth-key",
+  "authKeyUser": "your-username"
+}

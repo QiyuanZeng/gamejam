@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="InkBrushStyle" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ink_brush_style.gd" id="1_ibs"]
+
+[resource]
+script = ExtResource("1_ibs")
+width_start = 13.0
+width_end = 1.6
+width_taper = 0.8
+width_wobble_amp = 0.9
+width_wobble_freq = 26.0
+ink_color = Color(0.101961, 0.0901961, 0.0784314, 1)
+red_color = Color(0.752941, 0.223529, 0.168627, 1)
+paper_color = Color(0.960784, 0.945098, 0.909804, 1)
+body_alpha = 0.92
+halo_scale = 1.5
+halo_alpha = 0.16
+edge_jitter = 0.18
+halo_jitter = 0.25
+smooth_iters = 2
+feibai_chance = 0.55
+feibai_step = 3
+feibai_alpha = 0.32
+feibai_len_min = 6.0
+feibai_len_max = 26.0
+splatter_step = 3
+splatter_chance = 0.7
+splatter_alpha = 0.55
+splatter_size_min = 0.8
+splatter_size_max = 3.0
+splatter_spread = 12.0
+tail_strands = 5
+tail_len_min = 8.0
+tail_len_max = 30.0
+tail_spread = 0.5
+tail_alpha = 0.7
+bleed_enabled = 1.0
+bleed_radius = 1.2
+bleed_fade = 0.992
+grain_strength = 0.35

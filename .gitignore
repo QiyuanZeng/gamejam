@@ -1,0 +1,10 @@
+# 敏感凭据，绝不提交
+.codemaker/skills/dreammaker-image-gen/.token
+.codemaker/skills/dreammaker-image-gen/.config.json
+
+# 输出产物
+output/
+output /
+
+# 日志
+inktest_log.txt
