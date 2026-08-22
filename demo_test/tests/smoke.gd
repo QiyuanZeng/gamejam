@@ -46,11 +46,25 @@ func _process(delta: float) -> void:
 				_chk(g.kills == 5, "rewind kills 5, got %d" % g.kills)
 				_chk(absf(g.score_mult - 1.5) < 0.001,
 					"BUG-10: 5 kills -> mult 1.5, got %.2f" % g.score_mult)
-				phase = 4
+				phase = 10
 				t = 0.0
 			elif t > 5.0:
 				_chk(false, "rewind timeout")
 				phase = 9
+		10:
+			# BUG-07 连锁：线上斩杀 boom A，垂直偏离的 boom B / blob C 只能靠爆炸波及
+			g.swing_deg = 0.0
+			_place(1, "boom", Vector2(70.0, 0))
+			_place_off("boom", Vector2(70.0, 90.0))
+			_place_off("blob", Vector2(70.0, 180.0))
+			g._input(_btn(MOUSE_BUTTON_LEFT, true))
+			phase = 11
+			t = 0.0
+		11:
+			if t > 0.6:
+				_chk(g.kills == 8, "BUG-07: boom chain kills 8, got %d" % g.kills)
+				phase = 4
+				t = 0.0
 		4:
 			# task-8 子弹时间：右键进 SPELL_DRAW，全局 0.3 倍速；松开恢复
 			g.time_value = 100.0
@@ -107,6 +121,15 @@ func _place(n: int, cfg_name: String, offset: Vector2) -> void:
 		e.spawn_left = 0.0
 		g.add_child(e)
 		g.enemies.append(e)
+
+## 相对玩家位置直接放 1 只怪（不做横向均布）
+func _place_off(cfg_name: String, offset: Vector2) -> void:
+	var e := Enemy.new()
+	e.setup(g.ENEMY_CFGS[cfg_name].duplicate(), g, null)
+	e.position = g.player.position + offset
+	e.spawn_left = 0.0
+	g.add_child(e)
+	g.enemies.append(e)
 
 func _btn(idx: int, pressed: bool) -> InputEventMouseButton:
 	var ev := InputEventMouseButton.new()

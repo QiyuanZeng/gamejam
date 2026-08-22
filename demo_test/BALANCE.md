@@ -47,6 +47,17 @@
 | blob（草） | 30 | 110 | 8 | 15 | `ENEMY_CFGS.blob` |
 | fast（疾影） | 18 | 200 | 6 | 11 | `ENEMY_CFGS.fast` |
 | tank（磐妖） | 90 | 65 | 15 | 27 | `ENEMY_CFGS.tank` |
+| boom（爆魉，BUG-07） | 16 | 95 | 10 | 13 | `ENEMY_CFGS.boom` |
+
+### 爆魉连锁参数（BUG-07）
+
+| 参数 | 当前值 | 说明 | 代码位置 |
+|---|---|---|---|
+| 爆炸波及半径 | 130 px | 只伤怪不伤玩家（奖励型连锁） | `BOOM_RADIUS` |
+| 爆炸伤害 | 32 | 一发带走 blob(30)/fast(18)，tank 残血 | `BOOM_DMG` |
+| 连锁传导间隔 | 0.08 s | 级联视觉感 | `BOOM_CHAIN_DELAY` |
+
+> 爆魉暂用程序化占位外观（红棕墨团+朱砂脉冲核），美术 `enemy_boom.png` 到位后自动替换。
 
 ---
 
@@ -56,7 +67,7 @@
 |---|---|---|---|---|
 | Wave 1–2 | 12 + 4×(w-1) | 0.25 s | blob 100% | `_wave_config` |
 | Wave 3–4 | 同上 | 0.22 s | blob 70% / fast 30% | `_wave_config` |
-| Wave 5+ | 16 + 4×(w-5) | 0.20 s | blob 60% / fast 25% / tank 15% | `_wave_config` |
+| Wave 5+ | 16 + 4×(w-5) | 0.20 s | blob 50% / fast 22% / tank 13% / boom 15% | `_wave_config` |
 
 ---
 

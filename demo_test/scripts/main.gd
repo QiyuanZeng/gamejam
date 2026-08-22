@@ -69,7 +69,15 @@ const ENEMY_CFGS := {
 		"tex_target": 38.0, "color": Color("#4A443C"), "tex": "res://assets/enemy_fast.png"},
 	"tank": {"type": "tank", "hp": 90.0, "speed": 65.0, "dmg": 15.0, "radius": 27.0,
 		"tex_target": 86.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_tank.png"},
+	## BUG-07 爆裂怪：被斩杀后连锁爆炸（美术未到位，程序化占位外观）
+	"boom": {"type": "boom", "hp": 16.0, "speed": 95.0, "dmg": 10.0, "radius": 13.0,
+		"tex_target": 40.0, "color": Color("#7A3B2E"), "tex": "res://assets/enemy_boom.png"},
 }
+
+## —— 爆裂怪连锁（BUG-07）——
+const BOOM_RADIUS := 130.0      # 爆炸波及半径
+const BOOM_DMG := 32.0          # 爆炸伤害（一发带走 blob 30 / fast 18）
+const BOOM_CHAIN_DELAY := 0.08  # 连锁传导间隔（级联视觉感）
 
 ## 局外增量接口（P2）：局间购买，立刻生效。浓墨/快笔/重演。
 var upgrades := {"ink_max": 0, "ink_regen": 0, "rewind_slots": 0}
@@ -129,6 +137,7 @@ var trail: Array = []
 var ghost_trail: Array = []
 var particles: Array = []
 var numbers: Array = []
+var boom_queue: Array = []   # 待爆点列表 {pos, t}（BUG-07 连锁）
 var trail_acc := 0.0
 
 var player: Player
@@ -261,6 +270,7 @@ func _process(delta: float) -> void:
 		_separate()
 	if state != State.BURST:
 		_update_fx(delta)
+	_update_booms(delta)  # BUG-07：连锁爆点与状态机解耦，随时结算
 	# BUG-06 时限倒计时：非 GAMEOVER 态持续消耗
 	if state != State.GAMEOVER:
 		round_timer -= delta
@@ -536,6 +546,9 @@ func _kill_enemy(e: Enemy) -> void:
 	combo_timer = COMBO_BREAK
 	var pos: Vector2 = e.position
 	var r: float = float(e.cfg.radius)
+	# BUG-07：爆裂怪死亡 → 排入连锁爆点（延迟起爆，级联可见）
+	if e.cfg.type == "boom":
+		boom_queue.append({"pos": pos, "t": BOOM_CHAIN_DELAY})
 	var n := 4 + randi() % 3
 	for i in n:
 		var ang := randf() * TAU
@@ -548,6 +561,41 @@ func _kill_enemy(e: Enemy) -> void:
 		})
 	enemies.erase(e)
 	e.queue_free()
+
+## —— 爆裂怪连锁（BUG-07）：延迟起爆 + 范围伤害，杀死爆裂怪则继续排队 ——
+func _update_booms(delta: float) -> void:
+	for i in range(boom_queue.size() - 1, -1, -1):
+		boom_queue[i].t -= delta
+		if boom_queue[i].t <= 0.0:
+			var pos: Vector2 = boom_queue[i].pos
+			boom_queue.remove_at(i)
+			_boom_explode(pos)
+
+func _boom_explode(pos: Vector2) -> void:
+	AudioMgr.play("burst", 1.15, -3.0)
+	# 冲击粒子：朱砂放射 + 外圈墨点
+	for i in 14:
+		var ang := TAU * float(i) / 14.0 + randf() * 0.3
+		var sp := randf_range(180.0, 360.0)
+		particles.append({
+			"pos": pos, "vel": Vector2(cos(ang), sin(ang)) * sp,
+			"life": 0.0, "max": randf_range(0.25, 0.45),
+			"col": RED if i % 3 != 0 else INK, "r": randf_range(3.0, 6.0),
+		})
+	# 范围伤害：只打怪，不打玩家（奖励型连锁）
+	var died: Array = []
+	for e in enemies:
+		if e.dead or e.spawn_left > 0.0:
+			continue
+		if e.position.distance_to(pos) <= BOOM_RADIUS + float(e.cfg.radius):
+			e.hp -= BOOM_DMG
+			numbers.append({
+				"pos": e.position + Vector2(0, -float(e.cfg.radius)),
+				"val": int(BOOM_DMG), "red": true, "t": 0.0,
+			})
+			if e.hp <= 0.0:
+				died.append(e)
+	kill_list(died)
 
 ## —— 连斩里程碑（老版移植）：一斩≥3回墨 / 五连回春 / 十连清场 / 十五连轮回 ——
 func _apply_combo_rewards() -> void:
@@ -662,7 +710,8 @@ func _wave_config(w: int) -> Dictionary:
 		return {"count": 12 + 4 * (w - 1), "interval": 0.25, "blob": 1.0}
 	elif w <= 4:
 		return {"count": 12 + 4 * (w - 1), "interval": 0.22, "blob": 0.7, "fast": 0.3}
-	return {"count": 16 + 4 * (w - 5), "interval": 0.2, "blob": 0.6, "fast": 0.25, "tank": 0.15}
+	return {"count": 16 + 4 * (w - 5), "interval": 0.2,
+		"blob": 0.5, "fast": 0.22, "tank": 0.13, "boom": 0.15}
 
 func _update_waves(delta: float, factor: float) -> void:
 	if spawn_left > 0:
@@ -693,7 +742,7 @@ func _spawn_enemy() -> void:
 	var roll := randf()
 	var acc := 0.0
 	var type := "blob"
-	for k in ["blob", "fast", "tank"]:
+	for k in ["blob", "fast", "tank", "boom"]:
 		if wave_comp.has(k):
 			acc += float(wave_comp[k])
 			if roll <= acc:

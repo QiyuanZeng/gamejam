@@ -71,7 +71,7 @@
 按 [`bug_list_v0.3对齐.md`](file:///c:\Users\N32955\Desktop\NetEase网易互娱\00_GameJam比赛\bug_list_v0.3对齐.md) 顺序：
 
 1. **BUG-06** 结算评级 C~SS（框架在 `hud.gd` `_rating()` 函数，已有 5档评级逻辑，数值参数需校准）
-2. **BUG-07** 爆裂怪（第四类，连锁伤害）—— 加进 `ENEMY_CFGS` + 敌人自爆逻辑
+2. ~~**BUG-07** 爆裂怪~~（已完成）：第四类"爆魉"boom，死亡 0.08s 后起爆，半径 130 内怪 -32 HP，只伤怪不伤玩家，链式级联；Wave 5+ 占 15%；占位外观（红棕墨团+朱砂脉冲核），`enemy_boom.png` 到位自动替换；smoke 有"boom chain kills 8"断言
 3. ~~**BUG-10** 受击扣得分倍率~~（已完成）：击杀分 = 10 × 倍率；+0.1/杀、上限 3.0、受击减半下限 1.0；HUD 右上显示 ×N.N；参数见 BALANCE.md 第十节
 4. ~~**BUG-13** 清理 v2 死代码~~（已完成）
    - `State.DRAW`/画墨四函数/v2 版 `_begin_dash`/`ink_path`/`dry_pen`/`path_alpha`/`DRAW_ENEMY_FACTOR` 全删
