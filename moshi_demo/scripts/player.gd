@@ -59,11 +59,12 @@ func setup(p_mat: ShaderMaterial) -> void:
 		sprite.material = p_mat
 	add_child(sprite)
 
-func take_hit(dmg: float) -> bool:
+## 受击。invuln_time 是挨完这下的无敌秒数，由 Game 从人物总表 data/player.tres 传进来。
+func take_hit(dmg: float, invuln_time := 0.6) -> bool:
 	if invuln > 0.0:
 		return false
 	hp = maxf(hp - dmg, 0.0)
-	invuln = 0.6
+	invuln = invuln_time
 	return true
 
 func _process(delta: float) -> void:

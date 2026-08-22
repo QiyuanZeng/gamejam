@@ -10,7 +10,16 @@ enum State { PLAY, SPELL, DASH, BURST, REWIND, LAG, GAMEOVER }
 # ============================== §1 全局 ==============================
 
 const ARENA := Vector2(3000.0, 3000.0)
-const PLAYER_HP := 100.0
+
+## ↓↓↓ 以下这批大写量都是**人物总表** res://data/player.tres（PlayerConfig）的镜像，
+## `_load_player_config()` 在 _ready 开头统一灌进来。这里写的字面量只是加载失败时的兜底。
+## 保留大写命名是为了不动散落在 HUD / 调试台 / 测试里的几十个引用点。
+var PLAYER_HP := 100.0
+## 撞怪 / 中弹时的受伤倍率，乘在怪自身的 dmg / bullet_dmg 上。
+var CONTACT_DMG_MULT := 1.0
+var BULLET_DMG_MULT := 1.0
+## 挨一下之后的无敌秒数。
+var HIT_INVULN := 0.6
 
 ## 刷怪全局参数已搬到 res://data/balance.tres（BalanceConfig），_ready 里读进来。
 var max_enemies := 130
@@ -23,45 +32,45 @@ const CAM_LERP := 15.0
 
 # ============================== §3 表盘 / 行动点 ==============================
 
-const AP_MAX_BASE := 3
-const AP_MAX_CAP := 6
-const HOUR_PERIOD := 2.0          # AB §13：1.5 / 2.0 / 2.5
-const SEC_PERIOD := 0.5
-const MIN_PERIOD := 1.0
-const AP_PER_HOUR := 1.0
-const AP_PER_SEC := 0.25
-const AP_PER_MIN := 0.25
-const SLASH_MIN_GAP := 0.15
+var AP_MAX_BASE := 3
+var AP_MAX_CAP := 6
+var HOUR_PERIOD := 2.0            # AB §13：1.5 / 2.0 / 2.5
+var SEC_PERIOD := 0.5
+var MIN_PERIOD := 1.0
+var AP_PER_HOUR := 1.0
+var AP_PER_SEC := 0.25
+var AP_PER_MIN := 0.25
+var SLASH_MIN_GAP := 0.15
 const DIAL_RADIUS := 70.0
 
-const DASH_SPEED := 3200.0
-const DASH_RADIUS := 140.0
-const DASH_DMG := 20.0
-const DASH_DIST_BASE := 520.0
-const DASH_DIST_CAP := 800.0
-const POST_DASH_INVULN := 0.3
+var DASH_SPEED := 3200.0
+var DASH_RADIUS := 140.0
+var DASH_DMG := 20.0
+var DASH_DIST_BASE := 520.0
+var DASH_DIST_CAP := 800.0
+var POST_DASH_INVULN := 0.3
 const SAMPLE_DIST := 6.0
 
 # ============================== §4 回溯 ==============================
 
-const CLOCK_TIME := 12.0          # AB §13：10 / 12 / 15
-const REWIND_SLOTS := 5
-const REWIND_MULT := 0.5
-const REWIND_PATH_TIME := 0.15
-const BURST_FREEZE := 0.16
-const MARK_RETAIN := 1.5
+var CLOCK_TIME := 12.0            # AB §13：10 / 12 / 15
+var REWIND_SLOTS := 5
+var REWIND_MULT := 0.5
+var REWIND_PATH_TIME := 0.15
+var BURST_FREEZE := 0.16
+var MARK_RETAIN := 1.5
 
 # ============================== §5 子弹时间 / 时间值 / 咒语 ==============================
 
-const TV_MAX_BASE := 500.0
-const TV_REGEN_BASE := 20.0
-const TV_COST_PER_PX := 1.0       # 1 px 笔画 = 1 墨
-const BULLET_FACTOR := 0.10       # AB §13：0.05 / 0.10 / 0.20
-const BULLET_TV_DRAIN := 30.0
-const BULLET_MIN_TIME := 0.2
-const BULLET_EXIT_TV := 10.0
-const BIND_ENERGY_RATIO := 0.70   # 点亮空碑的门槛：单笔要烧掉起笔时余额的这么多（含子弹流逝）
-const BIND_CHANCE := 0.50         # 达标后的触发概率（策划案原定 20%，实测太闷，提到一半）
+var TV_MAX_BASE := 500.0
+var TV_REGEN_BASE := 20.0
+var TV_COST_PER_PX := 1.0         # 1 px 笔画 = 1 墨。调小就能画更长的线
+var BULLET_FACTOR := 0.10         # AB §13：0.05 / 0.10 / 0.20
+var BULLET_TV_DRAIN := 30.0
+var BULLET_MIN_TIME := 0.2
+var BULLET_EXIT_TV := 10.0
+var BIND_ENERGY_RATIO := 0.70     # 点亮空碑的门槛：单笔要烧掉起笔时余额的这么多（含子弹流逝）
+var BIND_CHANCE := 0.50           # 达标后的触发概率（策划案原定 20%，实测太闷，提到一半）
 ## 笔形识别（算法、阈值、神纹录）全部收在 SpellMatch，本文件直调，不做别名转发。
 ## 释放不再另收墨钱 —— 时间之力只花在「描绘路径」上，画出来即生效。
 
@@ -70,40 +79,40 @@ const CAST_NONE := 0
 const CAST_DONE := 1
 const CAST_TAKEOVER := 2
 
-# —— 七道神纹的效果参数 ——
-const THUNDER_BOLTS := 6          # 雷霆万钧：随机选中的落雷目标数
-const THUNDER_DMG := 20.0
-const THUNDER_RADIUS := 82.0      # 每道雷的溅射半径
-const QUAKE_WAVES := 6            # 山崩地裂：6 轮地震，跟着人物走
-const QUAKE_GAP := 0.5
-const QUAKE_RADIUS := 155.0
-const QUAKE_DMG := 12.0
-const ENT_COUNT := 4              # 妖木精灵：4 个树人自由攻击
-const ENT_LIFE := 12.0
-const ENT_SPEED := 155.0
-const ENT_REACH := 44.0
-const ENT_DMG := 10.0
-const ENT_GAP := 0.7
-const FLOOD_DIRS := 8             # 水漫金山：八向水浪
-const FLOOD_SPEED := 540.0
-const FLOOD_RANGE := 640.0
-const FLOOD_WIDTH := 34.0
-const FLOOD_DMG := 16.0
-const DOMAIN_TIME := 6.0          # 时间领域：原地驻留，持续伤害 + 回溯加速充能
-const DOMAIN_RADIUS := 195.0
-const DOMAIN_DPS := 14.0
-const DOMAIN_CHARGE := 2.0        # 站在领域内时钟表额外充能的倍率
-const SWORD_INNER := 6            # 无限剑阵：内外两圈落剑
-const SWORD_OUTER := 12
-const SWORD_R_IN := 115.0
-const SWORD_R_OUT := 245.0
-const SWORD_FALL := 0.4           # 单剑下落时间
-const SWORD_RADIUS := 58.0
-const SWORD_DMG := 22.0
-const ALPHA_HITS := 8             # 阿尔法突袭：消失期间的多段斩次数
-const ALPHA_GAP := 0.1
-const ALPHA_RADIUS := 265.0
-const ALPHA_DMG := 12.0
+# —— 七道神纹的效果参数（同样来自 data/player.tres 的「神纹」组）——
+var THUNDER_BOLTS := 6            # 雷霆万钧：随机选中的落雷目标数
+var THUNDER_DMG := 20.0
+var THUNDER_RADIUS := 82.0        # 每道雷的溅射半径
+var QUAKE_WAVES := 6              # 山崩地裂：6 轮地震，跟着人物走
+var QUAKE_GAP := 0.5
+var QUAKE_RADIUS := 155.0
+var QUAKE_DMG := 12.0
+var ENT_COUNT := 4                # 妖木精灵：4 个树人自由攻击
+var ENT_LIFE := 12.0
+var ENT_SPEED := 155.0
+var ENT_REACH := 44.0
+var ENT_DMG := 10.0
+var ENT_GAP := 0.7
+var FLOOD_DIRS := 8               # 水漫金山：八向水浪
+var FLOOD_SPEED := 540.0
+var FLOOD_RANGE := 640.0
+var FLOOD_WIDTH := 34.0
+var FLOOD_DMG := 16.0
+var DOMAIN_TIME := 6.0            # 时间领域：原地驻留，持续伤害 + 回溯加速充能
+var DOMAIN_RADIUS := 195.0
+var DOMAIN_DPS := 14.0
+var DOMAIN_CHARGE := 2.0          # 站在领域内时钟表额外充能的倍率
+var SWORD_INNER := 6              # 无限剑阵：内外两圈落剑
+var SWORD_OUTER := 12
+var SWORD_R_IN := 115.0
+var SWORD_R_OUT := 245.0
+var SWORD_FALL := 0.4             # 单剑下落时间
+var SWORD_RADIUS := 58.0
+var SWORD_DMG := 22.0
+var ALPHA_HITS := 8               # 阿尔法突袭：消失期间的多段斩次数
+var ALPHA_GAP := 0.1
+var ALPHA_RADIUS := 265.0
+var ALPHA_DMG := 12.0
 
 # ============================== §6 怪物 ==============================
 
@@ -113,10 +122,10 @@ const BOMB_DMG := 15.0
 
 # ============================== §8 受击 / 时滞 ==============================
 
-const HIT_CHARGE_PENALTY := 3.0
-const HIT_MULT_PENALTY := 0.2
-const LAG_TIME := 3.0
-const LAG_MAX := 3
+var HIT_CHARGE_PENALTY := 0.0
+var HIT_MULT_PENALTY := 0.2
+var LAG_TIME := 3.0
+var LAG_MAX := 3
 
 # ============================== §9 计分 ==============================
 
@@ -163,9 +172,9 @@ var state: State = State.PLAY
 var sim_time := 0.0
 var run_time := 0.0
 var dial_t := 0.0
-var ap := float(AP_MAX_BASE)
+var ap := 3.0
 var last_slash := -99.0
-var tv := TV_MAX_BASE
+var tv := 500.0
 var clock_charge := 0.0
 var kills := 0
 var score := 0.0
@@ -179,7 +188,7 @@ var rating := "C"
 var payout_coins := 0
 var payout_sand := 0
 var spawn_timer := 0.0
-var bind_chance := BIND_CHANCE     # 觉醒概率的运行时钩子：调参与测试改这个，常量留作策划基准
+var bind_chance := 0.50            # 觉醒概率的运行时钩子：_ready 里由总表灌入，测试可直接改
 ## 觉醒时是否停下来让玩家挑碑。默认关 —— 触发即随机点亮一块空碑并当场施展，不打断战斗。
 ## 打开则弹面板（战局定格，按 1~N 选碑、Esc 放弃）。
 var bind_pick_panel := false
@@ -263,6 +272,7 @@ func _ready() -> void:
 	var bal := BalanceConfig.get_config()
 	max_enemies = bal.max_enemies
 	spawn_margin = bal.spawn_margin
+	_load_player_config()
 	_build_skills()
 	var shader: Shader = load("res://shaders/paper_key.gdshader")
 	if shader != null:
@@ -316,6 +326,99 @@ func _make_layer(z: int) -> PaintLayer:
 
 func _build_skills() -> void:
 	skills = SpellMatch.build_skills()
+	# 冷却以人物总表为准：总表里没这个 id（返回 -1）才留神纹录的原值
+	var pc := PlayerConfig.get_config()
+	for s in skills:
+		var cd := pc.skill_cd(String(s.id))
+		if cd >= 0.0:
+			s.cd = cd
+
+## 把人物总表 res://data/player.tres 灌进本文件的大写量。改数值都在那份资源里改，
+## 这里只负责搬运；加载失败时保留字面量兜底，局面照常能跑。
+func _load_player_config() -> void:
+	var pc := PlayerConfig.get_config()
+	PLAYER_HP = pc.player_hp
+	CONTACT_DMG_MULT = pc.contact_dmg_mult
+	BULLET_DMG_MULT = pc.bullet_dmg_mult
+	HIT_INVULN = pc.hit_invuln
+	LAG_MAX = pc.lag_max
+	LAG_TIME = pc.lag_time
+	HIT_CHARGE_PENALTY = pc.hit_charge_penalty
+	HIT_MULT_PENALTY = pc.hit_mult_penalty
+
+	DASH_SPEED = pc.dash_speed
+	DASH_DIST_BASE = pc.dash_dist_base
+	DASH_DIST_CAP = pc.dash_dist_cap
+	DASH_RADIUS = pc.dash_radius
+	DASH_DMG = pc.dash_dmg
+	POST_DASH_INVULN = pc.post_dash_invuln
+	SLASH_MIN_GAP = pc.slash_min_gap
+
+	AP_MAX_BASE = pc.ap_max_base
+	AP_MAX_CAP = pc.ap_max_cap
+	HOUR_PERIOD = pc.hour_period
+	AP_PER_HOUR = pc.ap_per_hour
+	SEC_PERIOD = pc.sec_period
+	AP_PER_SEC = pc.ap_per_sec
+	MIN_PERIOD = pc.min_period
+	AP_PER_MIN = pc.ap_per_min
+
+	CLOCK_TIME = pc.clock_time
+	REWIND_SLOTS = pc.rewind_slots
+	REWIND_MULT = pc.rewind_mult
+	REWIND_PATH_TIME = pc.rewind_path_time
+	BURST_FREEZE = pc.burst_freeze
+	MARK_RETAIN = pc.mark_retain
+
+	TV_MAX_BASE = pc.tv_max_base
+	TV_REGEN_BASE = pc.tv_regen_base
+	TV_COST_PER_PX = pc.tv_cost_per_px
+	BULLET_FACTOR = pc.bullet_factor
+	BULLET_TV_DRAIN = pc.bullet_tv_drain
+	BULLET_MIN_TIME = pc.bullet_min_time
+	BULLET_EXIT_TV = pc.bullet_exit_tv
+
+	BIND_ENERGY_RATIO = pc.bind_energy_ratio
+	BIND_CHANCE = pc.bind_chance
+	bind_chance = pc.bind_chance
+
+	THUNDER_BOLTS = pc.thunder_bolts
+	THUNDER_DMG = pc.thunder_dmg
+	THUNDER_RADIUS = pc.thunder_radius
+	QUAKE_WAVES = pc.quake_waves
+	QUAKE_GAP = pc.quake_gap
+	QUAKE_RADIUS = pc.quake_radius
+	QUAKE_DMG = pc.quake_dmg
+	ENT_COUNT = pc.ent_count
+	ENT_LIFE = pc.ent_life
+	ENT_SPEED = pc.ent_speed
+	ENT_REACH = pc.ent_reach
+	ENT_DMG = pc.ent_dmg
+	ENT_GAP = pc.ent_gap
+	FLOOD_DIRS = pc.flood_dirs
+	FLOOD_SPEED = pc.flood_speed
+	FLOOD_RANGE = pc.flood_range
+	FLOOD_WIDTH = pc.flood_width
+	FLOOD_DMG = pc.flood_dmg
+	DOMAIN_TIME = pc.domain_time
+	DOMAIN_RADIUS = pc.domain_radius
+	DOMAIN_DPS = pc.domain_dps
+	DOMAIN_CHARGE = pc.domain_charge
+	SWORD_INNER = pc.sword_inner
+	SWORD_OUTER = pc.sword_outer
+	SWORD_R_IN = pc.sword_r_in
+	SWORD_R_OUT = pc.sword_r_out
+	SWORD_FALL = pc.sword_fall
+	SWORD_RADIUS = pc.sword_radius
+	SWORD_DMG = pc.sword_dmg
+	ALPHA_HITS = pc.alpha_hits
+	ALPHA_GAP = pc.alpha_gap
+	ALPHA_RADIUS = pc.alpha_radius
+	ALPHA_DMG = pc.alpha_dmg
+
+	# 起始值跟着总表走：行动点满格、墨满管
+	ap = float(ap_max())
+	tv = tv_max()
 
 # ============================== 养成公式（§10） ==============================
 
@@ -1044,7 +1147,7 @@ func _update_enemy_bullets(delta: float, f: float) -> void:
 			continue
 		if player != null and f > 0.0 and state != State.GAMEOVER:
 			if b.pos.distance_to(player.position) <= float(b.r) + Player.RADIUS:
-				if player.take_hit(float(b.dmg)):
+				if player.take_hit(float(b.dmg) * BULLET_DMG_MULT, HIT_INVULN):
 					b.life = 0.0
 					_pop_bullet(b.pos, b.col)
 					_on_player_hurt()
@@ -1054,7 +1157,9 @@ func _update_enemy_bullets(delta: float, f: float) -> void:
 func _on_player_hurt() -> void:
 	hit_flash = 0.25
 	AudioMgr.play("hit", 0.9, -2.0)
-	clock_charge = maxf(clock_charge - HIT_CHARGE_PENALTY, 0.0)
+	# 挨打不再打断 R 的蓄力：HIT_CHARGE_PENALTY 默认 0，要恢复就在 data/player.tres 里填回去
+	if HIT_CHARGE_PENALTY > 0.0:
+		clock_charge = maxf(clock_charge - HIT_CHARGE_PENALTY, 0.0)
 	score_mult = maxf(score_mult - HIT_MULT_PENALTY, MULT_BASE)
 	kill_streak = 0
 	if player.hp <= 0.0:
@@ -1338,7 +1443,7 @@ func _check_contact() -> void:
 		if e.dead or e.spawn_left > 0.0:
 			continue
 		if e.position.distance_to(player.position) <= float(e.cfg.radius) + Player.RADIUS:
-			if player.take_hit(float(e.cfg.dmg)):
+			if player.take_hit(float(e.cfg.dmg) * CONTACT_DMG_MULT, HIT_INVULN):
 				var away := (e.position - player.position).normalized()
 				e.position += away * 26.0
 				_on_player_hurt()
@@ -1361,7 +1466,7 @@ func _enter_lag() -> void:
 
 func _end_lag() -> void:
 	player.hp = player.max_hp
-	player.invuln = 0.6
+	player.invuln = HIT_INVULN
 	state = State.PLAY
 
 # ============================== §9 结算 ==============================

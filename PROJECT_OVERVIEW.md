@@ -28,9 +28,10 @@ d:\zhanji\
 │  ├─ scenes\             4 个场景（都只挂脚本，节点靠代码拼）
 │  ├─ shaders\            4 个 .gdshader
 │  ├─ data\balance.tres   ★ 配平总表：刷怪全局 + 9 只怪 + 5 段波表
+│  ├─ data\player.tres    ★ 人物总表：血量 / 冲刺斩 / 表盘 / 回溯 / 笔墨 / 七道神纹
 │  ├─ assets\, art\       贴图 / 帧动画目录
-│  ├─ tests\              10 套 headless 测试
-│  ├─ docs\               4 份设计与改动说明
+│  ├─ tests\              11 套 headless 测试
+│  ├─ docs\               5 份设计与改动说明
 │  ├─ addons\godot_ai\    编辑器 MCP 插件（非玩法）
 │  └─ run*.log            测试日志（不入库）
 ├─ demo_test\             早期原型，勿改
@@ -291,6 +292,7 @@ start "" /b "D:\godot\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_wi
 | 文件 | 内容 |
 |---|---|
 | `docs/enemies.md` | 怪物系统速查（最全）：字段表、9 怪数值、帧动画规范、精英倍率、波表、体检、测试命令 |
+| `docs/player.md` | 人物系统速查：血量 / 冲刺斩 / 表盘 / 回溯 / **笔墨消耗** / 七道神纹的字段表与改法 |
 | `docs/怪物系统改动说明-v1.0.md` | 怪物精简为 4 种、精英复用、冲锋锁向、分裂无敌、删 BOSS |
 | `docs/神纹系统改动说明-v1.1.md` | 6 固定咒语 → 2 古纹 + 6 空碑，$Q 识别器落地 |
 | `docs/时间刺客-程序执行方案-v1.0.md` | 旧名「时间刺客」的程序执行方案（部分数值已过时，如单局 30s） |
@@ -302,7 +304,7 @@ start "" /b "D:\godot\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_wi
 
 1. **存档是空壳**：`login` 的「继续」只查 `user://save.cfg` 存不存在，无任何读写实现；`upgrades` 局外养成也不持久化。
 2. **无胜利条件**：跑过 `seg5` 进永久平台期，只有失败结算。`时间刺客-程序执行方案` 里的「单局 30s」已与代码不符。
-3. **数值硬编码密集**：伤害 / 半径 / 周期 / 阈值几乎全是 `main.gd` 顶部与 `spell_match.gd` 的 `const`，只有怪表 / 波表 / 刷怪全局参数外置到 `data/balance.tres`。
+3. **数值已外置成两份总表**：怪表 / 波表 / 刷怪全局在 `data/balance.tres`，人物血量 / 冲刺斩 / 表盘 / 回溯 / 笔墨 / 神纹参数在 `data/player.tres`。仍留在代码里的只剩 `spell_match.gd` 的识别阈值与 `main.gd` 的演出常量（相机、抖动、拖尾、计分）。
 4. **无物理层**：命中 / 接触全为纯距离数学，怪物重叠靠 `_separate` 手动推开。
 5. **BOSS 骨架休眠**：`_tick_boss` 只是远程 + 冲撞组合，`boss_phase` 多阶段是空扩展位；总表 `enemies` 里也无 BOSS 条目。
 6. **测试后门 `F3`** 一键回满 TV，出包前需摘。
@@ -311,3 +313,4 @@ start "" /b "D:\godot\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_wi
 9. **`demo_test/` 与 `moshi_demo/` 共享同名旧脚本**（main / player / enemy / hud / shaders），改动时注意别改错工程。
 10. **构建产物混入数据目录**：`moshi_demo/data/enemies/墨时 InkTime.exe` 应清掉。
 11. **渗墨拓印层已停用**：`main.gd._ready` 不再创建 `bleed`（水面渲染改造中），调用点已加判空，恢复时记得一起去掉守卫。
+12. **`skill_fx_test` 偶发假失败**：阿尔法突袭 / 落剑清空两条断言的时间余量卡得太紧，斩杀顿帧（`KILL_FREEZE`）一多就超时。与总表改造无关，改造前就存在，重跑即过。

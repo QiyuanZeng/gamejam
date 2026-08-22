@@ -462,7 +462,7 @@ func active_path() -> PackedVector2Array:
 	return PackedVector2Array()
 
 func tv_max() -> float:
-	return game.tv_max() if game != null else Game.TV_MAX_BASE
+	return game.tv_max() if game != null else PlayerConfig.get_config().tv_max_base
 
 func elapsed() -> float:
 	return draw_t if drawing else last_t
@@ -560,15 +560,16 @@ func _paint_cost(c: Control, feat: Dictionary) -> float:
 	_t(c, Vector2(x, y), "本笔消耗", 17, INK)
 	y += 28.0
 	var px := float(feat.get("px", 0.0))
-	var ink_cost := px * Game.TV_COST_PER_PX
+	var pc := PlayerConfig.get_config()
+	var ink_cost := px * pc.tv_cost_per_px
 	var t := elapsed()
-	var drain := Game.BULLET_TV_DRAIN * t
+	var drain := pc.bullet_tv_drain * t
 	var total := ink_cost + drain
 	var cap := tv_max()
 	var left := cap - total
 	_row(c, x, y, "笔画长度", "%.0f px" % px, INK)
 	y += ROW_H
-	_row(c, x, y, "笔墨消耗", "%.0f 时（%.0f px × %.1f）" % [ink_cost, px, Game.TV_COST_PER_PX], INK)
+	_row(c, x, y, "笔墨消耗", "%.0f 时（%.0f px × %.1f）" % [ink_cost, px, pc.tv_cost_per_px], INK)
 	y += ROW_H
 	_row(c, x, y, "书写耗时", "%.2f s → 子弹流逝 %.0f 时" % [t, drain], INK)
 	y += ROW_H
@@ -585,16 +586,16 @@ func _paint_cost(c: Control, feat: Dictionary) -> float:
 	var f2: float = clampf(total / cap, 0.0, 1.0)
 	c.draw_rect(Rect2(bx, y, bw * f2, 12.0), Color(GREY.r, GREY.g, GREY.b, 0.45))
 	c.draw_rect(Rect2(bx, y, bw * f1, 12.0), INK)
-	var thr := bx + bw * Game.BIND_ENERGY_RATIO
+	var thr := bx + bw * pc.bind_energy_ratio
 	c.draw_line(Vector2(thr, y - 3.0), Vector2(thr, y + 15.0), Color(RED.r, RED.g, RED.b, 0.7), 1.5)
 	y += 20.0
 	var warn := ""
 	if total >= cap:
 		warn = "墨尽：笔尖干涸，实战中这一笔会被截断"
-	elif total >= cap * Game.BIND_ENERGY_RATIO:
+	elif total >= cap * pc.bind_energy_ratio:
 		warn = "过觉醒线 %.0f 时（满墨起笔的 %.0f%%，含子弹流逝）：没命中已有神纹时，有 %.0f%% 概率点亮空碑" % [
-			cap * Game.BIND_ENERGY_RATIO, Game.BIND_ENERGY_RATIO * 100.0,
-			Game.BIND_CHANCE * 100.0]
+			cap * pc.bind_energy_ratio, pc.bind_energy_ratio * 100.0,
+			pc.bind_chance * 100.0]
 	elif px < SpellMatch.MIN_LEN:
 		warn = "笔画短于 %.0f px：不参与神纹判定，只出斩击" % SpellMatch.MIN_LEN
 	if warn != "":
