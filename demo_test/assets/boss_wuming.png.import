@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dptatjgj5yuvq"
-path="res://.godot/imported/enemy_fast.png-37622994b7d686c9c4614926a2b677d4.ctex"
+uid="uid://espu0jy0g5mx"
+path="res://.godot/imported/boss_wuming.png-d2feffe6a0d8f56ebf87dd24cdd5f340.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/enemy_fast.png"
-dest_files=["res://.godot/imported/enemy_fast.png-37622994b7d686c9c4614926a2b677d4.ctex"]
+source_file="res://assets/boss_wuming.png"
+dest_files=["res://.godot/imported/boss_wuming.png-d2feffe6a0d8f56ebf87dd24cdd5f340.ctex"]
 
 [params]
 

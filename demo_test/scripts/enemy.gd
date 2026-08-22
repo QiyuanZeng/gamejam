@@ -1,7 +1,7 @@
 class_name Enemy
 extends Node2D
-## 墨魉(blob 直追) / 疾影(fast 惯性过弯) / 磐妖(tank 厚血慢压)。
-## 速度统一乘 game.enemy_speed_factor()：DRAW 0.08 倍，DASH/BURST/REWIND 冻结。
+## 墨魉(blob 直追) / 疾影(fast 惯性过弯) / 磐妖(tank 厚血慢压) / 爆魉(boom 死亡连锁爆炸)。
+## 速度统一乘 game.enemy_speed_factor()（SPELL_DRAW 态由全局 time_scale 减速，因子为 1）。
 
 const RED := Color("#C0392B")
 
@@ -109,6 +109,11 @@ func _draw() -> void:
 	if cfg.type == "tank":
 		draw_circle(Vector2(r * 0.25, r * 0.15), r * 0.28, Color(base.r, base.g, base.b, a * 0.55))
 		draw_circle(Vector2(-r * 0.3, -r * 0.2), r * 0.18, Color(base.r, base.g, base.b, a * 0.45))
+	if cfg.type == "boom":
+		# 爆魉：核心朱砂脉冲（即将爆炸的危险感，占位美术）
+		var pulse := 0.5 + 0.5 * sin(game.sim_time * 9.0 + seed_v)
+		draw_circle(Vector2.ZERO, r * (0.30 + 0.12 * pulse),
+			Color(RED.r, RED.g, RED.b, a * (0.45 + 0.55 * pulse)))
 	# 朱砂红点眼（盯着玩家）
 	var eye_dir := Vector2.RIGHT
 	if game != null and game.player != null:
