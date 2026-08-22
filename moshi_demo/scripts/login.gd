@@ -50,7 +50,7 @@ func _build_background() -> void:
 	for tr: TextureRect in [bg_current, bg_next]:
 		tr.set_anchors_preset(Control.PRESET_FULL_RECT)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(tr)
 	bg_next.modulate.a = 0.0
