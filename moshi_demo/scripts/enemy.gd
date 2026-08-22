@@ -49,6 +49,11 @@ func setup(p_cfg: Dictionary, p_game, p_mat: ShaderMaterial) -> void:
 		sprite.texture = tex0
 		var s := float(cfg.tex_target) / float(maxf(tex0.get_width(), tex0.get_height()))
 		sprite.scale = Vector2(s, s)
+		if cfg.has("pivot_frac"):
+			# 美术包固定 pivot（如 crystal_sentinel 的脚底锚点 (0.5, 0.8125)）：锚点对齐节点原点
+			var pf: Vector2 = cfg.pivot_frac
+			sprite.centered = false
+			sprite.offset = Vector2(-pf.x * tex0.get_width(), -pf.y * tex0.get_height())
 		add_child(sprite)
 	elif texture != null:
 		sprite = Sprite2D.new()
@@ -64,15 +69,36 @@ func setup(p_cfg: Dictionary, p_game, p_mat: ShaderMaterial) -> void:
 			velocity = d.normalized() * float(cfg.speed) * 0.5
 
 func _load_anim(dir: String) -> void:
-	for state in ["idle", "move", "attack_thrust", "hit", "death"]:
+	# 目录自动发现：anim_dir 下每个子目录 = 一个动画状态（目录名任意，兼容
+	# shadow_mite / crystal_sentinel 等任意美术包命名）；状态目录内所有 .png
+	# 按文件名排序即帧序列，不依赖具体命名规则。effects 子目录跳过（特效另行接入）。
+	var d := DirAccess.open(dir)
+	if d == null:
+		return
+	d.list_dir_begin()
+	var states: Array[String] = []
+	var name := d.get_next()
+	while name != "":
+		if d.current_is_dir() and not name.begins_with(".") and name != "effects":
+			states.append(name)
+		name = d.get_next()
+	d.list_dir_end()
+	for state in states:
+		var sd := DirAccess.open(dir.path_join(state))
+		if sd == null:
+			continue
+		var files: Array[String] = []
+		sd.list_dir_begin()
+		var f := sd.get_next()
+		while f != "":
+			if f.get_extension().to_lower() == "png" and not f.begins_with("."):
+				files.append(f)
+			f = sd.get_next()
+		sd.list_dir_end()
+		files.sort()
 		var frames: Array[Texture2D] = []
-		var i := 0
-		while true:
-			var p := "%s%s/%s_%02d.png" % [dir, state, state, i]
-			if not ResourceLoader.exists(p):
-				break
-			frames.append(load(p))
-			i += 1
+		for f in files:
+			frames.append(load(dir.path_join(state).path_join(f)))
 		if not frames.is_empty():
 			anims[state] = frames
 
