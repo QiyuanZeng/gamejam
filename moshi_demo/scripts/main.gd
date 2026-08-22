@@ -9,11 +9,16 @@ enum State { PLAY, SPELL, DASH, BURST, REWIND, LAG, GAMEOVER }
 
 # ============================== §1 全局 ==============================
 
-const ARENA := Vector2(1152.0, 648.0)
+const ARENA := Vector2(3000.0, 3000.0)
 const RUN_LIMIT := 30.0
 const PLAYER_HP := 100.0
 const MAX_ENEMIES := 130
 const SPAWN_MARGIN := 26.0
+
+## 相机死区跟随（移植 proto/clock-swing）：死区内不动，超出 lerp 跟随，超出安全距离强制 snap
+const CAM_DEADZONE := 150.0
+const CAM_SAFE := 400.0
+const CAM_LERP := 15.0
 
 # ============================== §3 表盘 / 行动点 ==============================
 
@@ -29,7 +34,7 @@ const SLASH_MIN_GAP := 0.15
 const DIAL_RADIUS := 40.0
 
 const DASH_SPEED := 2400.0
-const DASH_RADIUS := 70.0
+const DASH_RADIUS := 140.0
 const DASH_DMG := 20.0
 const DASH_DIST_BASE := 260.0
 const DASH_DIST_CAP := 400.0
@@ -144,25 +149,25 @@ const RED := Color("#C0392B")
 const GREY := Color("#4A443C")
 
 const ENEMY_CFGS := {
-	"blob": {"type": "blob", "hp": 10.0, "speed": 60.0, "dmg": 8.0, "radius": 15.0,
+	"blob": {"type": "blob", "hp": 10.0, "speed": 60.0, "dmg": 8.0, "radius": 30.0,
 		"score": 10, "coin": 1, "tv": 8.0,
-		"tex_target": 42.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_blob.png"},
-	"fast": {"type": "fast", "hp": 6.0, "speed": 130.0, "dmg": 6.0, "radius": 11.0,
+		"tex_target": 84.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_blob.png"},
+	"fast": {"type": "fast", "hp": 6.0, "speed": 130.0, "dmg": 6.0, "radius": 22.0,
 		"score": 15, "coin": 1, "tv": 10.0,
-		"tex_target": 38.0, "color": Color("#4A443C"), "tex": "res://assets/enemy_fast.png"},
-	"tank": {"type": "tank", "hp": 40.0, "speed": 35.0, "dmg": 15.0, "radius": 27.0,
+		"tex_target": 76.0, "color": Color("#4A443C"), "tex": "res://assets/enemy_fast.png"},
+	"tank": {"type": "tank", "hp": 40.0, "speed": 35.0, "dmg": 15.0, "radius": 54.0,
 		"score": 40, "coin": 3, "tv": 25.0,
-		"tex_target": 86.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_tank.png"},
-	"bomber": {"type": "bomber", "hp": 8.0, "speed": 80.0, "dmg": 10.0, "radius": 13.0,
+		"tex_target": 172.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_tank.png"},
+	"bomber": {"type": "bomber", "hp": 8.0, "speed": 80.0, "dmg": 10.0, "radius": 26.0,
 		"score": 25, "coin": 2, "tv": 12.0,
-		"tex_target": 40.0, "color": Color("#8E3B2C"), "tex": "res://assets/enemy_bomber.png"},
-	"mite": {"type": "mite", "hp": 8.0, "speed": 115.0, "dmg": 7.0, "radius": 12.0,
+		"tex_target": 80.0, "color": Color("#8E3B2C"), "tex": "res://assets/enemy_bomber.png"},
+	"mite": {"type": "mite", "hp": 8.0, "speed": 115.0, "dmg": 7.0, "radius": 24.0,
 		"score": 15, "coin": 1, "tv": 10.0,
-		"tex_target": 44.0, "color": Color("#2A2A33"), "tex": "",
+		"tex_target": 88.0, "color": Color("#2A2A33"), "tex": "",
 		"anim_dir": "res://assets/art/enemies/shadow_mite/"},
-	"crystal": {"type": "tank", "hp": 40.0, "speed": 38.0, "dmg": 15.0, "radius": 24.0,
+	"crystal": {"type": "tank", "hp": 40.0, "speed": 38.0, "dmg": 15.0, "radius": 48.0,
 		"score": 45, "coin": 3, "tv": 26.0,
-		"tex_target": 80.0, "color": Color("#3D5A80"), "tex": "",
+		"tex_target": 160.0, "color": Color("#3D5A80"), "tex": "",
 		"anim_dir": "res://assets/art/enemies/crystal_sentinel/animations/",
 		"pivot_frac": Vector2(0.5, 0.875)},
 }
@@ -266,6 +271,7 @@ var hud: HUD
 var ink_editor: CanvasLayer
 var key_mat: ShaderMaterial
 var paper_tex: Texture2D
+var camera: Camera2D
 
 func _ready() -> void:
 	randomize()
@@ -291,6 +297,14 @@ func _ready() -> void:
 	player.hp = PLAYER_HP
 	player.position = ARENA * 0.5
 	add_child(player)
+	camera = Camera2D.new()
+	camera.position = player.position
+	camera.limit_left = 0
+	camera.limit_top = 0
+	camera.limit_right = int(ARENA.x)
+	camera.limit_bottom = int(ARENA.y)
+	add_child(camera)
+	camera.make_current()
 	hud = HUD.new()
 	hud.game = self
 	add_child(hud)
@@ -480,14 +494,26 @@ func _process(delta: float) -> void:
 			pass
 	if state == State.PLAY or state == State.SPELL or state == State.LAG:
 		_check_contact()
-		_separate()
+	_separate()
 	_update_status(delta, f)
 	if state != State.BURST:
 		_update_fx(delta)
 	_update_timers(delta)
 	if state != State.GAMEOVER and run_time >= RUN_LIMIT:
 		_settle()
+	_update_camera(delta)
 	_redraw_all()
+
+func _update_camera(delta: float) -> void:
+	if camera == null or player == null:
+		return
+	# 死区跟随：玩家在死区内相机不动（有位移感），超出 lerp 跟随；超安全距离强制 snap 防出框
+	var offset := player.position - camera.position
+	var dist := offset.length()
+	if dist > CAM_SAFE:
+		camera.position = player.position - offset.normalized() * CAM_SAFE
+	elif dist > CAM_DEADZONE:
+		camera.position = camera.position.lerp(player.position, minf(1.0, delta * CAM_LERP))
 
 func _redraw_all() -> void:
 	ink_layer.queue_redraw()
