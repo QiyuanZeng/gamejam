@@ -9,3 +9,5 @@ output /
 # 日志
 inktest_log.txt
 smoke_log.txt
+run*.log
+smoke_out*.txt

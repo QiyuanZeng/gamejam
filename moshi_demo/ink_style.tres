@@ -4,14 +4,20 @@
 
 [resource]
 script = ExtResource("1_ibs")
-width_start = 32.0
-width_end = 6.9
-width_taper = 1.8
-width_wobble_amp = 2.75
-width_wobble_freq = 42.0
+width_start = 2.0
+width_end = 5.7
+width_taper = 0.2
+width_wobble_amp = 0.0
+width_wobble_freq = 57.0
+body_alpha = 0.54
 halo_scale = 2.4
 halo_alpha = 0.48
-feibai_chance = 0.82
+edge_jitter = 0.38
+smooth_iters = 4
+feibai_chance = 0.16
+feibai_alpha = 0.25
 splatter_chance = 0.86
 tail_strands = 10
+tail_len_max = 11.0
 tail_spread = 1.05
+bleed_radius = 0.35

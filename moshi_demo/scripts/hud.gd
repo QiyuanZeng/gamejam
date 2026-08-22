@@ -59,8 +59,11 @@ func _paint(r: Control) -> void:
 	var tv_col := INK if not game.dry_pen else GREY
 	r.draw_rect(Rect2(20, 42, 220.0 * tv_f, 10), tv_col)
 	r.draw_rect(Rect2(20, 42, 220, 10), Color(0, 0, 0, 0.35), false, 1.0)
-	# 绑定阈值刻度（§5.3：单笔 ≥ 上限 60% 触发绑定）
-	var bx: float = 20.0 + 220.0 * game.BIND_THRESHOLD
+	# 觉醒线刻度：这一笔要烧掉起笔余额的 BIND_ENERGY_RATIO，条子掉到这条线以下才够格点亮空碑。
+	# 没在书写时按当下余额预演 —— 告诉玩家「现在起笔的话得画到哪儿」。
+	var base: float = game.draw_tv0 if game.state == game.State.SPELL else game.tv
+	var bx: float = 20.0 + 220.0 * clampf(
+		base * (1.0 - game.BIND_ENERGY_RATIO) / game.tv_max(), 0.0, 1.0)
 	r.draw_line(Vector2(bx, 40), Vector2(bx, 54), Color(RED.r, RED.g, RED.b, 0.6), 1.5)
 	_text(r, Vector2(244, 36), "时 %d" % int(game.tv), 13, GREY)
 	# —— 右上：倒计时 / 斩杀 / 得分 ——
@@ -123,13 +126,29 @@ func _paint(r: Control) -> void:
 	if game.state == game.State.LAG:
 		_text_center(r, w * 0.5, h * 0.60, "时滞 %.1f" % maxf(game.lag_timer, 0.0),
 			26, Color(RED.r, RED.g, RED.b, 0.85))
-	# —— 绑定盘 ——
+	# —— 觉醒选碑面板 ——
 	if game.bind_panel:
 		_paint_bind(r, w, h)
 	# —— 结算 ——
 	if game.state == game.State.GAMEOVER:
 		_paint_settle(r, w, h)
 
+## 觉醒面板：只列还空着的碑，序号就是要按的键。
+func _paint_bind(r: Control, w: float, h: float) -> void:
+	r.draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.045, 0.04, 0.72))
+	_text_center(r, w * 0.5, h * 0.24, "神纹觉醒", 48, PAPER)
+	_text_center(r, w * 0.5, h * 0.24 + 62.0,
+		"这一笔的纹路可刻上一块空碑 · 按序号选定并立即施展 · Esc 放弃（本局不可改）",
+		18, Color(0.78, 0.76, 0.71))
+	var blank: Array = game.blank_slots()
+	var y := h * 0.44
+	for i in blank.size():
+		var s: Dictionary = game.skills[int(blank[i])]
+		_text_center(r, w * 0.5, y, "%d · %s   冷却 %.0fs" % [
+			i + 1, String(s.name), float(s.cd)], 22, PAPER)
+		y += 34.0
+
+## 神纹录：古代神纹出生即亮，普通神纹要战斗中被长笔画点亮。
 func _paint_skills(r: Control, w: float, h: float) -> void:
 	var n: int = game.skills.size()
 	var cw := 118.0
@@ -141,7 +160,6 @@ func _paint_skills(r: Control, w: float, h: float) -> void:
 		var x := x0 + cw * float(i)
 		var bound: bool = bool(s.bound)
 		var cool: float = float(s.cd_left)
-		var afford: bool = game.tv >= float(s.tv)
 		var box := Rect2(x + 4.0, y, cw - 8.0, 40.0)
 		r.draw_rect(box, Color(0, 0, 0, 0.06))
 		r.draw_rect(box, Color(0, 0, 0, 0.22), false, 1.0)
@@ -152,28 +170,14 @@ func _paint_skills(r: Control, w: float, h: float) -> void:
 		var name_col := GREY
 		if not bound:
 			name_col = Color(GREY.r, GREY.g, GREY.b, 0.35)
-		elif cool <= 0.0 and afford:
+		elif cool <= 0.0:
 			name_col = INK
-		var label: String = String(s.name) if bound else "未绑 %d" % (i - 1)
-		_text_center(r, x + cw * 0.5, y + 4.0, label, 14, name_col)
-		var cost_col := Color(RED.r, RED.g, RED.b, 0.75) if not afford \
-			else Color(GREY.r, GREY.g, GREY.b, 0.75)
-		_text_center(r, x + cw * 0.5, y + 22.0, "时 %d" % int(s.tv), 12, cost_col)
-
-func _paint_bind(r: Control, w: float, h: float) -> void:
-	r.draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.045, 0.04, 0.72))
-	_text_center(r, w * 0.5, h * 0.26, "笔画绑定", 48, PAPER)
-	_text_center(r, w * 0.5, h * 0.26 + 62.0,
-		"按 1~6 选择要绑定的技能 · Esc 放弃（本局不可改）", 18, Color(0.78, 0.76, 0.71))
-	var y := h * 0.44
-	for i in range(2, game.skills.size()):
-		var s: Dictionary = game.skills[i]
-		var idx := i - 1
-		var col := PAPER if not bool(s.bound) else Color(0.5, 0.48, 0.45)
-		var tail := "" if not bool(s.bound) else "（已绑定）"
-		_text_center(r, w * 0.5, y, "%d · %s   时 %d   冷却 %.0fs%s" % [
-			idx, String(s.name), int(s.tv), float(s.cd), tail], 22, col)
-		y += 34.0
+		_text_center(r, x + cw * 0.5, y + 4.0, String(s.name) if bound else "空碑", 14, name_col)
+		var note := "古纹" if bool(s.ancient) else ("神纹" if bound else "待觉醒")
+		if cool > 0.0:
+			note = "%.1fs" % cool
+		_text_center(r, x + cw * 0.5, y + 22.0, note, 12,
+			Color(GREY.r, GREY.g, GREY.b, 0.75))
 
 func _paint_settle(r: Control, w: float, h: float) -> void:
 	r.draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.045, 0.04, 0.85))

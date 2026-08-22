@@ -13,9 +13,6 @@ var marked_until := -99.0 # 标记保留截止（时戳）
 var mark_stamp := -1      # 本标记所属的冲刺/回溯序号，防同一次反复叠加
 var velocity := Vector2.ZERO
 var spawn_left := 0.35    # 出生渐显期：不可伤害玩家
-var frozen_left := 0.0    # 冰冻咒语
-var burn_left := 0.0      # 灼烧刀痕
-var burn_dps := 0.0
 var seed_v := 0.0
 var dead := false
 var game
@@ -50,8 +47,6 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	var factor: float = game.enemy_speed_factor()
-	if frozen_left > 0.0:
-		factor = 0.0
 	if factor > 0.0:
 		var to_p: Vector2 = game.player.position - position
 		var d := to_p.length()

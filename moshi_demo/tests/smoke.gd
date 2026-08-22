@@ -49,16 +49,24 @@ func _process(delta: float) -> void:
 			g.last_slash = -99.0
 			var target: Vector2 = g.player.position + Vector2(0, -140)
 			_place_at(target)
-				g._input(_btn(MOUSE_BUTTON_LEFT, true))
-				_chk(g.state == g.State.DASH, "LMB -> dial dash")
-				_chk(abs(g.ap - 2.0) < 0.01, "AP cost 1, got %.2f" % g.ap)
-				_chk(g.dash_realtime, "LMB dash is realtime (no bullet time)")
-				_chk(g.enemy_speed_factor() == 1.0, "LMB dash enemy factor 1.0, got %.2f"
-					% g.enemy_speed_factor())
-				_chk(g.player.invuln > 0.0, "LMB dash player invulnerable")
+			g._input(_btn(MOUSE_BUTTON_LEFT, true))
+			_chk(g.state == g.State.DASH, "LMB -> dial dash")
+			_chk(abs(g.ap - 2.0) < 0.01, "AP cost 1, got %.2f" % g.ap)
+			_chk(g.dash_realtime, "LMB dash realtime (no bullet time)")
+			_chk(g.enemy_speed_factor() == 1.0,
+				"LMB dash enemy factor 1.0, got %.2f" % g.enemy_speed_factor())
+			_chk(g.player.invuln > 0.0, "LMB dash player invulnerable")
 			phase = 3
 			t = 0.0
 		3:
+			if g.state == g.State.BURST:
+				_chk(g.enemy_speed_factor() == 1.0,
+					"LMB burst keeps enemies moving, got %.2f" % g.enemy_speed_factor())
+				phase = 31
+			elif t > 5.0:
+				_chk(false, "dial dash never bursts, state %d" % g.state)
+				phase = 9
+		31:
 			if g.state == g.State.PLAY:
 				_chk(g.kills == 4, "dial slash kill, got %d" % g.kills)
 				phase = 4
@@ -66,30 +74,30 @@ func _process(delta: float) -> void:
 			elif t > 5.0:
 				_chk(false, "dial dash timeout at state %d" % g.state)
 				phase = 9
-			4:
-				var last: PackedVector2Array = g.rewind_hist[g.rewind_hist.size() - 1]
-				_chk(g.rewind_hist.size() == 2, "hist records LMB+RMB, got %d"
-					% g.rewind_hist.size())
-				rewind_origin = g.rewind_hist[0][0]
-				_place_at(g._point_along(last, 0.5))
-				_place_at(g._point_along(last, 0.8))
-				g.clock_charge = g.CLOCK_TIME
-				g._input(_key(KEY_R))
-				_chk(g.state == g.State.REWIND, "R -> REWIND")
-				_chk(g.clock_charge == 0.0, "rewind clears charge")
-				phase = 5
+		4:
+			var last: PackedVector2Array = g.rewind_hist[g.rewind_hist.size() - 1]
+			_chk(g.rewind_hist.size() == 2,
+				"hist records LMB+RMB, got %d" % g.rewind_hist.size())
+			rewind_origin = g.rewind_hist[0][0]
+			_place_at(g._point_along(last, 0.5))
+			_place_at(g._point_along(last, 0.8))
+			g.clock_charge = g.CLOCK_TIME
+			g._input(_key(KEY_R))
+			_chk(g.state == g.State.REWIND, "R -> REWIND")
+			_chk(g.clock_charge == 0.0, "rewind clears charge")
+			phase = 5
+			t = 0.0
+		5:
+			if g.state == g.State.PLAY:
+				_chk(g.kills == 6, "rewind kills 6, got %d" % g.kills)
+				_chk(g.player.position.distance_to(rewind_origin) < 1.0,
+					"player rewound to first path start %s, got %s"
+					% [rewind_origin, g.player.position])
+				phase = 6
 				t = 0.0
-			5:
-				if g.state == g.State.PLAY:
-					_chk(g.kills == 6, "rewind kills 6, got %d" % g.kills)
-					_chk(g.player.position.distance_to(rewind_origin) < 1.0,
-						"player rewound to first path start %s, got %s"
-						% [rewind_origin, g.player.position])
-					phase = 6
-					t = 0.0
-				elif t > 5.0:
-					_chk(false, "rewind timeout")
-					phase = 9
+			elif t > 5.0:
+				_chk(false, "rewind timeout")
+				phase = 9
 		6:
 			# F1 打开墨笔编辑器（编辑器延迟到帧末创建，防同事件秒关）
 			g._input(_key(KEY_F1))

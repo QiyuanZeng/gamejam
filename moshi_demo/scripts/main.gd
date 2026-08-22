@@ -54,51 +54,50 @@ const BULLET_FACTOR := 0.10       # AB §13：0.05 / 0.10 / 0.20
 const BULLET_TV_DRAIN := 30.0
 const BULLET_MIN_TIME := 0.2
 const BULLET_EXIT_TV := 10.0
-const BIND_THRESHOLD := 0.60      # AB §13：0.5 / 0.6 / 0.7
-const SPELL_MIN_LEN := 120.0
-const SPELL_DIR_SIM := 0.80
-const SPELL_SAMPLES := 9          # 重采样点数 → 8 段方向序列
+const BIND_ENERGY_RATIO := 0.70   # 点亮空碑的门槛：单笔要烧掉起笔时余额的这么多（含子弹流逝）
+const BIND_CHANCE := 0.50         # 达标后的触发概率（策划案原定 20%，实测太闷，提到一半）
+## 笔形识别（算法、阈值、神纹录）全部收在 SpellMatch，本文件直调，不做别名转发。
+## 释放不再另收墨钱 —— 时间之力只花在「描绘路径」上，画出来即生效。
 
 ## _try_cast 结果：未命中 / 已释放（斩击照常）/ 已释放且接管状态（如「时」直接进回溯）
 const CAST_NONE := 0
 const CAST_DONE := 1
 const CAST_TAKEOVER := 2
 
-## 固定咒语笔形（单笔近似）：「时」取方回起手，「斩」取斜劈 Z 形。
-static func fixed_stroke(id: String) -> PackedVector2Array:
-	match id:
-		"time":
-			return PackedVector2Array([
-				Vector2(0, 0), Vector2(58, 0), Vector2(58, 46), Vector2(8, 46), Vector2(8, 16)])
-		"zan":
-			return PackedVector2Array([
-				Vector2(0, 0), Vector2(62, 0), Vector2(6, 44), Vector2(66, 44)])
-	return PackedVector2Array()
-
-const SKILL_DEFS := [
-	{"id": "time", "name": "时·回溯", "fixed": true, "tv": 150.0, "cd": 10.0},
-	{"id": "zan", "name": "斩·万象", "fixed": true, "tv": 120.0, "cd": 8.0},
-	{"id": "chain", "name": "雷链", "fixed": false, "tv": 100.0, "cd": 6.0},
-	{"id": "burn", "name": "灼烧刀痕", "fixed": false, "tv": 110.0, "cd": 12.0},
-	{"id": "freeze", "name": "冰冻", "fixed": false, "tv": 130.0, "cd": 15.0},
-	{"id": "clone", "name": "分身", "fixed": false, "tv": 140.0, "cd": 12.0},
-	{"id": "shield", "name": "时盾", "fixed": false, "tv": 100.0, "cd": 20.0},
-	{"id": "blast", "name": "墨爆", "fixed": false, "tv": 120.0, "cd": 8.0},
-]
-
-const ZAN_DMG := 30.0
-const CHAIN_HOPS := 5
-const CHAIN_DMG := 15.0
-const CHAIN_RANGE := 220.0
-const BURN_SLASHES := 3
-const BURN_DPS := 6.0
-const BURN_TIME := 3.0
-const FREEZE_TIME := 2.0
-const CLONE_RATIO := 0.5
-const SHIELD_TIME := 5.0
-const BLAST_RADIUS := 220.0
-const BLAST_DMG := 40.0
-const BLAST_PUSH := 120.0
+# —— 七道神纹的效果参数 ——
+const THUNDER_BOLTS := 6          # 雷霆万钧：随机选中的落雷目标数
+const THUNDER_DMG := 20.0
+const THUNDER_RADIUS := 82.0      # 每道雷的溅射半径
+const QUAKE_WAVES := 6            # 山崩地裂：6 轮地震，跟着人物走
+const QUAKE_GAP := 0.5
+const QUAKE_RADIUS := 155.0
+const QUAKE_DMG := 12.0
+const ENT_COUNT := 4              # 妖木精灵：4 个树人自由攻击
+const ENT_LIFE := 12.0
+const ENT_SPEED := 155.0
+const ENT_REACH := 44.0
+const ENT_DMG := 10.0
+const ENT_GAP := 0.7
+const FLOOD_DIRS := 8             # 水漫金山：八向水浪
+const FLOOD_SPEED := 540.0
+const FLOOD_RANGE := 640.0
+const FLOOD_WIDTH := 34.0
+const FLOOD_DMG := 16.0
+const DOMAIN_TIME := 6.0          # 时间领域：原地驻留，持续伤害 + 回溯加速充能
+const DOMAIN_RADIUS := 195.0
+const DOMAIN_DPS := 14.0
+const DOMAIN_CHARGE := 2.0        # 站在领域内时钟表额外充能的倍率
+const SWORD_INNER := 6            # 无限剑阵：内外两圈落剑
+const SWORD_OUTER := 12
+const SWORD_R_IN := 115.0
+const SWORD_R_OUT := 245.0
+const SWORD_FALL := 0.4           # 单剑下落时间
+const SWORD_RADIUS := 58.0
+const SWORD_DMG := 22.0
+const ALPHA_HITS := 8             # 阿尔法突袭：消失期间的多段斩次数
+const ALPHA_GAP := 0.1
+const ALPHA_RADIUS := 265.0
+const ALPHA_DMG := 12.0
 
 # ============================== §6 怪物 ==============================
 
@@ -197,9 +196,17 @@ var rating := "C"
 var payout_coins := 0
 var payout_sand := 0
 var spawn_timer := 0.0
+var bind_chance := BIND_CHANCE     # 觉醒概率的运行时钩子：调参与测试改这个，常量留作策划基准
+## 觉醒时是否停下来让玩家挑碑。默认关 —— 触发即随机点亮一块空碑并当场施展，不打断战斗。
+## 打开则弹面板（战局定格，按 1~N 选碑、Esc 放弃）。
+var bind_pick_panel := false
+var bind_panel := false            # 觉醒选碑面板：开着时战局暂停，只收 1~6 与 Esc
+var bind_feat := {}                # 待刻上碑的笔形特征
+var bind_path := PackedVector2Array()   # 欠着的那一笔轨迹，选完碑再补斩击
 
 var ink_path := PackedVector2Array()
 var dry_pen := false
+var draw_tv0 := 0.0            # 起笔时的时间之力余额，觉醒门槛拿它当分母
 var path_alpha := 0.0
 var spell_timer := 0.0
 var dash_pts := PackedVector2Array()
@@ -217,16 +224,16 @@ var rewind_i := 0
 var rewind_d := 0.0
 
 var skills: Array = []
-var bind_panel := false
-var bind_feat := {}
-var bind_path := PackedVector2Array()
-var burn_charges := 0
-var burn_active := false
-var shield_t := 0.0
-var clones: Array = []
-var bolts: Array = []
-var blasts: Array = []
-var rings: Array = []
+var bolts: Array = []             # 雷霆万钧的电弧（纯演出）
+var blasts: Array = []            # 爆魈死亡连锁的待爆点
+var rings: Array = []             # 圆形冲击波（爆炸 / 落雷 / 地震 / 落剑共用）
+var quakes: Array = []            # 山崩地裂：{left, next} 跟随玩家
+var ents: Array = []              # 妖木精灵：{pos, life, cd, pw}
+var floods: Array = []            # 水漫金山：{org, dir, d, hit, pw}
+var domains: Array = []           # 时间领域：{pos, left, pw}
+var swords: Array = []            # 无限剑阵：{pos, t, pw}
+var alpha_left := 0               # 阿尔法突袭：剩余斩击段数
+var alpha_gap := 0.0
 
 var flash_t := 0.0
 var hit_flash := 0.0
@@ -255,6 +262,7 @@ var ink_layer: PaintLayer
 var fx_layer: PaintLayer
 var hud: HUD
 var ink_editor: CanvasLayer
+var spell_lab: CanvasLayer
 var key_mat: ShaderMaterial
 var paper_tex: Texture2D
 
@@ -293,19 +301,7 @@ func _make_layer(z: int) -> PaintLayer:
 	return l
 
 func _build_skills() -> void:
-	skills.clear()
-	for def in SKILL_DEFS:
-		var s := {
-			"id": def.id, "name": def.name, "fixed": bool(def.fixed),
-			"tv": float(def.tv), "cd": float(def.cd), "cd_left": 0.0,
-			"dirs": PackedVector2Array(), "turns": -1, "bound": false,
-		}
-		if bool(def.fixed):
-			var feat := _stroke_feature(fixed_stroke(String(def.id)))
-			s.dirs = feat.dirs
-			s.turns = int(feat.turns)
-			s.bound = true
-		skills.append(s)
+	skills = SpellMatch.build_skills()
 
 # ============================== 养成公式（§10） ==============================
 
@@ -372,6 +368,14 @@ func _input(event: InputEvent) -> void:
 		_toggle_editor()
 		get_viewport().set_input_as_handled()  # 吞掉本次按键：防同事件派发给新编辑器秒关
 		return
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F2:
+		_toggle_lab()
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F3:
+		_refill_tv()
+		get_viewport().set_input_as_handled()
+		return
 	if bind_panel:
 		if event is InputEventKey and event.pressed:
 			_bind_key(event.keycode)
@@ -423,6 +427,41 @@ func _on_editor_closed() -> void:
 	if state == State.SPELL:
 		_cancel_draw()  # 编辑器打开期间松开右键，笔画作废
 
+var _lab_pending := false
+
+func _toggle_lab() -> void:
+	if spell_lab != null or _lab_pending:
+		return
+	_lab_pending = true
+	call_deferred("_open_lab")
+
+func _open_lab() -> void:
+	_lab_pending = false
+	if spell_lab != null:
+		return
+	spell_lab = load("res://scenes/spell_lab.tscn").instantiate()
+	spell_lab.game = self
+	spell_lab.closed.connect(_on_lab_closed)
+	add_child(spell_lab)
+	get_tree().paused = true
+
+func _on_lab_closed() -> void:
+	spell_lab = null
+	get_tree().paused = false
+	if state == State.SPELL:
+		_cancel_draw()
+
+## F3 测试用：时间之力一键回满。写到一半按也认 —— 连带把起笔余额重记，
+## 否则「烧掉起笔余额七成」的账会算成负数，觉醒反而再也过不了闸。
+func _refill_tv() -> void:
+	tv = tv_max()
+	dry_pen = false
+	if state == State.SPELL:
+		draw_tv0 = tv
+	announce_text = "时间之力已回满"
+	announce_t = 1.2
+	AudioMgr.play("clock", 1.2, -6.0)
+
 func _clamped_mouse() -> Vector2:
 	var m := get_global_mouse_position()
 	return Vector2(
@@ -434,6 +473,7 @@ func _clamped_mouse() -> Vector2:
 func _process(delta: float) -> void:
 	sim_time += delta
 	if bind_panel:
+		# 选碑期间战局定格：只跑计时与重绘，怪不动、时间不流逝
 		_update_timers(delta)
 		_redraw_all()
 		return
@@ -518,6 +558,7 @@ func _begin_draw() -> void:
 		return
 	state = State.SPELL
 	dry_pen = false
+	draw_tv0 = tv          # 记下起笔时的家底：觉醒门槛按「这一笔烧掉手头的几成」算
 	path_alpha = 1.0
 	spell_timer = 0.0
 	ink_path = PackedVector2Array()
@@ -561,109 +602,96 @@ func _end_draw() -> void:
 	if path.size() < 2:
 		ink_path = PackedVector2Array()
 		return
-	var feat := _stroke_feature(path)
-	var cast := _try_cast(feat)
-	if cast == CAST_TAKEOVER:
-		ink_path = PackedVector2Array()
+	var feat := SpellMatch.feature(path)
+	# 一次比对定全局：命中就放最像的那道；没命中且这笔够长够独特，才轮到点亮空碑
+	var hit := SpellMatch.best_match(feat, skills)
+	if int(hit.i) >= 0:
+		if _fire(skills[int(hit.i)]) == CAST_TAKEOVER:
+			ink_path = PackedVector2Array()
+			return
+		_begin_dash(path)
 		return
-	if cast == CAST_NONE \
-			and float(feat.get("px", 0.0)) >= tv_max() * BIND_THRESHOLD and _has_unbound():
-		bind_feat = feat
-		bind_path = path
-		bind_panel = true
-		return
+	if _try_awaken(feat, float(hit.top), path):
+		return                    # 选碑面板已弹出，斩击等玩家选完再走
 	_begin_dash(path)
 
-# ============================== §5.3 咒语识别与绑定 ==============================
+# ============================== §5.3 神纹判定与激活 ==============================
 
-func _stroke_feature(path: PackedVector2Array) -> Dictionary:
-	if path.size() < 2:
-		return {}
-	var total := 0.0
-	for i in path.size() - 1:
-		total += path[i].distance_to(path[i + 1])
-	if total < 1.0:
-		return {}
-	var dirs := PackedVector2Array()
-	var prev := _point_along(path, 0.0)
-	for i in range(1, SPELL_SAMPLES):
-		var p := _point_along(path, float(i) / float(SPELL_SAMPLES - 1))
-		var d := p - prev
-		dirs.append(d.normalized() if d.length() > 0.001 else Vector2.RIGHT)
-		prev = p
-	var turns := 0
-	for i in range(1, dirs.size()):
-		if dirs[i].dot(dirs[i - 1]) < 0.5:
-			turns += 1
-	return {"dirs": dirs, "turns": turns, "px": total}
+## 命中已激活的神纹 → 直接释放。释放本身不收墨钱，只走冷却。
+## 返回 CAST_DONE（斩击照常）/ CAST_TAKEOVER（如「时」直接接管进回溯）。
+func _fire(s: Dictionary) -> int:
+	s.cd_left = float(s.cd)
+	zan_t = 0.5
+	zan_red = true
+	zan_text = String(s.name).split("·")[0]
+	AudioMgr.play("burst", 1.1, -6.0)
+	return CAST_TAKEOVER if _cast(String(s.id)) else CAST_DONE
 
-func _stroke_match(feat: Dictionary, skill: Dictionary) -> bool:
-	if feat.is_empty() or not bool(skill.bound):
-		return false
-	if float(feat.px) < SPELL_MIN_LEN:
-		return false
-	if absi(int(feat.turns) - int(skill.turns)) > 1:
-		return false
-	var a: PackedVector2Array = feat.dirs
-	var b: PackedVector2Array = skill.dirs
-	if a.size() != b.size() or a.is_empty():
-		return false
-	var sim := 0.0
-	for i in a.size():
-		sim += a[i].dot(b[i])
-	return sim / float(a.size()) >= SPELL_DIR_SIM
+## 神纹录里还空着的碑位下标，按表内顺序。面板的 1~N 就是照这个列表点名的。
+func blank_slots() -> Array:
+	var out: Array = []
+	for i in skills.size():
+		if not bool(skills[i].bound):
+			out.append(i)
+	return out
 
-func _has_unbound() -> bool:
-	for s in skills:
-		if not bool(s.bound):
-			return true
-	return false
+## 尝试点亮空碑。五道闸全过才算觉醒：
+##   ① 这一笔够长（至少够得着识别门槛），不然墨快空时随手一点也算觉醒；
+##   ② 这一笔烧掉起笔时手头时间之力的 BIND_ENERGY_RATIO 以上；
+##   ③ 没命中任何已激活的神纹（调用方保证）；
+##   ④ 跟已激活的神纹都不像（最高相似度 top < BIND_MAX_SIM）；
+##   ⑤ 掷骰过 bind_chance。
+## 闸 ② 的分母是**起笔时的余额**而不是 tv_max：墨本来就没满时，玩家画到笔干也
+## 凑不满上限的七成，按上限卡等于「TV 不满就永远不可能觉醒」。
+## 过闸后按 bind_pick_panel 分岔：默认随机挑一块空碑直接绑；开了开关才停下来让玩家选。
+func _try_awaken(feat: Dictionary, top: float, path: PackedVector2Array) -> bool:
+	if feat.is_empty() or float(feat.get("px", 0.0)) < SpellMatch.MIN_LEN:
+		return false
+	if draw_tv0 - tv < draw_tv0 * BIND_ENERGY_RATIO:
+		return false
+	if top >= SpellMatch.BIND_MAX_SIM:
+		return false
+	var blank := blank_slots()
+	if blank.is_empty() or randf() >= bind_chance:
+		return false
+	bind_feat = feat
+	bind_path = path
+	AudioMgr.play("clock", 1.1, -4.0)
+	if bind_pick_panel:
+		bind_panel = true
+		return true
+	_bind_slot(int(blank[randi() % blank.size()]))
+	return true
 
+## 面板选碑：1~N 对应 blank_slots() 的第几块空碑，Esc 放弃。
 func _bind_key(code: int) -> void:
 	if code == KEY_ESCAPE:
 		_close_bind()
 		return
 	var idx := code - KEY_1
-	if idx < 0 or idx > 5:
+	var blank := blank_slots()
+	if idx < 0 or idx >= blank.size():
 		return
-	var s: Dictionary = skills[idx + 2]
-	if bool(s.bound):
-		return
-	s.dirs = bind_feat.dirs
-	s.turns = int(bind_feat.turns)
-	s.bound = true
-	announce_text = "已绑定 · %s" % String(s.name)
-	announce_t = 1.6
-	AudioMgr.play("clock", 1.1, -4.0)
-	_close_bind()
+	_bind_slot(int(blank[idx]))
 
-func _close_bind() -> void:
+## 把待绑的笔形刻上第 i 块碑，并当场把该技能放出来 —— 觉醒那一笔本身就是一次施法。
+func _bind_slot(i: int) -> void:
+	var s: Dictionary = skills[i]
+	s.cloud = bind_feat.cloud
+	s.bound = true
+	announce_text = "神纹觉醒 · %s" % String(s.name)
+	announce_t = 1.8
+	_close_bind(_fire(s) == CAST_TAKEOVER)
+
+## 关盘并把欠着的那次斩击补上（除非刚才的技能已经接管了状态，比如「时」进回溯）。
+func _close_bind(takeover := false) -> void:
 	bind_panel = false
 	var path := bind_path
 	bind_path = PackedVector2Array()
 	bind_feat = {}
-	if path.size() >= 2:
+	ink_path = PackedVector2Array()
+	if not takeover and path.size() >= 2:
 		_begin_dash(path)
-
-## 返回值：CAST_NONE 未命中 / CAST_DONE 已释放（斩击照常）/ CAST_TAKEOVER 已释放且接管状态。
-func _try_cast(feat: Dictionary) -> int:
-	if feat.is_empty():
-		return CAST_NONE
-	for s in skills:
-		if not bool(s.bound) or float(s.cd_left) > 0.0:
-			continue
-		if float(s.tv) > tv:
-			continue
-		if not _stroke_match(feat, s):
-			continue
-		tv = maxf(tv - float(s.tv), 0.0)
-		s.cd_left = float(s.cd)
-		zan_t = 0.5
-		zan_red = true
-		zan_text = String(s.name).split("·")[0]
-		AudioMgr.play("burst", 1.1, -6.0)
-		return CAST_TAKEOVER if _cast(String(s.id)) else CAST_DONE
-	return CAST_NONE
 
 func _cast(id: String) -> bool:
 	var pw := skill_power()
@@ -673,61 +701,61 @@ func _cast(id: String) -> bool:
 				return false
 			_begin_rewind()
 			return true
-		"zan":
-			for e in enemies.duplicate():
-				_damage(e, ZAN_DMG * pw, true, "normal")
-			flash_t = FLASH_TIME
-			_shake(SHAKE_BURST, SHAKE_BURST_TIME)
-		"chain":
-			_cast_chain(pw)
-		"burn":
-			burn_charges = BURN_SLASHES
-		"freeze":
-			for e in enemies:
-				e.frozen_left = FREEZE_TIME * pw
-		"clone":
-			if not rewind_hist.is_empty():
-				clones.append({
-					"path": rewind_hist[rewind_hist.size() - 1], "d": 0.0,
-					"pos": player.position, "hit": {}, "pw": pw,
+		"thunder":
+			_cast_thunder(pw)
+		"quake":
+			quakes.append({"left": QUAKE_WAVES, "next": 0.0, "pw": pw})
+		"ent":
+			for i in ENT_COUNT:
+				var a := TAU * float(i) / float(ENT_COUNT) + randf()
+				ents.append({
+					"pos": player.position + Vector2(cos(a), sin(a)) * 46.0,
+					"life": ENT_LIFE, "cd": 0.0, "pw": pw,
 				})
-		"shield":
-			shield_t = SHIELD_TIME * pw
-		"blast":
-			_cast_blast(pw)
+		"flood":
+			for i in FLOOD_DIRS:
+				var a := TAU * float(i) / float(FLOOD_DIRS)
+				floods.append({
+					"org": player.position, "dir": Vector2(cos(a), sin(a)),
+					"d": 0.0, "hit": {}, "pw": pw,
+				})
+		"domain":
+			domains.append({"pos": player.position, "left": DOMAIN_TIME, "pw": pw})
+		"swords":
+			_cast_swords(pw)
+		"alpha":
+			alpha_left = ALPHA_HITS
+			alpha_gap = 0.0
+			player.visible = false   # 施法瞬间就该消失，别等下一帧 _update_alpha 才隐身
+			player.invuln = maxf(player.invuln, float(ALPHA_HITS) * ALPHA_GAP + 0.1)
 	return false
 
-func _cast_chain(pw: float) -> void:
-	var src := player.position
-	var hit := {}
-	for _i in CHAIN_HOPS:
-		var best: Enemy = null
-		var best_d := CHAIN_RANGE
-		for e in enemies:
-			if e.dead or hit.has(e.get_instance_id()):
-				continue
-			var d := e.position.distance_to(src)
-			if d <= best_d:
-				best_d = d
-				best = e
-		if best == null:
-			return
-		hit[best.get_instance_id()] = true
-		bolts.append({"a": src, "b": best.position, "t": 0.0})
-		src = best.position
-		_damage(best, CHAIN_DMG * pw, true, "normal")
+## 雷霆万钧：随机挑几个倒霉蛋劈下去，每道雷连带炸伤它周围一小片。
+func _cast_thunder(pw: float) -> void:
+	var pool := enemies.filter(func(e): return not e.dead)
+	pool.shuffle()
+	for i in mini(THUNDER_BOLTS, pool.size()):
+		var target: Enemy = pool[i]
+		var pos: Vector2 = target.position
+		bolts.append({"a": pos + Vector2(randf_range(-30.0, 30.0), -260.0), "b": pos, "t": 0.0})
+		rings.append({"pos": pos, "r": THUNDER_RADIUS, "t": 0.0})
+		for e in enemies.duplicate():
+			if not e.dead and e.position.distance_to(pos) <= THUNDER_RADIUS + float(e.cfg.radius):
+				_damage(e, THUNDER_DMG * pw, true, "normal")
+	if not pool.is_empty():
+		_shake(SHAKE_BURST, SHAKE_BURST_TIME)
 
-func _cast_blast(pw: float) -> void:
-	rings.append({"pos": player.position, "r": BLAST_RADIUS, "t": 0.0})
-	for e in enemies.duplicate():
-		if e.dead:
-			continue
-		var off: Vector2 = e.position - player.position
-		if off.length() <= BLAST_RADIUS:
-			if off.length() > 1.0:
-				e.position += off.normalized() * BLAST_PUSH
-			_damage(e, BLAST_DMG * pw, true, "normal")
-	_shake(SHAKE_BURST, SHAKE_BURST_TIME)
+## 无限剑阵：内外两圈剑位，外圈起手晚半拍，落下时各自砸一个圆。
+func _cast_swords(pw: float) -> void:
+	var base := player.position
+	for ring in [[SWORD_INNER, SWORD_R_IN, 0.0], [SWORD_OUTER, SWORD_R_OUT, 0.18]]:
+		var n := int(ring[0])
+		for i in n:
+			var a := TAU * float(i) / float(n) + randf() * 0.2
+			swords.append({
+				"pos": base + Vector2(cos(a), sin(a)) * float(ring[1]),
+				"t": -float(ring[2]), "pw": pw,
+			})
 
 # ============================== DASH 冲刺 ==============================
 
@@ -749,9 +777,6 @@ func _begin_dash(path: PackedVector2Array, realtime := false) -> void:
 	trail.clear()
 	trail_acc = TRAIL_INTERVAL
 	player.invuln = 999.0
-	burn_active = burn_charges > 0
-	if burn_active:
-		burn_charges -= 1
 	AudioMgr.play("dash", 1.0, -4.0)
 	# §4 回溯记录：左键 / 右键每一次实际行进轨迹（含出发点）都入栈
 	rewind_hist.append(dash_pts.duplicate())
@@ -796,9 +821,6 @@ func _mark_enemies_at(pos: Vector2, dmg: float) -> void:
 		if e.position.distance_to(pos) <= dash_radius() + float(e.cfg.radius):
 			if e.mark_stamp != dash_stamp:
 				e.try_mark(sim_time, dash_stamp, dmg)
-				if burn_active:
-					e.burn_left = BURN_TIME
-					e.burn_dps = BURN_DPS * skill_power()
 				AudioMgr.play("mark", randf_range(0.95, 1.15), -18.0)
 
 func _spawn_trail(delta: float) -> void:
@@ -813,7 +835,6 @@ func _begin_burst(is_rewind: bool) -> void:
 	state = State.BURST
 	burst_timer = BURST_FREEZE
 	burst_rewind = is_rewind
-	burn_active = false
 
 func _update_burst(delta: float) -> void:
 	burst_timer -= delta
@@ -954,41 +975,144 @@ func _blast_at(pos: Vector2) -> void:
 			"life": 0.0, "max": randf_range(0.25, 0.5), "col": RED, "r": randf_range(3.0, 7.0),
 		})
 
-# ============================== 持续状态：灼烧 / 冰冻 / 分身 ==============================
+# ============================== 神纹驻场效果 ==============================
 
 func _update_status(delta: float, f: float) -> void:
-	if shield_t > 0.0:
-		shield_t = maxf(shield_t - delta, 0.0)
 	for s in skills:
 		if float(s.cd_left) > 0.0:
 			s.cd_left = maxf(float(s.cd_left) - delta, 0.0)
-	for e in enemies.duplicate():
+	_update_blasts(delta)
+	_update_quakes(delta)
+	_update_ents(delta, f)
+	_update_floods(delta)
+	_update_domains(delta)
+	_update_swords(delta)
+	_update_alpha(delta)
+
+## 山崩地裂：6 轮，每 0.5s 一轮，震源始终在玩家脚下。
+func _update_quakes(delta: float) -> void:
+	if quakes.is_empty():
+		return
+	for q in quakes:
+		q.next -= delta
+		if q.next > 0.0:
+			continue
+		q.next = QUAKE_GAP
+		q.left = int(q.left) - 1
+		var pos: Vector2 = player.position
+		rings.append({"pos": pos, "r": QUAKE_RADIUS, "t": 0.0})
+		_shake(SHAKE_DASH, SHAKE_DASH_TIME)
+		for e in enemies.duplicate():
+			if not e.dead and e.position.distance_to(pos) <= QUAKE_RADIUS + float(e.cfg.radius):
+				_damage(e, QUAKE_DMG * float(q.pw), true, "normal")
+	quakes = quakes.filter(func(x): return int(x.left) > 0)
+
+## 妖木精灵：自由行动，各自扑最近的敌人，够近就砍一下。
+func _update_ents(delta: float, f: float) -> void:
+	if ents.is_empty():
+		return
+	for t in ents:
+		t.life = float(t.life) - delta
+		t.cd = maxf(float(t.cd) - delta, 0.0)
+		var prey := _nearest_enemy(t.pos, 99999.0)
+		if prey == null:
+			continue
+		var off: Vector2 = prey.position - t.pos
+		var reach: float = ENT_REACH + float(prey.cfg.radius)
+		if off.length() > reach:
+			t.pos = t.pos + off.normalized() * ENT_SPEED * delta * maxf(f, 0.15)
+		elif float(t.cd) <= 0.0:
+			t.cd = ENT_GAP
+			_damage(prey, ENT_DMG * float(t.pw), false, "normal")
+	ents = ents.filter(func(x): return float(x.life) > 0.0)
+
+## 水漫金山：八道浪从释放点向外推，每道浪对同一个目标只打一次。
+func _update_floods(delta: float) -> void:
+	if floods.is_empty():
+		return
+	for w in floods:
+		var prev: float = float(w.d)
+		w.d = prev + FLOOD_SPEED * delta
+		for e in enemies.duplicate():
+			if e.dead or w.hit.has(e.get_instance_id()):
+				continue
+			var off: Vector2 = e.position - w.org
+			var along: float = off.dot(w.dir)
+			if along < prev or along > float(w.d):
+				continue
+			if absf(off.cross(w.dir)) > FLOOD_WIDTH + float(e.cfg.radius):
+				continue
+			w.hit[e.get_instance_id()] = true
+			_damage(e, FLOOD_DMG * float(w.pw), true, "normal")
+	floods = floods.filter(func(x): return float(x.d) < FLOOD_RANGE)
+
+## 时间领域：领域内持续掉血；玩家站在里面时钟表额外充能（回溯来得更快）。
+func _update_domains(delta: float) -> void:
+	if domains.is_empty():
+		return
+	for d in domains:
+		d.left = float(d.left) - delta
+		for e in enemies.duplicate():
+			if e.dead:
+				continue
+			if e.position.distance_to(d.pos) <= DOMAIN_RADIUS + float(e.cfg.radius):
+				e.hp -= DOMAIN_DPS * float(d.pw) * delta
+				if e.hp <= 0.0:
+					_kill_enemy(e, "normal")
+		if player.position.distance_to(d.pos) <= DOMAIN_RADIUS and clock_charge < CLOCK_TIME:
+			clock_charge = minf(clock_charge + delta * (DOMAIN_CHARGE - 1.0), CLOCK_TIME)
+	domains = domains.filter(func(x): return float(x.left) > 0.0)
+
+## 无限剑阵：内圈先落外圈后落，剑尖着地砸一个圆。
+func _update_swords(delta: float) -> void:
+	if swords.is_empty():
+		return
+	for s in swords:
+		var prev: float = float(s.t)
+		s.t = prev + delta
+		if prev >= SWORD_FALL or float(s.t) < SWORD_FALL:
+			continue
+		rings.append({"pos": s.pos, "r": SWORD_RADIUS, "t": 0.0})
+		for e in enemies.duplicate():
+			if not e.dead and e.position.distance_to(s.pos) <= SWORD_RADIUS + float(e.cfg.radius):
+				_damage(e, SWORD_DMG * float(s.pw), true, "normal")
+	swords = swords.filter(func(x): return float(x.t) < SWORD_FALL + 0.2)
+
+## 阿尔法突袭：玩家隐去无法被选中，每 ALPHA_GAP 秒对范围内随机一人补一刀。
+func _update_alpha(delta: float) -> void:
+	if alpha_left <= 0:
+		if not player.visible:
+			player.visible = true
+		return
+	player.visible = false
+	player.invuln = maxf(player.invuln, 0.2)
+	alpha_gap -= delta
+	if alpha_gap > 0.0:
+		return
+	alpha_gap = ALPHA_GAP
+	alpha_left -= 1
+	var prey := _nearest_enemy(player.position + Vector2(
+		randf_range(-ALPHA_RADIUS, ALPHA_RADIUS),
+		randf_range(-ALPHA_RADIUS, ALPHA_RADIUS)), ALPHA_RADIUS)
+	if prey == null:
+		return
+	ghost_trail.append({"pos": prey.position, "t": 0.0})
+	_damage(prey, ALPHA_DMG * skill_power(), true, "normal")
+	if alpha_left <= 0:
+		player.visible = true
+		_shake(SHAKE_BURST, SHAKE_BURST_TIME)
+
+func _nearest_enemy(from: Vector2, limit: float) -> Enemy:
+	var best: Enemy = null
+	var best_d := limit
+	for e in enemies:
 		if e.dead:
 			continue
-		if e.frozen_left > 0.0:
-			e.frozen_left = maxf(e.frozen_left - delta * f, 0.0)
-		if e.burn_left > 0.0:
-			e.burn_left = maxf(e.burn_left - delta * f, 0.0)
-			e.hp -= e.burn_dps * delta * f
-			if e.hp <= 0.0:
-				_kill_enemy(e, "normal")
-	_update_blasts(delta)
-	_update_clones(delta)
-
-func _update_clones(delta: float) -> void:
-	if clones.is_empty():
-		return
-	for c in clones:
-		c.d += delta / REWIND_PATH_TIME
-		var pos: Vector2 = _point_along(c.path, clampf(c.d, 0.0, 1.0))
-		c.pos = pos
-		for e in enemies.duplicate():
-			if e.dead or c.hit.has(e.get_instance_id()):
-				continue
-			if e.position.distance_to(pos) <= dash_radius() + float(e.cfg.radius):
-				c.hit[e.get_instance_id()] = true
-				_damage(e, DASH_DMG * CLONE_RATIO * float(c.pw), true, "normal")
-	clones = clones.filter(func(x): return x.d < 1.0)
+		var d := e.position.distance_to(from)
+		if d <= best_d:
+			best_d = d
+			best = e
+	return best
 
 # ============================== REWIND 回溯 ==============================
 
@@ -1038,30 +1162,14 @@ func _update_rewind(delta: float) -> void:
 		rewind_d = 0.0
 
 func _point_along(path: PackedVector2Array, t: float) -> Vector2:
-	if path.size() == 0:
+	if path.is_empty():
 		return player.position
-	if path.size() == 1:
-		return path[0]
-	var total := 0.0
-	for i in path.size() - 1:
-		total += path[i].distance_to(path[i + 1])
-	if total <= 0.0:
-		return path[0]
-	var target := total * t
-	var acc := 0.0
-	for i in path.size() - 1:
-		var seg := path[i].distance_to(path[i + 1])
-		if seg <= 0.0:
-			continue
-		if acc + seg >= target:
-			return path[i].lerp(path[i + 1], (target - acc) / seg)
-		acc += seg
-	return path[path.size() - 1]
+	return SpellMatch.point_along(path, t)
 
 # ============================== §8 受击 / 时滞 ==============================
 
 func _check_contact() -> void:
-	if player.invuln > 0.0 or shield_t > 0.0:
+	if player.invuln > 0.0:
 		return
 	for e in enemies:
 		if e.dead or e.spawn_left > 0.0:
@@ -1260,8 +1368,6 @@ func _paint_fx(l: PaintLayer) -> void:
 	for g in ghost_trail:
 		var k2: float = 1.0 - g.t / TRAIL_FADE
 		_draw_silhouette(l, g.pos, k2 * 0.55, RED)
-	for c in clones:
-		_draw_silhouette(l, c.pos, 0.5, RED)
 	for p in particles:
 		var k3: float = 1.0 - p.life / p.max
 		var c2: Color = p.col
@@ -1274,6 +1380,7 @@ func _paint_fx(l: PaintLayer) -> void:
 		var ra: float = clampf(1.0 - r.t / 0.35, 0.0, 1.0)
 		l.draw_arc(r.pos, float(r.r) * (0.4 + 0.6 * (1.0 - ra)), 0.0, TAU, 48,
 			Color(RED.r, RED.g, RED.b, ra * 0.7), 3.0)
+	_paint_spells(l)
 	# 被标记怪：红痕 + 红环
 	for e in enemies:
 		if e.is_marked(sim_time):
@@ -1285,13 +1392,37 @@ func _paint_fx(l: PaintLayer) -> void:
 			l.draw_line(e.position + dir2 * r2 * 0.9, e.position - dir2 * r2 * 0.9, c3, 2.0)
 			l.draw_arc(e.position, r2 + 5.0, 0.0, TAU, 24,
 				Color(RED.r, RED.g, RED.b, 0.35), 1.5)
-		if e.frozen_left > 0.0:
-			l.draw_arc(e.position, float(e.cfg.radius) + 5.0, 0.0, TAU, 20,
-				Color(0.35, 0.5, 0.62, 0.75), 2.0)
-		if e.burn_left > 0.0:
-			l.draw_arc(e.position, float(e.cfg.radius) + 3.0, 0.0, TAU, 16,
-				Color(0.78, 0.35, 0.16, 0.7), 2.0)
 	_paint_dial(l)
+
+## 神纹驻场物：树人、水浪、时之领域、悬空待落的剑。
+func _paint_spells(l: PaintLayer) -> void:
+	for t in ents:
+		var a: float = clampf(float(t.life) / 1.5, 0.0, 1.0)
+		_draw_silhouette(l, t.pos, a * 0.55, GREY)
+		l.draw_arc(t.pos, 16.0, 0.0, TAU, 16, Color(0.32, 0.44, 0.24, a * 0.8), 2.0)
+	for w in floods:
+		var wa: float = clampf(1.0 - float(w.d) / FLOOD_RANGE, 0.0, 1.0)
+		var head: Vector2 = w.org + w.dir * float(w.d)
+		var perp: Vector2 = Vector2(-w.dir.y, w.dir.x) * FLOOD_WIDTH
+		l.draw_line(head - perp, head + perp, Color(0.28, 0.42, 0.55, wa * 0.85), 5.0)
+		l.draw_line(head - perp * 0.5 - w.dir * 26.0, head + perp * 0.5 - w.dir * 26.0,
+			Color(0.28, 0.42, 0.55, wa * 0.4), 3.0)
+	for d in domains:
+		var da: float = clampf(float(d.left) / DOMAIN_TIME, 0.0, 1.0)
+		l.draw_circle(d.pos, DOMAIN_RADIUS, Color(RED.r, RED.g, RED.b, 0.05 * da))
+		l.draw_arc(d.pos, DOMAIN_RADIUS, 0.0, TAU, 64,
+			Color(RED.r, RED.g, RED.b, 0.3 + 0.25 * da), 2.5)
+		l.draw_arc(d.pos, DOMAIN_RADIUS * (0.3 + 0.7 * fmod(sim_time, 1.0)), 0.0, TAU, 48,
+			Color(RED.r, RED.g, RED.b, 0.18 * da), 1.5)
+	for s in swords:
+		var t2: float = float(s.t)
+		if t2 >= SWORD_FALL:
+			continue
+		var k: float = clampf(t2 / SWORD_FALL, 0.0, 1.0)
+		var tip: Vector2 = s.pos + Vector2(0.0, -300.0 * (1.0 - k))
+		l.draw_line(tip + Vector2(0, -30), tip, Color(INK.r, INK.g, INK.b, 0.85), 3.0)
+		l.draw_arc(s.pos, SWORD_RADIUS * k, 0.0, TAU, 24,
+			Color(GREY.r, GREY.g, GREY.b, 0.25), 1.0)
 
 ## §11 地面表盘 + 头顶 AP 点（世界内 UI，不进 HUD）
 func _paint_dial(l: PaintLayer) -> void:
@@ -1330,9 +1461,6 @@ func _paint_dial(l: PaintLayer) -> void:
 			l.draw_circle(p, 4.0, Color(INK.r, INK.g, INK.b, 0.9))
 		else:
 			l.draw_arc(p, 4.0, 0.0, TAU, 12, Color(GREY.r, GREY.g, GREY.b, 0.5), 1.0)
-	if shield_t > 0.0:
-		l.draw_arc(c, DIAL_RADIUS + 8.0, 0.0, TAU, 40,
-			Color(RED.r, RED.g, RED.b, 0.35 + 0.2 * sin(sim_time * 8.0)), 3.0)
 
 func _draw_silhouette(l: PaintLayer, pos: Vector2, alpha: float, col: Color) -> void:
 	var c := Color(col.r, col.g, col.b, alpha)
