@@ -38,6 +38,8 @@ func _paint(r: Control) -> void:
 	# —— 全屏调子 ——
 	if game.state == game.State.DRAW:
 		r.draw_rect(Rect2(0, 0, w, h), Color(0, 0, 0, 0.05))
+	if game.state == game.State.SPELL_DRAW:
+		r.draw_rect(Rect2(0, 0, w, h), Color(0.32, 0.68, 0.62, 0.04))
 	if game.state == game.State.REWIND:
 		r.draw_rect(Rect2(0, 0, w, h), Color(0.75, 0.22, 0.17, 0.12))
 	if game.flash_t > 0.0:
@@ -58,9 +60,18 @@ func _paint(r: Control) -> void:
 	r.draw_rect(Rect2(20, 42, 220.0 * ink_f, 10), ink_col)
 	r.draw_rect(Rect2(20, 42, 220, 10), Color(0, 0, 0, 0.35), false, 1.0)
 	_text(r, Vector2(244, 36), "墨", 13, GREY)
-	# —— 右上：波次 / 斩杀 / 时间 ——
-	var stat := "波 %d    斩 %d    %s" % [game.wave_idx, game.kills, _fmt(game.run_time)]
-	_text(r, Vector2(w - 20.0, 14), stat, 18, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 320.0)
+	# —— 时间值 TV 条（施法资源，淡青） ——
+	var tv_f: float = clampf(game.time_value / game.TIME_VALUE_MAX, 0.0, 1.0)
+	r.draw_rect(Rect2(20, 62, 220, 10), Color(0, 0, 0, 0.10))
+	var tv_col := Color(0.32, 0.68, 0.62)
+	if game.time_value < game.TV_MIN_CAST:
+		tv_col = Color(0.32, 0.68, 0.62, 0.45 + 0.4 * absf(sin(game.sim_time * 8.0)))
+	r.draw_rect(Rect2(20, 62, 220.0 * tv_f, 10), tv_col)
+	r.draw_rect(Rect2(20, 62, 220, 10), Color(0, 0, 0, 0.35), false, 1.0)
+	_text(r, Vector2(244, 56), "时", 13, GREY)
+	# —— 右上：波次 / 斩杀 / 得分 ——
+	var stat := "波 %d    斩 %d    分 %d" % [game.wave_idx, game.kills, game.score]
+	_text(r, Vector2(w - 20.0, 14), stat, 18, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 340.0)
 	# —— 顶部中央：时钟（分针追时针） ——
 	var c := Vector2(w * 0.5, 66.0)
 	var rad := 30.0
@@ -108,18 +119,35 @@ func _paint(r: Control) -> void:
 	if game.kills == 0 and game.help_t > 0.0:
 		var ha: float = clampf(game.help_t, 0.0, 1.0)
 		_text_center(r, w * 0.5, h - 34.0,
-			"按住左键 画墨 · 松开 冲斩 · 右键 取消 · 时钟满按 R 回溯",
+			"左键按住 画墨 · 松开 冲斩 · 右键按住 画咒施法 · 时钟满按 R 回溯",
 			15, Color(GREY.r, GREY.g, GREY.b, ha * 0.85))
+	# —— 施法提示 ——
+	if game.state == game.State.SPELL_DRAW:
+		var blink := 0.55 + 0.45 * sin(game.sim_time * 10.0)
+		_text_center(r, w * 0.5, h - 34.0, "松开右键 · 施放咒语（时/火/风）",
+			16, Color(0.32, 0.68, 0.62, blink))
 	# —— 结算 ——
 	if game.state == game.State.GAMEOVER:
 		r.draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.045, 0.04, 0.82))
-		_text_center(r, w * 0.5, h * 0.32, "时 尽", 72, PAPER)
-		_text_center(r, w * 0.5, h * 0.32 + 86.0,
-			"存活 %s · 斩杀 %d · 波次 %d" % [_fmt(game.run_time), game.kills, game.wave_idx],
+		_text_center(r, w * 0.5, h * 0.30, "时 尽", 72, PAPER)
+		var rt := _rating(game.score)
+		_text_center(r, w * 0.5, h * 0.30 + 84.0,
+			"得分 %d · 斩杀 %d · 最高连击 %d · 评级 %s" % [game.score, game.kills, game.max_combo, rt],
 			22, Color(0.78, 0.76, 0.71))
 		var blink2 := 0.55 + 0.45 * sin(game.sim_time * 5.0)
-		_text_center(r, w * 0.5, h * 0.32 + 130.0, "点击 / 回车 · 重开一局",
+		_text_center(r, w * 0.5, h * 0.30 + 128.0, "点击 / 回车 · 重开一局",
 			18, Color(RED.r, RED.g, RED.b, blink2))
+
+static func _rating(score: int) -> String:
+	if score >= 4500:
+		return "SS"
+	if score >= 3000:
+		return "S"
+	if score >= 1800:
+		return "A"
+	if score >= 900:
+		return "B"
+	return "C"
 
 func _text(r: Control, pos: Vector2, s: String, size: int, col: Color,
 		align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:

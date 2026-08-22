@@ -3,7 +3,7 @@ extends Node2D
 ## 《墨时》主控制器 —— PLAY / DRAW / DASH / BURST / REWIND 五态机 + 波次 + 特效。
 ## 不画不动，画即冲刺；冲刺过门不结算，到达终点顿帧集中引爆。
 
-enum State { PLAY, DRAW, DASH, BURST, REWIND, GAMEOVER }
+enum State { PLAY, DRAW, DASH, BURST, REWIND, GAMEOVER, SPELL_DRAW }
 
 const ARENA := Vector2(1152.0, 648.0)
 const INK_MAX_BASE := 100.0
@@ -26,6 +26,18 @@ const TRAIL_FADE := 0.4
 const FLASH_TIME := 0.1
 const DRAW_ENEMY_FACTOR := 0.08
 const MAX_ENEMIES := 130
+
+## —— 时间值（TV）：右键施法资源（老版 SPELL 系统移植） ——
+const TIME_VALUE_MAX := 100.0
+const TIME_VALUE_REGEN := 5.0
+const TIME_VALUE_PER_KILL := 2.0
+const TV_MIN_CAST := 10.0
+## —— 连斩里程碑（老版移植）：回墨 / 五连回春 / 十连清场 / 十五连轮回 ——
+const COMBO_3_INK := 10.0
+const COMBO_5_HEAL := 30.0
+const COMBO_10_DMG := 40.0
+const COMBO_15_SCORE := 800
+const COMBO_BREAK := 3.0
 
 const INK := Color("#1A1714")
 const RED := Color("#C0392B")
@@ -55,6 +67,16 @@ var wave_comp := {}
 var spawn_left := 0
 var spawn_interval := 0.5
 var spawn_timer := 0.0
+
+## —— SPELL / TV / 评分（老版移植） ——
+var time_value := 40.0
+var spell_points: Array[Vector2] = []
+var spell_recognizer := SpellRecognizer.new()
+var spell_caster: SpellCaster
+var score := 0
+var combo := 0
+var combo_timer := 0.0
+var max_combo := 0
 
 var ink_path := PackedVector2Array()
 var dry_pen := false
@@ -124,6 +146,7 @@ func _ready() -> void:
 	hud = HUD.new()
 	hud.game = self
 	add_child(hud)
+	spell_caster = SpellCaster.new(self)
 
 func _make_layer(z: int) -> PaintLayer:
 	var l := PaintLayer.new()
@@ -151,8 +174,20 @@ func _input(event: InputEvent) -> void:
 				_begin_draw()
 			elif not event.pressed and state == State.DRAW:
 				_end_draw()
-		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and state == State.DRAW:
-			_cancel_draw()
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.pressed:
+				if state == State.DRAW:
+					_cancel_draw()
+				elif state == State.PLAY:
+					if time_value < TV_MIN_CAST:
+						numbers.append({
+							"pos": player.position + Vector2(0, -20.0),
+							"val": 0, "red": false, "t": 0.0,
+						})
+					else:
+						_begin_spell()
+			elif not event.pressed and state == State.SPELL_DRAW:
+				_release_spell()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_R:
 		if state == State.PLAY and clock_charge >= CLOCK_TIME:
 			_begin_rewind()
@@ -183,9 +218,15 @@ func _process(delta: float) -> void:
 	sim_time += delta
 	if state != State.GAMEOVER:
 		run_time += delta
+	if combo_timer > 0.0 and state != State.GAMEOVER:
+		combo_timer -= delta
+		if combo_timer <= 0.0:
+			combo = 0
 	match state:
 		State.PLAY:
+			player.update_play(delta, _clamped_mouse())
 			ink = minf(ink + ink_regen() * delta, ink_max())
+			time_value = minf(TIME_VALUE_MAX, time_value + TIME_VALUE_REGEN * delta)
 			if clock_charge < CLOCK_TIME:
 				clock_charge = minf(clock_charge + delta, CLOCK_TIME)
 				if clock_charge >= CLOCK_TIME:
@@ -194,6 +235,8 @@ func _process(delta: float) -> void:
 		State.DRAW:
 			_sample_ink()
 			_update_waves(delta, DRAW_ENEMY_FACTOR)
+		State.SPELL_DRAW:
+			_update_spell(delta)
 		State.DASH:
 			_update_dash(delta)
 		State.BURST:
@@ -202,7 +245,7 @@ func _process(delta: float) -> void:
 			_update_rewind(delta)
 		State.GAMEOVER:
 			pass
-	if state == State.PLAY or state == State.DRAW:
+	if state == State.PLAY or state == State.DRAW or state == State.SPELL_DRAW:
 		_check_contact()
 		_separate()
 	if state != State.BURST:
@@ -270,6 +313,51 @@ func _end_draw() -> void:
 		_begin_dash()
 	else:
 		state = State.PLAY
+
+# ============================== SPELL 施法（老版移植） ==============================
+
+func _begin_spell() -> void:
+	state = State.SPELL_DRAW
+	spell_points.clear()
+	spell_points.append(_clamped_mouse())
+	AudioMgr.play("draw", 1.2, -8.0)
+
+func _update_spell(delta: float) -> void:
+	_add_spell_point(_clamped_mouse())
+	_update_waves(delta, DRAW_ENEMY_FACTOR)
+	ink_layer.queue_redraw()
+	fx_layer.queue_redraw()
+
+func _add_spell_point(p: Vector2) -> void:
+	if spell_points.is_empty():
+		spell_points.append(p)
+		return
+	var last: Vector2 = spell_points[spell_points.size() - 1]
+	if p.distance_to(last) < SAMPLE_DIST:
+		return
+	spell_points.append(p)
+
+func _release_spell() -> void:
+	var result := spell_recognizer.recognize(spell_points)
+	if result.is_empty():
+		state = State.PLAY
+		numbers.append({
+			"pos": player.position + Vector2(0, -30.0),
+			"val": 0, "red": false, "t": 0.0,
+		})
+		return
+	var cost: float = SpellRecognizer.SPELLS[result["id"]]["time_cost"]
+	time_value = maxf(0.0, time_value - cost)
+	spell_caster.cast(result["id"])
+	state = State.PLAY
+
+func start_rewind_from_spell() -> void:
+	_begin_rewind()
+
+func kill_list(died: Array) -> void:
+	for e in died:
+		if not e.dead:
+			_kill_enemy(e)
 
 # ============================== DASH 冲刺 ==============================
 
@@ -380,6 +468,11 @@ func _resolve_burst() -> void:
 		zan_t = 0.5
 		zan_red = burst_rewind
 		zan_text = "斬"
+	# 一斩 ≥3 杀：回墨（老版移植，策略：憋大招）
+	if combo_kills >= 3:
+		var bonus := COMBO_3_INK + 3.0 * float(combo_kills - 3)
+		ink = minf(ink_max(), ink + minf(bonus, 25.0))
+	_apply_combo_rewards()
 	state = State.PLAY
 	player.invuln = POST_DASH_INVULN
 	path_alpha = 1.0
@@ -389,6 +482,11 @@ func _resolve_burst() -> void:
 func _kill_enemy(e: Enemy) -> void:
 	e.dead = true
 	kills += 1
+	score += 10
+	time_value = minf(TIME_VALUE_MAX, time_value + TIME_VALUE_PER_KILL)
+	combo += 1
+	max_combo = maxi(max_combo, combo)
+	combo_timer = COMBO_BREAK
 	var pos: Vector2 = e.position
 	var r: float = float(e.cfg.radius)
 	var n := 4 + randi() % 3
@@ -403,6 +501,32 @@ func _kill_enemy(e: Enemy) -> void:
 		})
 	enemies.erase(e)
 	e.queue_free()
+
+## —— 连斩里程碑（老版移植）：一斩≥3回墨 / 五连回春 / 十连清场 / 十五连轮回 ——
+func _apply_combo_rewards() -> void:
+	if combo >= 15:
+		score += COMBO_15_SCORE
+		zan_t = 0.5
+		zan_red = false
+		zan_text = "十五连轮回"
+		AudioMgr.play("burst", 1.0, -3.0)
+	elif combo >= 10:
+		var died: Array = []
+		for e in enemies.duplicate():
+			if e.dead:
+				continue
+			e.hp -= COMBO_10_DMG
+			if e.hp <= 0.0:
+				died.append(e)
+		kill_list(died)
+		zan_t = 0.5
+		zan_red = false
+		zan_text = "十连清场"
+	elif combo >= 5:
+		player.hp = minf(player.max_hp, player.hp + COMBO_5_HEAL)
+		zan_t = 0.5
+		zan_red = false
+		zan_text = "五连回春"
 
 # ============================== REWIND 回溯 ==============================
 
@@ -604,6 +728,9 @@ func _paint_ink(l: PaintLayer) -> void:
 		if state == State.PLAY:
 			alpha = 0.85 * path_alpha
 		InkRenderer.draw_brush_path(l, ink_path, alpha, false)
+	# 施法轨迹：朱砂
+	if state == State.SPELL_DRAW and spell_points.size() >= 2:
+		InkRenderer.draw_brush_path(l, spell_points, 0.9, true)
 	# 冲刺掠过的轨迹
 	if state == State.DASH or state == State.BURST:
 		InkRenderer.draw_brush_path(l, dash_done, 0.95, false)
