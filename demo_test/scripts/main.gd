@@ -28,9 +28,11 @@ const DRAW_ENEMY_FACTOR := 0.08
 const MAX_ENEMIES := 130
 
 ## 时钟斩（v0.3 定案）：左键点击 = 普攻式冲刺，朝指针方向前冲固定距离
-const CLOCK_SWEEP_DEG := 45.0    # 万年钟：8 秒一圈，方向停留久、决策感强
+## 指针自转每满一圈 +1 行动点；行动点耗尽则左键无响应
+const CLOCK_SWEEP_DEG := 180.0   # 2s/圈（360/180=2），决策节奏快
 const CLOCK_DASH_DIST := 240.0   # 单次冲刺距离
-const CLOCK_DASH_CD := 0.18      # 防宏连点
+const AP_MAX := 3                # 行动点上限
+const AP_START := 3              # 开局行动点
 
 ## —— 时间值（TV）：右键施法资源（老版 SPELL 系统移植） ——
 const TIME_VALUE_MAX := 100.0
@@ -64,7 +66,8 @@ var state: State = State.PLAY
 var sim_time := 0.0
 var run_time := 0.0
 var swing_deg := -90.0   # 表盘指针角度：-90 = 12点方向为起点
-var swing_cd := 0.0
+var action_points := AP_START   # 当前行动点
+var swing_accum := 0.0   # 指针自转累计度数，满 360 回复 1 点行动点
 var ink := INK_MAX_BASE
 var clock_charge := 0.0
 var kills := 0
@@ -180,7 +183,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			if event.pressed and state == State.PLAY and swing_cd <= 0.0:
+			if event.pressed and state == State.PLAY and action_points > 0:
 				_begin_swing_dash()
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			if event.pressed:
@@ -232,8 +235,13 @@ func _process(delta: float) -> void:
 			combo = 0
 	match state:
 		State.PLAY:
-			swing_deg = fmod(swing_deg + CLOCK_SWEEP_DEG * delta, 360.0)
-			swing_cd = maxf(swing_cd - delta, 0.0)
+			var new_deg := swing_deg + CLOCK_SWEEP_DEG * delta
+			swing_accum += CLOCK_SWEEP_DEG * delta
+			# 指针自转满一圈 +1 行动点
+			while swing_accum >= 360.0:
+				swing_accum -= 360.0
+				action_points = mini(action_points + 1, AP_MAX)
+			swing_deg = fmod(new_deg, 360.0)
 			ink = minf(ink + ink_regen() * delta, ink_max())
 			time_value = minf(TIME_VALUE_MAX, time_value + TIME_VALUE_REGEN * delta)
 			if clock_charge < CLOCK_TIME:
@@ -375,7 +383,7 @@ func kill_list(died: Array) -> void:
 func _begin_swing_dash() -> void:
 	state = State.DASH
 	dash_stamp += 1
-	swing_cd = CLOCK_DASH_CD
+	action_points = maxi(action_points - 1, 0)
 	var dir := Vector2.from_angle(deg_to_rad(swing_deg))
 	var end := player.position + dir * CLOCK_DASH_DIST
 	dash_pts = PackedVector2Array([player.position, end])
@@ -423,16 +431,24 @@ func _paint_clock(l: PaintLayer) -> void:
 	l.draw_line(c + Vector2(r, 0), c + Vector2(r - 4, 0), Color("#4A443C"), 1.5)
 	l.draw_line(c + Vector2(0, r), c + Vector2(0, r - 4), Color("#4A443C"), 1.5)
 	l.draw_line(c + Vector2(-r, 0), c + Vector2(-r + 4, 0), Color("#4A443C"), 1.5)
-	# 时针（粗黑，朱砂针尖 = 斩击方向）
-	l.draw_line(c, c + dir * (r - 4.0), Color("#1A1714"), 5.0)
-	l.draw_circle(c + dir * (r - 4.0), 4.0, Color("#C0392B"))
+	# 时针（粗黑，朱砂针尖 = 斩击方向）；行动点耗尽时针体变灰提示
+	var hand_col := Color("#4A443C") if action_points <= 0 else Color("#1A1714")
+	var tip_col := Color("#4A443C") if action_points <= 0 else Color("#C0392B")
+	l.draw_line(c, c + dir * (r - 4.0), hand_col, 5.0)
+	l.draw_circle(c + dir * (r - 4.0), 4.0, tip_col)
 	# 顺时针方向提示箭头（外圈小弧）
 	var next_ang := deg_to_rad(swing_deg + 24.0)
 	var next_dir := Vector2.from_angle(next_ang)
 	l.draw_line(c + dir * (r + 3), c + next_dir * (r + 3), Color("#4A443C"), 1.5)
-	# CD 遮罩
-	if swing_cd > 0.0:
-		l.draw_arc(c, r, -PI / 2.0, -PI / 2.0 + TAU * (1.0 - swing_cd / CLOCK_DASH_CD), 40, Color("#4A443C"), 2.0)
+	# 行动点圆点（表盘上方外圈弧形分布，已用=朱砂实心、可用=灰描边）
+	for i in AP_MAX:
+		# 3 点均布在 -150°~-30° 上弧（12 点上方），避免与时针/预测轨迹重叠
+		var ang := deg_to_rad(-150.0 + 120.0 * float(i) / float(AP_MAX - 1 if AP_MAX > 1 else 1))
+		var p := c + Vector2.from_angle(ang) * (r + 7.0)
+		if i < action_points:
+			l.draw_circle(p, 3.0, Color("#C0392B"))
+		else:
+			l.draw_arc(p, 3.0, 0.0, TAU, 16, Color("#4A443C"), 1.5)
 
 func _begin_dash() -> void:
 	state = State.DASH
