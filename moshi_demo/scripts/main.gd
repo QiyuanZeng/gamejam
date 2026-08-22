@@ -31,13 +31,13 @@ const AP_PER_HOUR := 1.0
 const AP_PER_SEC := 0.25
 const AP_PER_MIN := 0.25
 const SLASH_MIN_GAP := 0.15
-const DIAL_RADIUS := 40.0
+const DIAL_RADIUS := 70.0
 
-const DASH_SPEED := 2400.0
+const DASH_SPEED := 3200.0
 const DASH_RADIUS := 140.0
 const DASH_DMG := 20.0
-const DASH_DIST_BASE := 260.0
-const DASH_DIST_CAP := 400.0
+const DASH_DIST_BASE := 520.0
+const DASH_DIST_CAP := 800.0
 const POST_DASH_INVULN := 0.3
 const SAMPLE_DIST := 6.0
 
@@ -272,6 +272,10 @@ var ink_editor: CanvasLayer
 var key_mat: ShaderMaterial
 var paper_tex: Texture2D
 var camera: Camera2D
+var dial_pointer: Sprite2D
+const DIAL_POINTER_PIVOT_FRAC := Vector2(0.0134, 0.4988)
+const DIAL_POINTER_SRC_LEN := 692.6
+const DIAL_POINTER_LEN := 110.0
 
 func _ready() -> void:
 	randomize()
@@ -306,6 +310,16 @@ func _ready() -> void:
 	camera.limit_bottom = int(ARENA.y)
 	add_child(camera)
 	camera.make_current()
+	if ResourceLoader.exists("res://assets/art/effects/dial_pointer.png"):
+		dial_pointer = Sprite2D.new()
+		dial_pointer.texture = load("res://assets/art/effects/dial_pointer.png")
+		dial_pointer.centered = false
+		var tex_size := dial_pointer.texture.get_size()
+		dial_pointer.offset = -DIAL_POINTER_PIVOT_FRAC * tex_size
+		var s := DIAL_POINTER_LEN / DIAL_POINTER_SRC_LEN
+		dial_pointer.scale = Vector2(s, s)
+		dial_pointer.z_index = 60
+		add_child(dial_pointer)
 	hud = HUD.new()
 	hud.game = self
 	add_child(hud)
@@ -1352,20 +1366,25 @@ func _paint_dial(l: PaintLayer) -> void:
 		var ma := -PI * 0.5 + TAU * fmod(dial_t, MIN_PERIOD) / MIN_PERIOD
 		l.draw_line(c, c + Vector2(cos(ma), sin(ma)) * (DIAL_RADIUS - 8.0),
 			Color(GREY.r, GREY.g, GREY.b, 0.5), 2.0)
-	# 时针（唯一锚定斩击方向，粗 4 px）
+	# 时针（唯一锚定斩击方向）：蓝色水晶指针素材，未就位时代码线兜底
 	var ready := ap >= 1.0
-	var hcol := Color(INK.r, INK.g, INK.b, 0.9) if ready else Color(GREY.r, GREY.g, GREY.b, 0.45)
-	l.draw_line(c, c + hour_dir() * (DIAL_RADIUS - 2.0), hcol, 4.0)
-	if ready:
-		l.draw_line(c + hour_dir() * DIAL_RADIUS, c + hour_dir() * (DIAL_RADIUS + 12.0),
-			Color(RED.r, RED.g, RED.b, 0.55), 2.0)
-	l.draw_circle(c, 3.0, hcol)
+	if dial_pointer != null:
+		dial_pointer.global_position = c
+		dial_pointer.rotation = hour_dir().angle()
+		dial_pointer.modulate = Color(1, 1, 1, 1.0) if ready else Color(0.6, 0.6, 0.65, 0.4)
+	else:
+		var hcol := Color(INK.r, INK.g, INK.b, 0.9) if ready else Color(GREY.r, GREY.g, GREY.b, 0.45)
+		l.draw_line(c, c + hour_dir() * (DIAL_RADIUS - 2.0), hcol, 4.0)
+		if ready:
+			l.draw_line(c + hour_dir() * DIAL_RADIUS, c + hour_dir() * (DIAL_RADIUS + 12.0),
+				Color(RED.r, RED.g, RED.b, 0.55), 2.0)
+		l.draw_circle(c, 3.0, hcol)
 	# 头顶 AP 点
 	var n := ap_max()
 	var full := int(floor(ap))
 	var w := 12.0 * float(n - 1)
 	for i in n:
-		var p := c + Vector2(-w * 0.5 + 12.0 * float(i), -34.0)
+		var p := c + Vector2(-w * 0.5 + 12.0 * float(i), -70.0)
 		if i < full:
 			l.draw_circle(p, 4.0, Color(INK.r, INK.g, INK.b, 0.9))
 		else:
