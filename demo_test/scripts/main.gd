@@ -27,6 +27,11 @@ const FLASH_TIME := 0.1
 const DRAW_ENEMY_FACTOR := 0.08
 const MAX_ENEMIES := 130
 
+## 时钟斩（v0.3 定案）：左键点击 = 普攻式冲刺，朝指针方向前冲固定距离
+const CLOCK_SWEEP_DEG := 45.0    # 万年钟：8 秒一圈，方向停留久、决策感强
+const CLOCK_DASH_DIST := 240.0   # 单次冲刺距离
+const CLOCK_DASH_CD := 0.18      # 防宏连点
+
 ## —— 时间值（TV）：右键施法资源（老版 SPELL 系统移植） ——
 const TIME_VALUE_MAX := 100.0
 const TIME_VALUE_REGEN := 5.0
@@ -58,6 +63,8 @@ var upgrades := {"ink_max": 0, "ink_regen": 0, "rewind_slots": 0}
 var state: State = State.PLAY
 var sim_time := 0.0
 var run_time := 0.0
+var swing_deg := -90.0   # 表盘指针角度：-90 = 12点方向为起点
+var swing_cd := 0.0
 var ink := INK_MAX_BASE
 var clock_charge := 0.0
 var kills := 0
@@ -115,6 +122,7 @@ var bleed: BleedCanvas
 var bg_layer: PaintLayer
 var ink_layer: PaintLayer
 var fx_layer: PaintLayer
+var clock_layer: PaintLayer
 var hud: HUD
 var ink_editor: CanvasLayer
 var key_mat: ShaderMaterial
@@ -134,6 +142,8 @@ func _ready() -> void:
 	bg_layer.paint = _paint_bg
 	ink_layer.paint = _paint_ink
 	fx_layer.paint = _paint_fx
+	clock_layer = _make_layer(-70)
+	clock_layer.paint = _paint_clock
 	bleed = BleedCanvas.new()
 	bleed.z_index = -80
 	add_child(bleed)
@@ -170,10 +180,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			if event.pressed and state == State.PLAY:
-				_begin_draw()
-			elif not event.pressed and state == State.DRAW:
-				_end_draw()
+			if event.pressed and state == State.PLAY and swing_cd <= 0.0:
+				_begin_swing_dash()
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			if event.pressed:
 				if state == State.DRAW:
@@ -224,7 +232,8 @@ func _process(delta: float) -> void:
 			combo = 0
 	match state:
 		State.PLAY:
-			player.update_play(delta, _clamped_mouse())
+			swing_deg = fmod(swing_deg + CLOCK_SWEEP_DEG * delta, 360.0)
+			swing_cd = maxf(swing_cd - delta, 0.0)
 			ink = minf(ink + ink_regen() * delta, ink_max())
 			time_value = minf(TIME_VALUE_MAX, time_value + TIME_VALUE_REGEN * delta)
 			if clock_charge < CLOCK_TIME:
@@ -254,6 +263,7 @@ func _process(delta: float) -> void:
 	ink_layer.queue_redraw()
 	fx_layer.queue_redraw()
 	bg_layer.queue_redraw()
+	clock_layer.queue_redraw()
 	hud.request_redraw()
 
 func enemy_speed_factor() -> float:
@@ -360,6 +370,69 @@ func kill_list(died: Array) -> void:
 			_kill_enemy(e)
 
 # ============================== DASH 冲刺 ==============================
+
+## 时钟斩：左键点击 → 朝表盘指针方向直线冲刺，击杀/等待 → 给右键咒语充能
+func _begin_swing_dash() -> void:
+	state = State.DASH
+	dash_stamp += 1
+	swing_cd = CLOCK_DASH_CD
+	var dir := Vector2.from_angle(deg_to_rad(swing_deg))
+	var end := player.position + dir * CLOCK_DASH_DIST
+	dash_pts = PackedVector2Array([player.position, end])
+	dash_i = 0
+	dash_d = 0.0
+	dash_done = PackedVector2Array([player.position])
+	trail.clear()
+	trail_acc = TRAIL_INTERVAL
+	player.invuln = 999.0
+	player.facing = dir
+	AudioMgr.play("dash", 1.0, -4.0)
+	rewind_hist.append(dash_pts.duplicate())
+	var slots := REWIND_SLOTS + int(upgrades.rewind_slots)
+	while rewind_hist.size() > slots:
+		rewind_hist.remove_at(0)
+	bleed.stamp(dash_pts, false)
+
+## 时钟表盘：脚下圆环 + 时针 + 预测轨迹（指针指哪→冲刺去哪）+ 落点朱砂
+func _paint_clock(l: PaintLayer) -> void:
+	if player == null:
+		return
+	var c := player.position
+	var dir := Vector2.from_angle(deg_to_rad(swing_deg))
+	var r := 36.0
+	# 预测轨迹（脚下→落点的淡色虚线，玩家一眼看出即将往哪走）
+	var end := c + dir * CLOCK_DASH_DIST
+	var seg := 14.0
+	var gap := 8.0
+	var total := CLOCK_DASH_DIST
+	var t := 0.0
+	while t < total:
+		var a := c + dir * t
+		var b := c + dir * minf(t + seg, total)
+		l.draw_line(a, b, Color(0.75, 0.22, 0.17, 0.35), 3.0)
+		t += seg + gap
+	# 落点朱砂十字（预判命中位置）
+	l.draw_line(end + Vector2(-6, 0), end + Vector2(6, 0), Color("#C0392B"), 2.0)
+	l.draw_line(end + Vector2(0, -6), end + Vector2(0, 6), Color("#C0392B"), 2.0)
+	# 底盘
+	l.draw_circle(c, r, Color(0.0, 0.0, 0.0, 0.12))
+	l.draw_arc(c, r, 0.0, TAU, 48, Color("#1A1714"), 2.5)
+	# 12 点刻度（顺时针起点，加粗提示"总是从这里开始"）
+	l.draw_line(c + Vector2(0, -r), c + Vector2(0, -r + 6), Color("#1A1714"), 3.0)
+	# 3/6/9 点次要刻度
+	l.draw_line(c + Vector2(r, 0), c + Vector2(r - 4, 0), Color("#4A443C"), 1.5)
+	l.draw_line(c + Vector2(0, r), c + Vector2(0, r - 4), Color("#4A443C"), 1.5)
+	l.draw_line(c + Vector2(-r, 0), c + Vector2(-r + 4, 0), Color("#4A443C"), 1.5)
+	# 时针（粗黑，朱砂针尖 = 斩击方向）
+	l.draw_line(c, c + dir * (r - 4.0), Color("#1A1714"), 5.0)
+	l.draw_circle(c + dir * (r - 4.0), 4.0, Color("#C0392B"))
+	# 顺时针方向提示箭头（外圈小弧）
+	var next_ang := deg_to_rad(swing_deg + 24.0)
+	var next_dir := Vector2.from_angle(next_ang)
+	l.draw_line(c + dir * (r + 3), c + next_dir * (r + 3), Color("#4A443C"), 1.5)
+	# CD 遮罩
+	if swing_cd > 0.0:
+		l.draw_arc(c, r, -PI / 2.0, -PI / 2.0 + TAU * (1.0 - swing_cd / CLOCK_DASH_CD), 40, Color("#4A443C"), 2.0)
 
 func _begin_dash() -> void:
 	state = State.DASH

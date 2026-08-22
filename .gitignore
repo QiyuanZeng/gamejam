@@ -8,3 +8,4 @@ output /
 
 # 日志
 inktest_log.txt
+*.log
