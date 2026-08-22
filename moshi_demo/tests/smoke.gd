@@ -52,15 +52,25 @@ func _process(delta: float) -> void:
 				_chk(false, "rewind timeout")
 				phase = 9
 		6:
-			# F1 打开墨笔编辑器（同帧防重入）
+			# F1 打开墨笔编辑器（编辑器延迟到帧末创建，防同事件秒关）
 			g._input(_key(KEY_F1))
-			_chk(g.ink_editor != null, "F1 opens editor")
-			_chk(get_tree().paused, "tree paused while editor open")
-			if g.ink_editor != null:
-				g.ink_editor._input(_key(KEY_F1))
 			phase = 7
 			t = 0.0
 		7:
+			if g.ink_editor != null:
+				_chk(true, "F1 opens editor")
+				_chk(get_tree().paused, "tree paused while editor open")
+				var ed: CanvasLayer = g.ink_editor
+				ed._input(_key(KEY_F1, false))  # 松开开启键 → 武装
+				ed._input(_key(KEY_F1))         # 再按 → 关闭
+				phase = 8
+				t = 0.0
+			elif t > 1.0:
+				_chk(false, "F1 opens editor")
+				_chk(false, "tree paused while editor open")
+				phase = 4
+				t = 0.0
+		8:
 			if t > 0.1:
 				_chk(g.ink_editor == null, "editor closed by F1")
 				_chk(not get_tree().paused, "tree unpaused after close")
@@ -103,10 +113,10 @@ func _btn(idx: int, pressed: bool) -> InputEventMouseButton:
 	ev.pressed = pressed
 	return ev
 
-func _key(k: Key) -> InputEventKey:
+func _key(k: Key, pressed := true) -> InputEventKey:
 	var ev := InputEventKey.new()
 	ev.keycode = k
-	ev.pressed = true
+	ev.pressed = pressed
 	return ev
 
 func _chk(cond: bool, msg: String) -> void:
