@@ -48,7 +48,7 @@ func _ready() -> void:
 	# 游戏内 F1 集成：开 → 暂停 → 松开武装 → 再按关闭 → 恢复
 	var g := Game.new()
 	add_child(g)
-	g.wave_rest = 999.0
+	g.spawn_timer = 9999.0
 	g._input(_key_ev(KEY_F1, true))
 	await get_tree().process_frame
 	await get_tree().process_frame

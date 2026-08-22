@@ -1,7 +1,8 @@
 class_name Enemy
 extends Node2D
-## 墨魉(blob 直追) / 疾影(fast 惯性过弯) / 磐妖(tank 厚血慢压)。
-## 速度统一乘 game.enemy_speed_factor()：DRAW 0.08 倍，DASH/BURST/REWIND 冻结。
+## 墨魉(blob 直追) / 疾影(fast 惯性过弯) / 磐妖(tank 厚血慢压) / 爆魈(bomber 死亡连锁爆炸)。
+## 速度统一乘 game.enemy_speed_factor()：SPELL 子弹时间 0.10 倍，BURST/REWIND 冻结；
+## 左键表盘斩的 DASH 为实时（1.0 倍），右键笔画斩的 DASH 冻结。
 
 const RED := Color("#C0392B")
 
@@ -12,6 +13,9 @@ var marked_until := -99.0 # 标记保留截止（时戳）
 var mark_stamp := -1      # 本标记所属的冲刺/回溯序号，防同一次反复叠加
 var velocity := Vector2.ZERO
 var spawn_left := 0.35    # 出生渐显期：不可伤害玩家
+var frozen_left := 0.0    # 冰冻咒语
+var burn_left := 0.0      # 灼烧刀痕
+var burn_dps := 0.0
 var seed_v := 0.0
 var dead := false
 var game
@@ -46,6 +50,8 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	var factor: float = game.enemy_speed_factor()
+	if frozen_left > 0.0:
+		factor = 0.0
 	if factor > 0.0:
 		var to_p: Vector2 = game.player.position - position
 		var d := to_p.length()
@@ -109,6 +115,13 @@ func _draw() -> void:
 	if cfg.type == "tank":
 		draw_circle(Vector2(r * 0.25, r * 0.15), r * 0.28, Color(base.r, base.g, base.b, a * 0.55))
 		draw_circle(Vector2(-r * 0.3, -r * 0.2), r * 0.18, Color(base.r, base.g, base.b, a * 0.45))
+	if cfg.type == "bomber":
+		# 爆魈：朱砂裂纹 + 一点将燃的引芯，视觉预告连锁
+		var pulse := 0.5 + 0.5 * sin(seed_v + (game.sim_time if game != null else 0.0) * 7.0)
+		draw_arc(Vector2.ZERO, r * 0.72, 0.0, TAU, 18,
+			Color(RED.r, RED.g, RED.b, a * (0.3 + 0.4 * pulse)), 2.0)
+		draw_line(Vector2(0, -r * 0.8), Vector2(r * 0.25, -r * 1.35),
+			Color(RED.r, RED.g, RED.b, a * 0.8), 2.0)
 	# 朱砂红点眼（盯着玩家）
 	var eye_dir := Vector2.RIGHT
 	if game != null and game.player != null:

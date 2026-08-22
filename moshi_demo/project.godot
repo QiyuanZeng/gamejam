@@ -23,10 +23,19 @@ config/icon="res://icon.svg"
 
 AudioMgr="*res://scripts/audio.gd"
 InkStyle="*res://scripts/ink_style_provider.gd"
+_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [display]
 
 window/stretch/mode="canvas_items"
+
+[dotnet]
+
+project/assembly_name="墨时 InkTime"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg")
 
 [rendering]
 
