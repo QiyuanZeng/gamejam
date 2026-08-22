@@ -8,26 +8,25 @@ const RESAMPLE_N := 64
 const BOUND := 250.0
 
 ## 咒语定义：id → { name(显示字), time_cost, 描述 }
+## BUG-08 v0.3 对齐：删 v2 遗留的火/风，加「斩」万象斩
 const SPELLS := {
-	"shi": {"name": "时", "time_cost": 40.0, "desc": "回溯 · 重演最近 3 笔斩击"},
-	"huo": {"name": "火", "time_cost": 25.0, "desc": "爆 · 周围敌人 -60 HP"},
-	"feng": {"name": "风", "time_cost": 15.0, "desc": "疾 · 移速 +80% 3s 墨值瞬回"},
+	"shi": {"name": "时", "time_cost": 150.0, "desc": "时之回溯 · 重演最近 5 笔斩击"},
+	"zan": {"name": "斩", "time_cost": 120.0, "desc": "万象斩 · 全屏所有怪 -30 HP"},
 }
 
 ## 内置模板（策划可替换成 assets/spell_templates.json，每个字 3~5 个样本）
 ## 坐标均为 [0,1] 归一化，识别时自动缩放。
+## BUG-08：删 v2 火/风，加「斩」横扫笔画（左到右横扫 = 万象斩）
 var _templates: Dictionary = {
 	"shi": [
 		[Vector2(0.50, 0.05), Vector2(0.50, 0.95)],  # 竖
 		[Vector2(0.10, 0.30), Vector2(0.90, 0.30)],  # 横
+		[Vector2(0.50, 0.10), Vector2(0.50, 0.50), Vector2(0.10, 0.50), Vector2(0.90, 0.50)],  # 十字
 	],
-	"huo": [
-		[Vector2(0.30, 0.15), Vector2(0.70, 0.15), Vector2(0.50, 0.15), Vector2(0.50, 0.55), Vector2(0.30, 0.95)],
-		[Vector2(0.70, 0.25), Vector2(0.20, 0.80)],
-	],
-	"feng": [
-		[Vector2(0.50, 0.05), Vector2(0.50, 0.30), Vector2(0.30, 0.30), Vector2(0.30, 0.65), Vector2(0.50, 0.65), Vector2(0.50, 0.95)],
-		[Vector2(0.30, 0.15), Vector2(0.70, 0.15), Vector2(0.70, 0.65), Vector2(0.50, 0.65), Vector2(0.50, 0.95)],
+	"zan": [
+		[Vector2(0.05, 0.50), Vector2(0.95, 0.50)],  # 左→右横扫（万象斩主笔）
+		[Vector2(0.05, 0.40), Vector2(0.95, 0.60)],  # 斜扫（变体）
+		[Vector2(0.10, 0.50), Vector2(0.50, 0.20), Vector2(0.90, 0.50)],  # 上弧扫
 	],
 }
 
@@ -61,7 +60,7 @@ func recognize(points: Array[Vector2]) -> Dictionary:
 	if best_id.is_empty():
 		return {}
 	var conf := 1.0 - best_dist / (0.5 * sqrt(2.0 * BOUND * BOUND))
-	if conf < 0.68:
+	if conf < 0.55:  # BUG-08 放宽阈值 0.68→0.55
 		return {}
 	return {"id": best_id, "conf": conf, "name": SPELLS[best_id]["name"]}
 

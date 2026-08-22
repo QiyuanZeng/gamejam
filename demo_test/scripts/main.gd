@@ -43,9 +43,9 @@ const CAM_SAFE := 400.0          # 安全距离（超出强制 snap 防出框）
 const CAM_LERP := 15.0           # 跟随速度系数
 
 ## —— 时间值（TV）：右键施法资源（老版 SPELL 系统移植） ——
-const TIME_VALUE_MAX := 100.0
-const TIME_VALUE_REGEN := 5.0
-const TIME_VALUE_PER_KILL := 2.0
+const TIME_VALUE_MAX := 500.0    # BUG-08 对齐方案（原100，方案500）
+const TIME_VALUE_REGEN := 20.0   # BUG-08 对齐方案（原5/s，方案20/s）
+const TIME_VALUE_PER_KILL := 25.0 # BUG-08 对齐方案（原2/杀，方案25/杀）
 const TV_MIN_CAST := 10.0
 ## —— 连斩里程碑（老版移植）：回墨 / 五连回春 / 十连清场 / 十五连轮回 ——
 const COMBO_3_INK := 10.0

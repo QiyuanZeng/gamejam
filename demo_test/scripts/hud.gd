@@ -68,7 +68,14 @@ func _paint(r: Control) -> void:
 		tv_col = Color(0.32, 0.68, 0.62, 0.45 + 0.4 * absf(sin(game.sim_time * 8.0)))
 	r.draw_rect(Rect2(20, 62, 220.0 * tv_f, 10), tv_col)
 	r.draw_rect(Rect2(20, 62, 220, 10), Color(0, 0, 0, 0.35), false, 1.0)
-	_text(r, Vector2(244, 56), "时", 13, GREY)
+	# TV 条刻度线：120=斩（万象斩）/ 150=时（时之回溯）
+	var x_zan := 20.0 + 220.0 * (120.0 / game.TIME_VALUE_MAX)
+	var x_shi := 20.0 + 220.0 * (150.0 / game.TIME_VALUE_MAX)
+	r.draw_line(Vector2(x_zan, 60), Vector2(x_zan, 74), Color("#C0392B"), 1.5)
+	r.draw_line(Vector2(x_shi, 60), Vector2(x_shi, 74), Color("#4A443C"), 1.5)
+	_text(r, Vector2(x_zan - 3, 57), "斩", 9, Color("#C0392B"))
+	_text(r, Vector2(x_shi - 3, 57), "时", 9, GREY)
+	_text(r, Vector2(244, 56), "TV", 13, GREY)
 	# —— 右上：波次 / 斩杀 / 得分 / 倒计时 ——
 	var stat := "波 %d    斩 %d    分 %d" % [game.wave_idx, game.kills, game.score]
 	_text(r, Vector2(w - 20.0, 14), stat, 18, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 340.0)
@@ -128,8 +135,16 @@ func _paint(r: Control) -> void:
 	# —— 施法提示 ——
 	if game.state == game.State.SPELL_DRAW:
 		var blink := 0.55 + 0.45 * sin(game.sim_time * 10.0)
-		_text_center(r, w * 0.5, h - 34.0, "松开右键 · 施放咒语（时/火/风）",
-			16, Color(0.32, 0.68, 0.62, blink))
+		var teal := Color(0.32, 0.68, 0.62, blink)
+		# 底部说明（施法提示）
+		_text_center(r, w * 0.5, h - 40.0, "画 横线 ── 斬·萬象（TV 120）", 16, teal)
+		_text_center(r, w * 0.5, h - 18.0, "画 竖线 ｜ 時·回溯（TV 150）   松开右键施放", 14, Color(teal.r, teal.g, teal.b, blink * 0.7))
+		# 屏幕四边青色发光（进入施法模式明显提示）
+		var glow := Color(0.32, 0.68, 0.62, 0.18 + 0.12 * sin(game.sim_time * 12.0))
+		r.draw_rect(Rect2(0, 0, w, 6), glow)
+		r.draw_rect(Rect2(0, h - 6, w, 6), glow)
+		r.draw_rect(Rect2(0, 0, 6, h), glow)
+		r.draw_rect(Rect2(w - 6, 0, 6, h), glow)
 	# —— 结算 ——
 	if game.state == game.State.GAMEOVER:
 		r.draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.045, 0.04, 0.82))

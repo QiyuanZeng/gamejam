@@ -84,13 +84,12 @@
 
 | 参数 | 当前值 | 说明 | 代码位置 |
 |---|---|---|---|
-| 时间值上限 | 100 | — | `TIME_VALUE_MAX` |
-| 自然回复速率 | 5 /s | — | `TIME_VALUE_REGEN` |
-| 击杀回复 | 2 /杀 | — | `TIME_VALUE_PER_KILL` |
+| 时间值上限 | 500 | BUG-08 对齐方案（原100） | `TIME_VALUE_MAX` |
+| 自然回复速率 | 20 /s | BUG-08 对齐方案（原5/s） | `TIME_VALUE_REGEN` |
+| 击杀回复 | 25 /杀 | BUG-08 对齐方案（原2/杀） | `TIME_VALUE_PER_KILL` |
 | 最低施法门槛 | 10 | 低于此值右键无响应 | `TV_MIN_CAST` |
-| 咒语时 消耗 | 40 | 回溯咒语 | `SpellRecognizer.SPELLS.shi` |
-| 咒语火 消耗 | 25 | 爆炸咒语 | `SpellRecognizer.SPELLS.huo` |
-| 咒语风 消耗 | 15 | 加速咒语 | `SpellRecognizer.SPELLS.feng` |
+| 咒语时 消耗 | 150 | 时之回溯（原40，BUG-08对齐） | `SpellRecognizer.SPELLS.shi` |
+| 咒语斩 消耗 | 120 | **万象斩·全屏30伤（新增，BUG-08）** | `SpellRecognizer.SPELLS.zan` |
 
 ---
 
