@@ -160,6 +160,11 @@ const ENEMY_CFGS := {
 		"score": 15, "coin": 1, "tv": 10.0,
 		"tex_target": 44.0, "color": Color("#2A2A33"), "tex": "",
 		"anim_dir": "res://assets/art/enemies/shadow_mite/"},
+	"crystal": {"type": "tank", "hp": 40.0, "speed": 38.0, "dmg": 15.0, "radius": 24.0,
+		"score": 45, "coin": 3, "tv": 26.0,
+		"tex_target": 80.0, "color": Color("#3D5A80"), "tex": "",
+		"anim_dir": "res://assets/art/enemies/crystal_sentinel/animations/",
+		"pivot_frac": Vector2(0.5, 0.875)},
 }
 
 ## §7 时段连续生成表
@@ -167,11 +172,11 @@ const WAVE_TABLE := [
 	{"t": 5.0, "interval": 0.80, "cap": 12, "mix": {"blob": 1.0}},
 	{"t": 12.0, "interval": 0.60, "cap": 18, "mix": {"blob": 0.75, "fast": 0.1, "mite": 0.15}},
 	{"t": 20.0, "interval": 0.50, "cap": 24,
-		"mix": {"blob": 0.55, "fast": 0.15, "mite": 0.15, "tank": 0.1, "bomber": 0.05}},
+		"mix": {"blob": 0.5, "fast": 0.15, "mite": 0.15, "tank": 0.1, "crystal": 0.05, "bomber": 0.05}},
 	{"t": 27.0, "interval": 0.40, "cap": 30,
-		"mix": {"blob": 0.45, "fast": 0.2, "mite": 0.1, "tank": 0.15, "bomber": 0.1}},
+		"mix": {"blob": 0.4, "fast": 0.15, "mite": 0.1, "tank": 0.13, "crystal": 0.12, "bomber": 0.1}},
 	{"t": 30.0, "interval": 0.30, "cap": 40,
-		"mix": {"blob": 0.35, "fast": 0.25, "mite": 0.1, "tank": 0.15, "bomber": 0.15}},
+		"mix": {"blob": 0.3, "fast": 0.2, "mite": 0.1, "tank": 0.13, "crystal": 0.12, "bomber": 0.15}},
 ]
 
 ## §10 局外养成接口（只留数据层，商店 UI 与存档另做）

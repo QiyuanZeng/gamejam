@@ -151,6 +151,8 @@ func _process(delta: float) -> void:
 		if hit_flash > 0.0:
 			hit_flash -= delta
 			st = "hit"
+		if spawn_left > 0.0 and anims.has("spawn"):
+			st = "spawn"
 		_play(st, delta)
 	if spawn_left > 0.0:
 		spawn_left -= delta
