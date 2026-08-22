@@ -1,7 +1,8 @@
 class_name EnemyData
 extends Resource
-## 怪物配置资源。每只怪一份 .tres，放在 res://data/enemies/ 下，编辑器双击即可改。
-## 换模型 → 改 tex / anim_dir；换数值 → 改本文件对应字段；换行为 → 改 behavior。
+## 怪物配置资源。全部怪物收在 res://data/balance.tres 的 enemies 数组里，
+## 编辑器双击那份总表，展开对应的一项就能改数值。
+## 换模型 → 改 tex / anim_dir；换数值 → 改本资源对应字段；换行为 → 改 behavior。
 ## 详见 docs/enemies.md。
 
 ## 行为分类。决定 Enemy 每帧走哪条移动/攻击分支。

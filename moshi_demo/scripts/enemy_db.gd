@@ -1,9 +1,7 @@
 class_name EnemyDB
 extends RefCounted
-## 怪物配置总入口。扫描 res://data/enemies/ 下全部 .tres，按 EnemyData.id 建索引。
-## 加一只新怪 = 在该目录丢一个 .tres，不用改任何代码。
-
-const DIR := "res://data/enemies/"
+## 怪物配置总入口。读 res://data/balance.tres 的 enemies 数组，按 EnemyData.id 建索引。
+## 加一只新怪 = 在编辑器里打开 balance.tres，enemies 数组加一项，不用改任何代码。
 
 static var _cache: Dictionary = {}     # id -> EnemyData
 static var _loaded := false
@@ -44,40 +42,26 @@ static func by_behavior(b: int) -> Array:
 static func reload() -> void:
 	_loaded = false
 	_cache.clear()
+	BalanceConfig.reload()
 	_load()
 
 static func _load() -> void:
 	_loaded = true
 	_cache.clear()
-	var dir := DirAccess.open(DIR)
-	if dir == null:
-		push_error("EnemyDB: 打不开目录 %s" % DIR)
-		return
-	dir.list_dir_begin()
-	var f := dir.get_next()
-	while f != "":
-		if not dir.current_is_dir():
-			# 导出包里资源可能带 .remap 后缀，剥掉再 load
-			var name := f
-			if name.ends_with(".remap"):
-				name = name.trim_suffix(".remap")
-			if name.get_extension().to_lower() == "tres":
-				_add(DIR.path_join(name))
-		f = dir.get_next()
-	dir.list_dir_end()
+	for d in BalanceConfig.get_config().enemies:
+		_add(d)
 	if _cache.is_empty():
-		push_error("EnemyDB: %s 下没扫到任何 .tres —— 导出包请确认 data/ 已打进资源过滤器" % DIR)
+		push_error("EnemyDB: %s 的 enemies 是空的 —— 导出包请确认 data/ 已打进资源过滤器"
+			% BalanceConfig.PATH)
 
-static func _add(path: String) -> void:
-	var res := ResourceLoader.load(path)
-	if res == null or not (res is EnemyData):
-		push_warning("EnemyDB: 跳过非 EnemyData 资源 %s" % path)
+static func _add(d: EnemyData) -> void:
+	if d == null:
+		push_warning("EnemyDB: enemies 里有空项，已跳过")
 		return
-	var d: EnemyData = res
 	if d.id == "":
-		push_error("EnemyDB: %s 的 id 为空" % path)
+		push_error("EnemyDB: enemies 里有 id 为空的配置（%s）" % d.display_name)
 		return
 	if _cache.has(d.id):
-		push_error("EnemyDB: id 重复 %s（%s）" % [d.id, path])
+		push_error("EnemyDB: id 重复 %s" % d.id)
 		return
 	_cache[d.id] = d

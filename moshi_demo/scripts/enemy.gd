@@ -1,7 +1,7 @@
 class_name Enemy
 extends Node2D
 ## 统一怪物类。行为由 cfg.behavior（EnemyData.Behavior 枚举）分发，数值与素材全部来自
-## res://data/enemies/*.tres，见 docs/enemies.md。
+## res://data/balance.tres 的 enemies 数组，见 docs/enemies.md。
 ##
 ## 红线（技能命中依赖，勿改）：position / hp / dead / spawn_left / cfg.radius / cfg.dmg /
 ## try_mark / apply_mark / is_marked。

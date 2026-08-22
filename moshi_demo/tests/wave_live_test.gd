@@ -1,5 +1,5 @@
 extends Node
-## 实机刷怪校验：跑真实主循环 + 真实波表（data/waves/*.tres），确认波表配置没配歪、
+## 实机刷怪校验：跑真实主循环 + 真实波表（data/balance.tres 的 waves），确认波表配置没配歪、
 ## 八种怪都能刷出来、四类行为都真正跑起来、局内无时限、敌弹致死能进时滞。
 ## 标签：WAVE_LIVE PASS / FAIL
 
@@ -75,7 +75,7 @@ func _process(delta: float) -> void:
 				_chk(g._wave_seg() == WaveDB.final_seg(),
 					"120s 时用的是永久平台期那一段（%s）" % g._wave_seg().id)
 				_chk(g.enemies.size() > 0, "波表持续刷出怪，场上 %d" % g.enemies.size())
-				_chk(peak <= g.MAX_ENEMIES, "在场数没越上限 %d <= %d" % [peak, g.MAX_ENEMIES])
+				_chk(peak <= g.max_enemies, "在场数没越上限 %d <= %d" % [peak, g.max_enemies])
 				_chk(peak > 20, "提速后场面压得住人，峰值 %d 只" % peak)
 				_chk(seen_ids.size() >= 5, "刷出 %d 种怪：%s" % [seen_ids.size(), str(seen_ids.keys())])
 				for b in [EnemyData.Behavior.MELEE, EnemyData.Behavior.RANGED,
