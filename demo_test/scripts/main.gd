@@ -27,6 +27,7 @@ const TRAIL_FADE := 0.4
 const FLASH_TIME := 0.1
 const DRAW_ENEMY_FACTOR := 0.08
 const MAX_ENEMIES := 130
+const HIT_CHARGE_PENALTY := 8.0  # 受击扣回溯充能秒数（P0 BUG-01，无死亡机制）
 
 ## 时钟斩（v0.3 定案）：左键点击 = 普攻式冲刺，朝指针方向前冲固定距离
 ## 指针自转每满一圈 +1 行动点；行动点耗尽则左键无响应
@@ -705,13 +706,15 @@ func _check_contact() -> void:
 		if e.dead or e.spawn_left > 0.0:
 			continue
 		if e.position.distance_to(player.position) <= float(e.cfg.radius) + Player.RADIUS:
-			if player.take_hit(float(e.cfg.dmg)):
-				hit_flash = 0.25
-				AudioMgr.play("hit", 0.9, -2.0)
-				var away := (e.position - player.position).normalized()
-				e.position += away * 26.0
-			if player.hp <= 0.0:
-				_game_over()
+			# P0 BUG-01：玩家不死亡，受击扣回溯充能 + 清 combo
+			hit_flash = 0.25
+			AudioMgr.play("hit", 0.9, -2.0)
+			player.invuln = Player.INVULN_TIME
+			clock_charge = maxf(0.0, clock_charge - HIT_CHARGE_PENALTY)
+			combo = 0
+			combo_timer = 0.0
+			var away := (e.position - player.position).normalized()
+			e.position += away * 26.0
 			return
 
 func _game_over() -> void:
