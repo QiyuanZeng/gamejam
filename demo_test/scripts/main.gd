@@ -5,7 +5,8 @@ extends Node2D
 
 enum State { PLAY, DRAW, DASH, BURST, REWIND, GAMEOVER, SPELL_DRAW }
 
-const ARENA := Vector2(1152.0, 648.0)
+const ARENA := Vector2(3000.0, 3000.0)
+const VIEWPORT := Vector2(1152.0, 648.0)   # 渲染视口尺寸（bleed/相机参考）
 const INK_MAX_BASE := 100.0
 const INK_REGEN_BASE := 26.0
 const INK_COST_PER_PX := 0.075
@@ -33,6 +34,11 @@ const CLOCK_SWEEP_DEG := 180.0   # 2s/圈（360/180=2），决策节奏快
 const CLOCK_DASH_DIST := 240.0   # 单次冲刺距离
 const AP_MAX := 3                # 行动点上限
 const AP_START := 3              # 开局行动点
+
+## 相机死区跟随：玩家在死区内相机不动，超出才跟随；超出安全距离强制 snap
+const CAM_DEADZONE := 150.0      # 死区半径（玩家在此范围内相机不动）
+const CAM_SAFE := 400.0          # 安全距离（超出强制 snap 防出框）
+const CAM_LERP := 15.0           # 跟随速度系数
 
 ## —— 时间值（TV）：右键施法资源（老版 SPELL 系统移植） ——
 const TIME_VALUE_MAX := 100.0
@@ -120,6 +126,7 @@ var numbers: Array = []
 var trail_acc := 0.0
 
 var player: Player
+var camera: Camera2D
 var enemies: Array[Enemy] = []
 var bleed: BleedCanvas
 var bg_layer: PaintLayer
@@ -156,6 +163,10 @@ func _ready() -> void:
 	player.hp = PLAYER_HP
 	player.position = ARENA * 0.5
 	add_child(player)
+	camera = Camera2D.new()
+	camera.position = player.position
+	add_child(camera)
+	camera.make_current()
 	hud = HUD.new()
 	hud.game = self
 	add_child(hud)
@@ -218,10 +229,7 @@ func _on_editor_closed() -> void:
 		_cancel_draw()  # 编辑器打开期间松开左键，墨迹作废
 
 func _clamped_mouse() -> Vector2:
-	var m := get_global_mouse_position()
-	return Vector2(
-		clampf(m.x, 8.0, ARENA.x - 8.0),
-		clampf(m.y, 8.0, ARENA.y - 8.0))
+	return get_global_mouse_position()
 
 # ============================== 主循环 ==============================
 
@@ -273,6 +281,16 @@ func _process(delta: float) -> void:
 	bg_layer.queue_redraw()
 	clock_layer.queue_redraw()
 	hud.request_redraw()
+	if camera != null and player != null:
+		# 死区跟随：玩家在死区内相机不动（有位移感），超出才跟随；超安全距离强制 snap
+		var offset := player.position - camera.position
+		var dist := offset.length()
+		if dist > CAM_SAFE:
+			# 强制 snap：相机贴到距玩家 CAM_SAFE 处，防出框
+			camera.position = player.position - offset.normalized() * CAM_SAFE
+		elif dist > CAM_DEADZONE:
+			# 死区外：lerp 跟随
+			camera.position = camera.position.lerp(player.position, minf(1.0, delta * CAM_LERP))
 
 func enemy_speed_factor() -> float:
 	match state:
@@ -752,16 +770,11 @@ func _spawn_enemy() -> void:
 	enemies.append(e)
 
 func _edge_pos() -> Vector2:
-	var m := 26.0
-	match randi() % 4:
-		0:
-			return Vector2(randf_range(m, ARENA.x - m), m)
-		1:
-			return Vector2(ARENA.x - m, randf_range(m, ARENA.y - m))
-		2:
-			return Vector2(randf_range(m, ARENA.x - m), ARENA.y - m)
-		_:
-			return Vector2(m, randf_range(m, ARENA.y - m))
+	# 玩家周围环形刷怪：半径 500-700px，随机角度（无固定边缘方向）
+	var center := player.position if player != null else ARENA * 0.5
+	var ang := randf() * TAU
+	var r := randf_range(500.0, 700.0)
+	return center + Vector2(cos(ang), sin(ang)) * r
 
 func _separate() -> void:
 	for i in enemies.size():
@@ -810,13 +823,16 @@ func _update_timers(delta: float) -> void:
 # ============================== 绘制 ==============================
 
 func _paint_bg(l: PaintLayer) -> void:
+	# 纸纹跟随相机视口（玩家走到哪纸纹到哪，不黑屏）
+	var cam := camera.position if camera != null else ARENA * 0.5
+	var origin := cam - VIEWPORT * 0.5
 	if paper_tex != null:
-		l.draw_texture_rect(paper_tex, Rect2(Vector2.ZERO, ARENA), false)
+		l.draw_texture_rect(paper_tex, Rect2(origin, VIEWPORT), false)
 	else:
-		l.draw_rect(Rect2(Vector2.ZERO, ARENA), Color("#F5F1E8"))
-		# 円相：背景一枚巨大淡墨圆
-		l.draw_arc(ARENA * 0.5, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.06), 28.0)
-		l.draw_arc(ARENA * 0.5, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.04), 52.0)
+		l.draw_rect(Rect2(origin, VIEWPORT), Color("#F5F1E8"))
+		# 円相：背景一枚巨大淡墨圆（跟随相机中心）
+		l.draw_arc(cam, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.06), 28.0)
+		l.draw_arc(cam, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.04), 52.0)
 
 func _paint_ink(l: PaintLayer) -> void:
 	# 墨迹：毛笔枯笔飞白（样式参数来自 InkStyle.current，编辑器可实时改）
