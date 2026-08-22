@@ -190,6 +190,9 @@ static func ribbon_gradient(c: CanvasItem, pts: PackedVector2Array, widths: Arra
 		var c1: Color = cols[i + 1]
 		if c0.a <= 0.003 and c1.a <= 0.003:
 			continue
+		# 锥化尖端的宽度是亚像素级：画出来看不见，却会让三角化在共线附近失败刷屏
+		if maxf(float(widths[i]), float(widths[i + 1])) * scale < 0.25:
+			continue
 		# 拆成两个三角形：路径急转时四边形会自交（蝴蝶形），四边形三角化会失败
 		tri(c, left[i], left[i + 1], right[i + 1], c0, c1, c1)
 		tri(c, left[i], right[i + 1], right[i], c0, c1, c0)

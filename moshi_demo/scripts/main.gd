@@ -688,6 +688,15 @@ func _regen(delta: float, f: float) -> void:
 
 # ============================== §3.2 表盘斩击 ==============================
 
+## 直线补点：只有两端的路径在 WaterRenderer 里会被首尾锥化吃成零宽（等于看不见），
+## 按 SAMPLE_DIST 铺成和手绘同密度的点列，斩击才留得下水痕。
+func _straight_path(a: Vector2, b: Vector2) -> PackedVector2Array:
+	var n := maxi(2, int(ceil(a.distance_to(b) / SAMPLE_DIST)) + 1)
+	var out := PackedVector2Array()
+	for i in n:
+		out.append(a.lerp(b, float(i) / float(n - 1)))
+	return out
+
 func _dial_slash() -> void:
 	if ap < 1.0 or sim_time - last_slash < SLASH_MIN_GAP:
 		return
@@ -698,7 +707,7 @@ func _dial_slash() -> void:
 	var dst := Vector2(
 		clampf(raw.x, 8.0, ARENA.x - 8.0),
 		clampf(raw.y, 8.0, ARENA.y - 8.0))
-	_begin_dash(PackedVector2Array([player.position, dst]), true)
+	_begin_dash(_straight_path(player.position, dst), true)
 	_shake(SHAKE_DASH, SHAKE_DASH_TIME)
 
 # ============================== §5 子弹时间书写 ==============================
@@ -1635,7 +1644,58 @@ func _paint_bg(l: PaintLayer) -> void:
 	var view := Rect2(camera.get_screen_center_position() - vs * 0.5, vs).grow(WaterRenderer.TILE.x)
 	WaterRenderer.draw_water_surface_tiled(l, Rect2(Vector2.ZERO, ARENA), view, {}, surface_phase)
 
+## 回溯航道：把 rewind_hist 里攒着的每一段实际行进轨迹常驻画出来，
+## 玩家随时能看清「按 R 会沿哪条路倒着走回去」。充能满时提亮加粗并呼吸，
+## 终点（最早那段的起点）套个圈标出落脚处。REWIND 期间交给水痕全量重绘，这里让位。
+func _paint_rewind_guide(l: PaintLayer) -> void:
+	if rewind_hist.is_empty() or state == State.REWIND:
+		return
+	WaterRenderer.ensure_loaded()
+	# 底色是浅蓝水面，泡沫白压根看不见 —— 取水色压深当墨线
+	var base := WaterRenderer.getc(WaterRenderer.current, "water_color").darkened(0.5)
+	var ready := clock_charge >= CLOCK_TIME
+	var a := 0.85 if ready else 0.40
+	var w := 3.5 if ready else 2.2
+	if ready:
+		a *= 0.78 + 0.22 * sin(sim_time * 6.0)
+	var c := Color(base.r, base.g, base.b, a)
+	var halo := Color(base.r, base.g, base.b, a * 0.28)   # 外描边：压在深浅底纹上都读得出
+	for path in rewind_hist:
+		if path.size() >= 2:
+			l.draw_polyline(path, halo, w * 2.6)
+			l.draw_polyline(path, c, w)
+	# 行进方向标：沿倒走方向（最近段末端 → 最早段起点）每隔一段插个箭头
+	for si in range(rewind_hist.size() - 1, -1, -1):
+		_paint_rewind_arrows(l, rewind_hist[si], c, w)
+	var goal: Vector2 = rewind_hist[0][0]
+	l.draw_arc(goal, 9.0, 0.0, TAU, 24, c, w)
+	l.draw_arc(goal, 3.5, 0.0, TAU, 16, c, w * 0.8)
+
+const REWIND_ARROW_GAP := 110.0
+
+func _paint_rewind_arrows(l: PaintLayer, path: PackedVector2Array, c: Color, w: float) -> void:
+	if path.size() < 2:
+		return
+	var acc := REWIND_ARROW_GAP * 0.5
+	for i in range(path.size() - 1, 0, -1):
+		var a := path[i]
+		var b := path[i - 1]
+		var seg := a.distance_to(b)
+		if seg <= 0.001:
+			continue
+		acc += seg
+		if acc < REWIND_ARROW_GAP:
+			continue
+		acc = 0.0
+		var dir := (b - a) / seg
+		var nrm := Vector2(-dir.y, dir.x)
+		var tip := b
+		var back := tip - dir * (w * 3.2)
+		l.draw_polyline(PackedVector2Array([back + nrm * w * 2.0, tip, back - nrm * w * 2.0]),
+			c, maxf(w * 0.8, 1.5))
+
 func _paint_ink(l: PaintLayer) -> void:
+	_paint_rewind_guide(l)
 	# 水痕：飞鸟掠水的流体尾迹（参数来自 WaterRenderer.current，F1 编辑器保存即生效）。
 	# 逐点年龄驱动淡出，与编辑器试笔画布同一套动态，故 alpha 恒为 1.0。
 	if ink_path.size() >= 2 and ink_ages.size() == ink_path.size():
