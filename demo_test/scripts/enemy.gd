@@ -1,7 +1,7 @@
 class_name Enemy
 extends Node2D
 ## 墨魉(blob 直追) / 疾影(fast 惯性过弯) / 磐妖(tank 厚血慢压)。
-## 速度统一乘 game.enemy_speed_factor()：DRAW 0.08 倍，DASH/BURST/REWIND 冻结。
+## 速度统一乘 game.enemy_speed_factor()（SPELL_DRAW 态由全局 time_scale 减速，因子为 1）。
 
 const RED := Color("#C0392B")
 

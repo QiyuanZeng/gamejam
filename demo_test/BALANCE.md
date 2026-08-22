@@ -88,6 +88,7 @@
 | 自然回复速率 | 20 /s | BUG-08 对齐方案（原5/s） | `TIME_VALUE_REGEN` |
 | 击杀回复 | 25 /杀 | BUG-08 对齐方案（原2/杀） | `TIME_VALUE_PER_KILL` |
 | 最低施法门槛 | 10 | 低于此值右键无响应 | `TV_MIN_CAST` |
+| 子弹时间倍率 | 0.3 | 右键施法绘制期间全局减速（含音效），HUD 用 real_time 补偿闪烁（task-8） | `SPELL_TIMESCALE` |
 | 咒语时 消耗 | 150 | 时之回溯（原40，BUG-08对齐） | `SpellRecognizer.SPELLS.shi` |
 | 咒语斩 消耗 | 120 | **万象斩·全屏30伤（新增，BUG-08）** | `SpellRecognizer.SPELLS.zan` |
 

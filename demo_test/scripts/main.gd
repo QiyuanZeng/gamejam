@@ -47,6 +47,7 @@ const TIME_VALUE_MAX := 500.0    # BUG-08 对齐方案（原100，方案500）
 const TIME_VALUE_REGEN := 20.0   # BUG-08 对齐方案（原5/s，方案20/s）
 const TIME_VALUE_PER_KILL := 25.0 # BUG-08 对齐方案（原2/杀，方案25/杀）
 const TV_MIN_CAST := 10.0
+const SPELL_TIMESCALE := 0.3    # task-8：右键施法绘制时全局子弹时间（HUD 用 real_time 补偿）
 ## —— 连斩里程碑（老版移植）：回墨 / 五连回春 / 十连清场 / 十五连轮回 ——
 const COMBO_3_INK := 10.0
 const COMBO_5_HEAL := 30.0
@@ -72,6 +73,7 @@ var upgrades := {"ink_max": 0, "ink_regen": 0, "rewind_slots": 0}
 
 var state: State = State.PLAY
 var sim_time := 0.0
+var real_time := 0.0   # 真实时间（time_scale 补偿），HUD 闪烁动画专用
 var run_time := 0.0
 var round_timer := ROUND_TIME    # BUG-06 单局倒计时
 var swing_deg := -90.0   # 表盘指针角度：-90 = 12点方向为起点
@@ -143,6 +145,9 @@ var paper_tex: Texture2D
 
 func _ready() -> void:
 	randomize()
+	# 防御：重开局时 time_scale 残留（Engine.time_scale 不随场景重载重置）
+	Engine.time_scale = 1.0
+	AudioServer.playback_speed_scale = 1.0
 	var shader: Shader = load("res://shaders/paper_key.gdshader")
 	if shader != null:
 		key_mat = ShaderMaterial.new()
@@ -230,6 +235,9 @@ func _on_editor_closed() -> void:
 	get_tree().paused = false
 	if state == State.DRAW:
 		_cancel_draw()  # 编辑器打开期间松开左键，墨迹作废
+	elif state == State.SPELL_DRAW:
+		_exit_bullet_time()  # 暂停期间松开右键，防子弹时间残留
+		state = State.PLAY
 
 func _clamped_mouse() -> Vector2:
 	return get_global_mouse_position()
@@ -238,6 +246,7 @@ func _clamped_mouse() -> Vector2:
 
 func _process(delta: float) -> void:
 	sim_time += delta
+	real_time += delta / maxf(Engine.time_scale, 0.05)
 	if state != State.GAMEOVER:
 		run_time += delta
 	if combo_timer > 0.0 and state != State.GAMEOVER:
@@ -310,7 +319,7 @@ func enemy_speed_factor() -> float:
 		State.DRAW:
 			return 0.35    # 画墨半慢，留思考空间但不卡死
 		State.SPELL_DRAW:
-			return 0.35     # 咒语绘制同画墨
+			return 1.0      # task-8：全局 time_scale=0.3 已减速，因子归一防双重减速
 		State.BURST:
 			return 0.2     # 顿帧微冻，引爆瞬间戏剧性
 		State.REWIND:
@@ -373,11 +382,14 @@ func _begin_spell() -> void:
 	state = State.SPELL_DRAW
 	spell_points.clear()
 	spell_points.append(_clamped_mouse())
+	# task-8 子弹时间：全局减速（怪/波次/特效/音效），鼠标采样不受影响
+	Engine.time_scale = SPELL_TIMESCALE
+	AudioServer.playback_speed_scale = SPELL_TIMESCALE
 	AudioMgr.play("draw", 1.2, -8.0)
 
 func _update_spell(delta: float) -> void:
 	_add_spell_point(_clamped_mouse())
-	_update_waves(delta, DRAW_ENEMY_FACTOR)
+	_update_waves(delta, 1.0)  # time_scale 已全局减速，波次因子归一
 	ink_layer.queue_redraw()
 	fx_layer.queue_redraw()
 
@@ -391,6 +403,7 @@ func _add_spell_point(p: Vector2) -> void:
 	spell_points.append(p)
 
 func _release_spell() -> void:
+	_exit_bullet_time()
 	var result := spell_recognizer.recognize(spell_points)
 	if result.is_empty():
 		state = State.PLAY
@@ -406,6 +419,10 @@ func _release_spell() -> void:
 
 func start_rewind_from_spell() -> void:
 	_begin_rewind()
+
+func _exit_bullet_time() -> void:
+	Engine.time_scale = 1.0
+	AudioServer.playback_speed_scale = 1.0
 
 func kill_list(died: Array) -> void:
 	for e in died:
@@ -726,6 +743,7 @@ func _check_contact() -> void:
 			return
 
 func _game_over() -> void:
+	_exit_bullet_time()  # 时限耗尽可能发生在 SPELL_DRAW 中，恢复时间流速
 	state = State.GAMEOVER
 	ink_path = PackedVector2Array()
 	AudioMgr.play("over", 1.0, 0.0)

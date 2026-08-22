@@ -57,12 +57,14 @@
 
 ## 四、下一棒待做（按优先级）
 
-### 🔴 P1 还剩（1 条）
+### 🔴 P1 还剩（0 条，全部完成 ✅）
 
-**task-8 右键子弹时间**
-- 进 `SPELL_DRAW` 时 `Engine.time_scale = 0.3`（或 enemy factor×0.3）
-- 松开右键恢复 `Engine.time_scale = 1.0`
-- 注意：`Engine.time_scale` 影响全局 delta，HUD 动画需用 `Time.get_ticks_msec()` 独立计时
+~~**task-8 右键子弹时间**~~（已完成）
+- `_begin_spell()` 进 SPELL_DRAW 时 `Engine.time_scale = 0.3` + `AudioServer.playback_speed_scale = 0.3`
+- `_release_spell()` / `_game_over()` / `_ready()` / `_on_editor_closed()` 四处恢复 1.0，防 time_scale 残留
+- HUD 闪烁动画改用 `real_time`（delta/time_scale 补偿），子弹时间下动画速度正常
+- SPELL_DRAW 怪速因子归一为 1.0（全局 time_scale 已减速，防双重减速）
+- 附带修复：hud.gd:72-73 `:=` 类型推断 parse error（fd8cc9d 存量 bug，上棒"提示消失"根因）
 
 ### 🟡 P2 内容缺失（bug_list 里的）
 

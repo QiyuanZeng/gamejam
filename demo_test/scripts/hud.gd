@@ -65,12 +65,12 @@ func _paint(r: Control) -> void:
 	r.draw_rect(Rect2(20, 62, 220, 10), Color(0, 0, 0, 0.10))
 	var tv_col := Color(0.32, 0.68, 0.62)
 	if game.time_value < game.TV_MIN_CAST:
-		tv_col = Color(0.32, 0.68, 0.62, 0.45 + 0.4 * absf(sin(game.sim_time * 8.0)))
+		tv_col = Color(0.32, 0.68, 0.62, 0.45 + 0.4 * absf(sin(game.real_time * 8.0)))
 	r.draw_rect(Rect2(20, 62, 220.0 * tv_f, 10), tv_col)
 	r.draw_rect(Rect2(20, 62, 220, 10), Color(0, 0, 0, 0.35), false, 1.0)
 	# TV 条刻度线：120=斩（万象斩）/ 150=时（时之回溯）
-	var x_zan := 20.0 + 220.0 * (120.0 / game.TIME_VALUE_MAX)
-	var x_shi := 20.0 + 220.0 * (150.0 / game.TIME_VALUE_MAX)
+	var x_zan: float = 20.0 + 220.0 * (120.0 / game.TIME_VALUE_MAX)
+	var x_shi: float = 20.0 + 220.0 * (150.0 / game.TIME_VALUE_MAX)
 	r.draw_line(Vector2(x_zan, 60), Vector2(x_zan, 74), Color("#C0392B"), 1.5)
 	r.draw_line(Vector2(x_shi, 60), Vector2(x_shi, 74), Color("#4A443C"), 1.5)
 	_text(r, Vector2(x_zan - 3, 57), "斩", 9, Color("#C0392B"))
@@ -90,7 +90,7 @@ func _paint(r: Control) -> void:
 	var ready: bool = game.clock_charge >= game.CLOCK_TIME
 	var ring_col := Color(GREY.r, GREY.g, GREY.b, 0.8)
 	if ready:
-		var pulse := 0.5 + 0.5 * sin(game.sim_time * 8.0)
+		var pulse := 0.5 + 0.5 * sin(game.real_time * 8.0)
 		ring_col = Color(RED.r, RED.g, RED.b, 0.55 + 0.45 * pulse)
 	r.draw_arc(c, rad, 0.0, TAU, 48, ring_col, 2.0)
 	# 充能弧（红）
@@ -104,7 +104,7 @@ func _paint(r: Control) -> void:
 	r.draw_line(c, c + Vector2(cos(mang), sin(mang)) * 23.0, ring_col, 2.5)
 	r.draw_circle(c, 2.5, ring_col)
 	if ready:
-		var blink := 0.55 + 0.45 * sin(game.sim_time * 6.0)
+		var blink := 0.55 + 0.45 * sin(game.real_time * 6.0)
 		_text_center(r, c.x, 104.0, "R · 回溯", 16, Color(RED.r, RED.g, RED.b, blink))
 	# —— 波次预告 ——
 	if game.announce_t > 0.0:
@@ -134,13 +134,13 @@ func _paint(r: Control) -> void:
 			15, Color(GREY.r, GREY.g, GREY.b, ha * 0.85))
 	# —— 施法提示 ——
 	if game.state == game.State.SPELL_DRAW:
-		var blink := 0.55 + 0.45 * sin(game.sim_time * 10.0)
+		var blink := 0.55 + 0.45 * sin(game.real_time * 10.0)
 		var teal := Color(0.32, 0.68, 0.62, blink)
 		# 底部说明（施法提示）
 		_text_center(r, w * 0.5, h - 40.0, "画 横线 ── 斬·萬象（TV 120）", 16, teal)
 		_text_center(r, w * 0.5, h - 18.0, "画 竖线 ｜ 時·回溯（TV 150）   松开右键施放", 14, Color(teal.r, teal.g, teal.b, blink * 0.7))
 		# 屏幕四边青色发光（进入施法模式明显提示）
-		var glow := Color(0.32, 0.68, 0.62, 0.18 + 0.12 * sin(game.sim_time * 12.0))
+		var glow := Color(0.32, 0.68, 0.62, 0.18 + 0.12 * sin(game.real_time * 12.0))
 		r.draw_rect(Rect2(0, 0, w, 6), glow)
 		r.draw_rect(Rect2(0, h - 6, w, 6), glow)
 		r.draw_rect(Rect2(0, 0, 6, h), glow)
@@ -153,7 +153,7 @@ func _paint(r: Control) -> void:
 		_text_center(r, w * 0.5, h * 0.30 + 84.0,
 			"得分 %d · 斩杀 %d · 最高连击 %d · 评级 %s" % [game.score, game.kills, game.max_combo, rt],
 			22, Color(0.78, 0.76, 0.71))
-		var blink2 := 0.55 + 0.45 * sin(game.sim_time * 5.0)
+		var blink2 := 0.55 + 0.45 * sin(game.real_time * 5.0)
 		_text_center(r, w * 0.5, h * 0.30 + 128.0, "点击 / 回车 · 重开一局",
 			18, Color(RED.r, RED.g, RED.b, blink2))
 
