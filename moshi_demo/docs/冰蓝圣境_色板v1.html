@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>《时之回环》冰蓝圣境色板 v1</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 40px 24px; background: #eef5f8; color: #243744; font-family: "Microsoft YaHei", Arial, sans-serif; }
+    main { max-width: 1120px; margin: 0 auto; padding: 36px; background: #fff; border: 1px solid #d6e5ed; border-radius: 18px; box-shadow: 0 12px 36px rgba(36,55,68,.12); }
+    h1 { margin: 0 0 8px; font-size: 28px; color: #344554; }
+    h2 { margin: 34px 0 14px; font-size: 20px; color: #344554; }
+    p, li { line-height: 1.75; }
+    .intro { margin: 0; padding: 16px 18px; background: #f3faff; border-left: 4px solid #78d7f4; border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; overflow: hidden; border: 1px solid #d6e5ed; border-radius: 10px; }
+    th { background: #243744; color: #f3faff; text-align: left; }
+    th, td { padding: 13px 14px; border-bottom: 1px solid #e1edf2; vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    tr:nth-child(even) td { background: #f9fcfd; }
+    .swatch { width: 92px; height: 34px; border-radius: 7px; border: 1px solid rgba(20,35,46,.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
+    code { padding: 3px 6px; background: #edf4f7; border-radius: 4px; color: #344554; font-family: Consolas, monospace; }
+    .keep { color: #344554; font-weight: 700; }
+    .param { white-space: nowrap; font-family: Consolas, monospace; color: #344554; font-size: 12px; }
+    .sliders { display: grid; gap: 5px; min-width: 190px; }
+    .slider { display: grid; grid-template-columns: 18px 1fr 38px; align-items: center; gap: 5px; font-size: 11px; color: #344554; }
+    input[type="range"] { width: 100%; accent-color: #5faedb; }
+    .footer { margin-top: 26px; color: #6d8498; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>《时之回环》冰蓝圣境色板 v1</h1>
+    <p class="intro">方向：天空圣境、云海、白色祭坛。主色为冰蓝 / 雾白 / 蓝灰，保留极少淡金作焦点。<br><strong>文字原则：常规功能文字与技能文字保持现状；击杀、暴击等功能性跳字保留红色语义，但改为低饱和、高明度的雾化梦幻红。</strong></p>
+
+    <h2>色板</h2>
+    <table>
+      <thead><tr><th>色块</th><th>名称</th><th>代码参数名</th><th>Hex</th><th>RGB</th><th>可调参数（0–255）</th><th>建议用途</th></tr></thead>
+      <tbody>
+        <tr><td><div class="swatch" style="background:#8FE7F5"></div></td><td>血条·青白</td><td><code>HUD.HP_CYAN</code></td><td><code>#8FE7F5</code></td><td>RGB(143, 231, 245)</td><td>血条填充</td></tr>
+        <tr><td><div class="swatch" style="background:#5FAEDB"></div></td><td>时间条·冰蓝</td><td><code>HUD.TIME_BLUE</code></td><td><code>#5FAEDB</code></td><td>RGB(95, 174, 219)</td><td>时间条主体填充</td></tr>
+        <tr><td><div class="swatch" style="background:#C8F3FF"></div></td><td>时间条·高光</td><td><code>HUD.TIME_HIGHLIGHT</code></td><td><code>#C8F3FF</code></td><td>RGB(200, 243, 255)</td><td>时间条高光、描边</td></tr>
+        <tr><td><div class="swatch" style="background:#6F88A0"></div></td><td>UI 主字·蓝灰</td><td><code>规划中：UI_TEXT_PRIMARY</code></td><td><code>#6F88A0</code></td><td>RGB(111, 136, 160)</td><td>备用蓝灰字色，本轮不替换常规文字</td></tr>
+        <tr><td><div class="swatch" style="background:#9CB3C7"></div></td><td>UI 次字·灰蓝</td><td><code>规划中：UI_TEXT_SECONDARY</code></td><td><code>#9CB3C7</code></td><td>RGB(156, 179, 199)</td><td>备用灰蓝字色，本轮不替换常规文字</td></tr>
+        <tr><td><div class="swatch" style="background:#344554"></div></td><td>深蓝</td><td><code>规划中：UI_DEEP_BLUE</code></td><td><code>#344554</code></td><td>RGB(52, 69, 84)</td><td>深色 UI 结构；非强制文字色</td></tr>
+        <tr><td><div class="swatch" style="background:#243744"></div></td><td>技能框·深蓝灰</td><td><code>HUD.SKILL_BLUE_BLACK<br>Game.AP_FULL</code></td><td><code>#243744</code></td><td>RGB(36, 55, 68)</td><td>技能块底、边框、AP 实心点</td></tr>
+        <tr><td><div class="swatch" style="background:#14232E"></div></td><td>面板遮罩·蓝黑</td><td><code>规划中：PANEL_OVERLAY</code></td><td><code>#14232E</code></td><td>RGB(20, 35, 46)</td><td>觉醒、结算遮罩</td></tr>
+        <tr><td><div class="swatch" style="background:#78D7F4"></div></td><td>时钟就绪·亮蓝</td><td><code>HUD.CLOCK_BLUE</code></td><td><code>#78D7F4</code></td><td>RGB(120, 215, 244)</td><td>回溯时钟、回溯提示、就绪焦点</td></tr>
+        <tr><td><div class="swatch" style="background:#6D8498"></div></td><td>时钟未满·灰蓝</td><td><code>HUD.CLOCK_IDLE<br>Game.AP_EMPTY</code></td><td><code>#6D8498</code></td><td>RGB(109, 132, 152)</td><td>回溯时钟未充能、AP 空点</td></tr>
+        <tr><td><div class="swatch" style="background:#E9A0AC"></div></td><td>跳字·雾粉红</td><td><code>HUD.RED<br>Game.RED</code></td><td><code>#E9A0AC</code></td><td>RGB(233, 160, 172)</td><td>一般击杀、受击、功能性红色跳字</td></tr>
+        <tr><td><div class="swatch" style="background:#C87E90"></div></td><td>跳字·深雾红</td><td><code>规划中：CRIT_MIST_RED</code></td><td><code>#C87E90</code></td><td>RGB(200, 126, 144)</td><td>暴击、大额伤害、危险提示；可搭配雾粉红外发光</td></tr>
+        <tr><td><div class="swatch" style="background:#FFF1B5"></div></td><td>焦点·淡金</td><td><code>规划中：FOCUS_GOLD</code></td><td><code>#FFF1B5</code></td><td>RGB(255, 241, 181)</td><td>极少量选中态、关键提示</td></tr>
+        <tr><td><div class="swatch" style="background:#F3FAFF"></div></td><td>雾白</td><td><code>规划中：MIST_WHITE</code></td><td><code>#F3FAFF</code></td><td>RGB(243, 250, 255)</td><td>大标题、高反差文字</td></tr>
+      </tbody>
+    </table>
+
+    <h2>功能映射</h2>
+    <table>
+      <thead><tr><th>游戏功能</th><th>色彩规则</th></tr></thead>
+      <tbody>
+        <tr><td>左上血条</td><td>青白 <code>#8FE7F5</code></td></tr>
+        <tr><td>左上时间条</td><td>冰蓝 <code>#5FAEDB</code>，叠雾白高光 <code>#C8F3FF</code></td></tr>
+        <tr><td>回溯时钟就绪 / 未满</td><td>亮蓝 <code>#78D7F4</code> / 灰蓝 <code>#6D8498</code></td></tr>
+        <tr><td>主角头顶 AP 三点</td><td>实心深蓝灰 <code>#243744</code>；空心灰蓝 <code>#6D8498</code></td></tr>
+        <tr><td>技能块框体</td><td>深蓝灰 <code>#243744</code></td></tr>
+        <tr><td>一般击杀 / 受击跳字</td><td>雾粉红 <code>#E9A0AC</code></td></tr>
+        <tr><td>暴击 / 大额伤害跳字</td><td>深雾红 <code>#C87E90</code>，可附雾粉红外发光</td></tr>
+        <tr><td>常规 UI 文字、技能文字</td><td><span class="keep">保持当前颜色，不改。</span></td></tr>
+      </tbody>
+    </table>
+    <p class="footer">版本：v1。结算页排版、跳字演出结构、技能特效与敌人特效另行设计。</p>
+  </main>
+  <script>
+    const rows = document.querySelectorAll('table:first-of-type tbody tr');
+    rows.forEach((row) => {
+      const swatch = row.querySelector('.swatch');
+      const hexCell = row.children[3];
+      const rgbCell = row.children[4];
+      const hex = hexCell.textContent.trim().replace('#', '');
+      let rgb = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16));
+      const paramCell = document.createElement('td');
+      const sliders = document.createElement('div');
+      sliders.className = 'sliders';
+      ['R', 'G', 'B'].forEach((channel, index) => {
+        const line = document.createElement('label');
+        line.className = 'slider';
+        const range = document.createElement('input');
+        range.type = 'range'; range.min = 0; range.max = 255; range.value = rgb[index];
+        const value = document.createElement('span'); value.textContent = rgb[index];
+        line.append(channel, range, value);
+        range.addEventListener('input', () => {
+          rgb[index] = Number(range.value); value.textContent = rgb[index];
+          const nextHex = '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+          swatch.style.background = nextHex;
+          hexCell.innerHTML = '<code>' + nextHex + '</code>';
+          rgbCell.textContent = 'RGB(' + rgb.join(', ') + ')';
+        });
+        sliders.appendChild(line);
+      });
+      paramCell.appendChild(sliders);
+      row.insertBefore(paramCell, row.children[5]);
+    });
+  </script>
+</body>
+</html>

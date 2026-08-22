@@ -23,7 +23,7 @@ const CAM_LERP := 15.0
 
 const AP_MAX_BASE := 3
 const AP_MAX_CAP := 6
-const HOUR_PERIOD := 2.0          # AB §13：1.5 / 2.0 / 2.5
+const HOUR_PERIOD := 1.0          # 指针每秒一圈；每圈回复 1 AP，可冲刺一次
 const SEC_PERIOD := 0.5
 const MIN_PERIOD := 1.0
 const AP_PER_HOUR := 1.0
@@ -51,8 +51,8 @@ const MARK_RETAIN := 1.5
 
 # ============================== §5 子弹时间 / 时间值 / 咒语 ==============================
 
-const TV_MAX_BASE := 500.0
-const TV_REGEN_BASE := 20.0
+const TV_MAX_BASE := 8000.0
+const TV_REGEN_BASE := 240.0
 const TV_COST_PER_PX := 1.0       # 1 px 笔画 = 1 墨
 const BULLET_FACTOR := 0.10       # AB §13：0.05 / 0.10 / 0.20
 const BULLET_TV_DRAIN := 30.0
@@ -143,8 +143,10 @@ const SHAKE_BURST := 8.0
 const SHAKE_BURST_TIME := 0.25
 
 const INK := Color("#1A1714")
-const RED := Color("#C0392B")
+const RED := Color("#E9A0AC")
 const GREY := Color("#4A443C")
+const AP_FULL := Color("#243744")
+const AP_EMPTY := Color("#6D8498")
 
 ## 怪物配置已搬到 res://data/enemies/*.tres，统一由 EnemyDB 按 id 加载。
 ## 刷怪波表已搬到 res://data/waves/*.tres，统一由 WaveDB 按 until_time 排段。
@@ -251,6 +253,7 @@ var key_mat: ShaderMaterial
 var paper_tex: Texture2D
 var camera: Camera2D
 var dial_pointer: Sprite2D
+var dial_clock: Sprite2D
 const DIAL_POINTER_PIVOT_FRAC := Vector2(0.0134, 0.4988)
 const DIAL_POINTER_SRC_LEN := 692.6
 const DIAL_POINTER_LEN := 110.0
@@ -283,13 +286,23 @@ func _ready() -> void:
 	player.position = ARENA * 0.5
 	add_child(player)
 	camera = Camera2D.new()
-	camera.position = player.position
+	camera.position = player.position + Vector2(0, -90)
+	camera.zoom = Vector2(0.82, 0.82)
 	camera.limit_left = 0
 	camera.limit_top = 0
 	camera.limit_right = int(ARENA.x)
 	camera.limit_bottom = int(ARENA.y)
 	add_child(camera)
 	camera.make_current()
+	var dial_clock_tex := load("res://assets/art/effects/dial_clock.png")
+	if dial_clock_tex != null:
+		dial_clock = Sprite2D.new()
+		dial_clock.texture = dial_clock_tex
+		var clock_scale := (DIAL_RADIUS * 4.55) / float(maxi(dial_clock_tex.get_width(), dial_clock_tex.get_height()))
+		dial_clock.scale = Vector2(clock_scale, clock_scale)
+		dial_clock.modulate.a = 0.8
+		dial_clock.z_index = -1
+		add_child(dial_clock)
 	if ResourceLoader.exists("res://assets/art/effects/dial_pointer.png"):
 		dial_pointer = Sprite2D.new()
 		dial_pointer.texture = load("res://assets/art/effects/dial_pointer.png")
@@ -298,7 +311,7 @@ func _ready() -> void:
 		dial_pointer.offset = -DIAL_POINTER_PIVOT_FRAC * tex_size
 		var s := DIAL_POINTER_LEN / DIAL_POINTER_SRC_LEN
 		dial_pointer.scale = Vector2(s, s)
-		dial_pointer.z_index = 60
+		dial_pointer.z_index = 1
 		add_child(dial_pointer)
 	hud = HUD.new()
 	hud.game = self
@@ -1521,8 +1534,8 @@ func _paint_ink(l: PaintLayer) -> void:
 
 func _paint_fx(l: PaintLayer) -> void:
 	for t in trail:
-		var k: float = 1.0 - t.t / TRAIL_FADE
-		_draw_silhouette(l, t.pos, k * 0.4, INK)
+		var k: float = clampf(1.0 - t.t / TRAIL_FADE, 0.0, 1.0)
+		_draw_player_ghost(l, t.pos, 0.6 * k * k)
 	for g in ghost_trail:
 		var k2: float = 1.0 - g.t / TRAIL_FADE
 		_draw_silhouette(l, g.pos, k2 * 0.55, RED)
@@ -1593,12 +1606,15 @@ func _paint_dial(l: PaintLayer) -> void:
 	if state == State.GAMEOVER or player == null:
 		return
 	var c := player.position
-	l.draw_arc(c, DIAL_RADIUS, 0.0, TAU, 48, Color(GREY.r, GREY.g, GREY.b, 0.30), 1.5)
-	for i in 12:
-		var a := -PI * 0.5 + TAU * float(i) / 12.0
-		var d := Vector2(cos(a), sin(a))
-		l.draw_line(c + d * (DIAL_RADIUS - 5.0), c + d * DIAL_RADIUS,
-			Color(GREY.r, GREY.g, GREY.b, 0.28), 1.0)
+	if dial_clock != null:
+		dial_clock.global_position = c
+	else:
+		l.draw_arc(c, DIAL_RADIUS, 0.0, TAU, 48, Color(GREY.r, GREY.g, GREY.b, 0.30), 1.5)
+		for i in 12:
+			var a := -PI * 0.5 + TAU * float(i) / 12.0
+			var d := Vector2(cos(a), sin(a))
+			l.draw_line(c + d * (DIAL_RADIUS - 5.0), c + d * DIAL_RADIUS,
+				Color(GREY.r, GREY.g, GREY.b, 0.28), 1.0)
 	if int(upgrades.pointer) >= 1:
 		var sa := -PI * 0.5 + TAU * fmod(dial_t, SEC_PERIOD) / SEC_PERIOD
 		l.draw_line(c, c + Vector2(cos(sa), sin(sa)) * (DIAL_RADIUS - 2.0),
@@ -1620,16 +1636,32 @@ func _paint_dial(l: PaintLayer) -> void:
 			l.draw_line(c + hour_dir() * DIAL_RADIUS, c + hour_dir() * (DIAL_RADIUS + 12.0),
 				Color(RED.r, RED.g, RED.b, 0.55), 2.0)
 		l.draw_circle(c, 3.0, hcol)
-	# 头顶 AP 点
+	# 头顶 AP：四角白星，最新一格最亮，整体抬高避开角色头部。
 	var n := ap_max()
 	var full := int(floor(ap))
-	var w := 12.0 * float(n - 1)
+	var w := 24.0 * float(n - 1)
 	for i in n:
-		var p := c + Vector2(-w * 0.5 + 12.0 * float(i), -70.0)
-		if i < full:
-			l.draw_circle(p, 4.0, Color(INK.r, INK.g, INK.b, 0.9))
-		else:
-			l.draw_arc(p, 4.0, 0.0, TAU, 12, Color(GREY.r, GREY.g, GREY.b, 0.5), 1.0)
+		var p := c + Vector2(-w * 0.5 + 24.0 * float(i), -92.0)
+		var col := Color("#F3FAFF", 0.95) if i < full else Color("#C8F3FF", 0.55)
+		_draw_four_point_star(l, p, 8.5, 3.4, col)
+
+func _draw_four_point_star(l: PaintLayer, pos: Vector2, outer: float, inner: float, col: Color) -> void:
+	var pts := PackedVector2Array([
+		pos + Vector2(0, -outer), pos + Vector2(inner, -inner),
+		pos + Vector2(outer, 0), pos + Vector2(inner, inner),
+		pos + Vector2(0, outer), pos + Vector2(-inner, inner),
+		pos + Vector2(-outer, 0), pos + Vector2(-inner, -inner),
+	])
+	l.draw_colored_polygon(pts, col)
+
+func _draw_player_ghost(l: PaintLayer, pos: Vector2, alpha: float) -> void:
+	if player != null and player.sprite != null and player.sprite.texture != null:
+		var tex := player.sprite.texture
+		var size := tex.get_size() * player.sprite.scale
+		l.draw_texture_rect(tex, Rect2(pos - size * 0.5, size), false,
+			Color(1.0, 1.0, 1.0, clampf(alpha, 0.0, 0.6)))
+	else:
+		_draw_silhouette(l, pos, alpha, INK)
 
 func _draw_silhouette(l: PaintLayer, pos: Vector2, alpha: float, col: Color) -> void:
 	var c := Color(col.r, col.g, col.b, alpha)

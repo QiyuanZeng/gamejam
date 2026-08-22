@@ -72,7 +72,7 @@ var drawing := false
 var surface_phase := 0.0
 var toast_t := 0.0
 var toast_text := ""
-var font: SystemFont
+var font: Font
 var board: Control
 var pad: Control
 var _sliders := {}
@@ -162,9 +162,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 10
 	params = _load_params()
-	font = SystemFont.new()
-	font.font_names = PackedStringArray([
-		"Microsoft YaHei UI", "Microsoft YaHei", "SimHei", "Noto Sans CJK SC"])
+	font = load("res://assets/fonts/MFYueYuan_Noncommercial-Regular.ttf")
 	board = _Board.new()
 	board.ed = self
 	board.position = Vector2.ZERO

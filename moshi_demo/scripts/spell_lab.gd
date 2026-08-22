@@ -40,7 +40,7 @@ var rows: Array = []                       # 8 技能匹配结果，按得分降
 var _match_t := -9999
 var toast_t := 0.0
 var toast_text := ""
-var font: SystemFont
+var font: Font
 var board: Control
 var pad: Control
 
@@ -128,9 +128,7 @@ class _Pad extends Control:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 10
-	font = SystemFont.new()
-	font.font_names = PackedStringArray([
-		"Microsoft YaHei UI", "Microsoft YaHei", "SimHei", "Noto Sans CJK SC"])
+	font = load("res://assets/fonts/MFYueYuan_Noncommercial-Regular.ttf")
 	_load_skills()
 	board = _Board.new()
 	board.lab = self
