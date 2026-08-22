@@ -12,7 +12,7 @@ const INK_COST_PER_PX := 0.075
 const DASH_SPEED := 2400.0
 const DASH_RADIUS := 70.0
 const DASH_DMG := 20.0
-const REWIND_MULT := 2.0
+const REWIND_MULT := 1.0
 const POST_DASH_INVULN := 0.3
 const SAMPLE_DIST := 6.0
 const CLOCK_TIME := 25.0
@@ -51,11 +51,11 @@ const RED := Color("#C0392B")
 const GREY := Color("#4A443C")
 
 const ENEMY_CFGS := {
-	"blob": {"type": "blob", "hp": 10.0, "speed": 60.0, "dmg": 8.0, "radius": 15.0,
+	"blob": {"type": "blob", "hp": 30.0, "speed": 110.0, "dmg": 8.0, "radius": 15.0,
 		"tex_target": 42.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_blob.png"},
-	"fast": {"type": "fast", "hp": 6.0, "speed": 130.0, "dmg": 6.0, "radius": 11.0,
+	"fast": {"type": "fast", "hp": 18.0, "speed": 200.0, "dmg": 6.0, "radius": 11.0,
 		"tex_target": 38.0, "color": Color("#4A443C"), "tex": "res://assets/enemy_fast.png"},
-	"tank": {"type": "tank", "hp": 40.0, "speed": 35.0, "dmg": 15.0, "radius": 27.0,
+	"tank": {"type": "tank", "hp": 90.0, "speed": 65.0, "dmg": 15.0, "radius": 27.0,
 		"tex_target": 86.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_tank.png"},
 }
 
@@ -705,10 +705,10 @@ func _game_over() -> void:
 
 func _wave_config(w: int) -> Dictionary:
 	if w <= 2:
-		return {"count": 6 + 3 * (w - 1), "interval": 0.5, "blob": 1.0}
+		return {"count": 12 + 4 * (w - 1), "interval": 0.25, "blob": 1.0}
 	elif w <= 4:
-		return {"count": 6 + 3 * (w - 1), "interval": 0.45, "blob": 0.7, "fast": 0.3}
-	return {"count": 8 + 3 * (w - 5), "interval": 0.4, "blob": 0.6, "fast": 0.25, "tank": 0.15}
+		return {"count": 12 + 4 * (w - 1), "interval": 0.22, "blob": 0.7, "fast": 0.3}
+	return {"count": 16 + 4 * (w - 5), "interval": 0.2, "blob": 0.6, "fast": 0.25, "tank": 0.15}
 
 func _update_waves(delta: float, factor: float) -> void:
 	if spawn_left > 0:
