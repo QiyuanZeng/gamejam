@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="BalanceConfig" format=3]
+[gd_resource type="Resource" script_class="BalanceConfig" format=3 uid="uid://dsurwjltagc8w"]
 
-[ext_resource type="Script" path="res://scripts/enemy_data.gd" id="1_e7bv1"]
-[ext_resource type="Script" path="res://scripts/balance_config.gd" id="2_75r0e"]
-[ext_resource type="Script" path="res://scripts/wave_data.gd" id="3_njojm"]
+[ext_resource type="Script" uid="uid://dv3lf725m3nvc" path="res://scripts/enemy_data.gd" id="1_e7bv1"]
+[ext_resource type="Script" uid="uid://concvv2ocyihf" path="res://scripts/balance_config.gd" id="2_75r0e"]
+[ext_resource type="Script" uid="uid://cnxjfnwebn0lf" path="res://scripts/wave_data.gd" id="3_njojm"]
 
 [sub_resource type="Resource" id="Resource_j68rn"]
 script = ExtResource("1_e7bv1")
@@ -10,8 +10,8 @@ id = "charger_fast"
 display_name = "疾影"
 behavior = 2
 hp = 14.0
-speed = 130.0
-dmg = 6.0
+speed = 100.0
+dmg = 1.0
 radius = 22.0
 score = 15
 tv = 10.0
@@ -20,7 +20,18 @@ tex_target = 76.0
 color = Color(0.290196, 0.266667, 0.235294, 1)
 draw_style = "fast"
 inertia = true
+attack_cd = 2.5
+bullet_speed = 200.0
+bullet_dmg = 1.0
+charge_range = 500.0
+charge_dist = 700.0
+charge_time = 3.0
+charge_speed = 700.0
+charge_cd = 5.0
 charge_warn_color = Color(0.752941, 0.223529, 0.168627, 1)
+split_count = 4
+split_spread = 80.0
+split_child_invuln = 0.3
 legacy_type = "fast"
 
 [sub_resource type="Resource" id="Resource_icusp"]
@@ -29,10 +40,10 @@ id = "elite_charger"
 display_name = "疾影·精英"
 behavior = 2
 hp = 56.0
-speed = 110.5
-dmg = 10.8
+speed = 100.0
+dmg = 1.0
 radius = 22.0
-score = 45
+score = 100
 coin = 3
 tv = 25.0
 tex = "res://assets/enemy_fast.png"
@@ -57,8 +68,8 @@ id = "elite_melee"
 display_name = "影蚋·精英"
 hp = 40.0
 speed = 51.0
-dmg = 14.4
-score = 30
+dmg = 1.0
+score = 50
 coin = 3
 tv = 20.0
 anim_dir = "res://assets/art/enemies/shadow_mite/"
@@ -69,6 +80,7 @@ is_elite = true
 elite_of = "melee_mite"
 scale_mul = 1.5
 tint = Color(1.3, 1.05, 0.75, 1)
+bullet_dmg = 1.0
 legacy_type = "mite"
 
 [sub_resource type="Resource" id="Resource_htc7v"]
@@ -78,7 +90,7 @@ display_name = "晶哨·精英"
 behavior = 1
 hp = 96.0
 speed = 42.5
-dmg = 21.6
+dmg = 1.0
 radius = 48.0
 score = 135
 coin = 9
@@ -96,7 +108,7 @@ tint = Color(1.3, 1.05, 0.75, 1)
 attack_range = 460.0
 attack_cd = 1.3
 bullet_speed = 290.0
-bullet_dmg = 9.0
+bullet_dmg = 1.0
 bullet_radius = 12.0
 bullet_color = Color(0.239216, 0.352941, 0.501961, 1)
 legacy_type = "tank"
@@ -108,7 +120,7 @@ display_name = "磐妖·精英"
 behavior = 3
 hp = 64.0
 speed = 68.0
-dmg = 18.0
+dmg = 1.0
 radius = 26.0
 score = 75
 coin = 6
@@ -130,6 +142,7 @@ legacy_type = "bomber"
 script = ExtResource("1_e7bv1")
 id = "melee_mite"
 display_name = "影蚋"
+dmg = 1.0
 anim_dir = "res://assets/art/enemies/shadow_mite/"
 tex_target = 88.0
 color = Color(0.164706, 0.164706, 0.2, 1)
@@ -142,7 +155,7 @@ display_name = "晶哨"
 behavior = 1
 hp = 24.0
 speed = 50.0
-dmg = 12.0
+dmg = 1.0
 radius = 48.0
 score = 45
 coin = 3
@@ -153,6 +166,7 @@ color = Color(0.239216, 0.352941, 0.501961, 1)
 use_pivot = true
 draw_style = "tank"
 anim_attack = "attack_shard_barrage"
+bullet_dmg = 1.0
 bullet_color = Color(0.239216, 0.352941, 0.501961, 1)
 legacy_type = "tank"
 
@@ -163,7 +177,7 @@ display_name = "磐妖"
 behavior = 3
 hp = 16.0
 speed = 80.0
-dmg = 10.0
+dmg = 1.0
 radius = 26.0
 score = 25
 coin = 2
@@ -184,7 +198,7 @@ display_name = "磐妖碎块"
 behavior = 3
 hp = 5.0
 speed = 105.0
-dmg = 5.0
+dmg = 1.0
 radius = 16.0
 score = 8
 coin = 0
@@ -198,6 +212,8 @@ split_count = 0
 [sub_resource type="Resource" id="Resource_tg4km"]
 script = ExtResource("3_njojm")
 id = "seg1_opening"
+interval = 0.2
+cap = 50
 mix = {
 "melee_mite": 1.0
 }
@@ -207,8 +223,8 @@ note = "开局纯近战，让玩家先摸清斩击手感。只有影蚋。"
 script = ExtResource("3_njojm")
 id = "seg2_rush"
 until_time = 12.0
-interval = 0.38
-cap = 28
+interval = 1.0
+cap = 5
 mix = {
 "charger_fast": 0.25,
 "melee_mite": 0.75
@@ -219,8 +235,8 @@ note = "冲锋兵入场。开始出现需要走位躲的东西，冲锋预警条
 script = ExtResource("3_njojm")
 id = "seg3_ranged"
 until_time = 20.0
-interval = 0.3
-cap = 38
+interval = 1.0
+cap = 10
 mix = {
 "charger_fast": 0.2,
 "elite_melee": 0.05,
@@ -234,8 +250,7 @@ note = "远程晶哨与分裂磐妖入场，首只精英露面。战场开始有
 script = ExtResource("3_njojm")
 id = "seg4_elite"
 until_time = 27.0
-interval = 0.24
-cap = 48
+cap = 30
 mix = {
 "charger_fast": 0.18,
 "elite_charger": 0.05,
@@ -251,7 +266,7 @@ note = "三种精英同场。近战占比下滑，远程与分裂顶上来，场
 script = ExtResource("3_njojm")
 id = "seg5_plateau"
 until_time = 999999.0
-interval = 0.18
+interval = 0.2
 cap = 64
 mix = {
 "charger_fast": 0.16,
