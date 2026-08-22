@@ -1,11 +1,17 @@
 class_name SpellRecognizer
 extends RefCounted
 
-## $1 Unistroke Recognizer —— 单笔画模板匹配
-## 输入：鼠标轨迹点序列；输出：命中咒语 id + 置信度（0~1）。
+## $1 Unistroke Recognizer —— 单笔画模板匹配（神文录任务 1：双阈值版）
+## 输入：鼠标轨迹点序列；输出：{match, similarity, spell_id}。
+## 阈值规则（提示词 1）：
+##   similarity ≥ 0.80 → match=true，触发已有技能
+##   所有模板 < 0.50   → match=false，判"新纹路"（可触发绑定，由调用方按 similarity 判定）
+##   0.50 ~ 0.80       → match=false，无效（"看不懂"）
 
 const RESAMPLE_N := 64
 const BOUND := 250.0
+const MATCH_THRESHOLD := 0.80       # 触发已有技能
+const NEW_PATTERN_THRESHOLD := 0.50 # 低于此值才算新纹路
 
 ## 咒语定义：id → { name(显示字), time_cost, 描述 }
 ## BUG-08 v0.3 对齐：删 v2 遗留的火/风，加「斩」万象斩
@@ -14,9 +20,8 @@ const SPELLS := {
 	"zan": {"name": "斩", "time_cost": 120.0, "desc": "万象斩 · 全屏所有怪 -30 HP"},
 }
 
-## 内置模板（策划可替换成 assets/spell_templates.json，每个字 3~5 个样本）
-## 坐标均为 [0,1] 归一化，识别时自动缩放。
-## BUG-08：删 v2 火/风，加「斩」横扫笔画（左到右横扫 = 万象斩）
+## 内置模板（assets/spell_templates.json 存在时优先加载，同 id 多个样本）
+## 坐标任意（识别前统一归一化），内置样本沿用 [0,1] 区间。
 var _templates: Dictionary = {
 	"shi": [
 		[Vector2(0.50, 0.05), Vector2(0.50, 0.95)],  # 竖
@@ -31,38 +36,60 @@ var _templates: Dictionary = {
 }
 
 func _init() -> void:
+	# 神文录新格式：[{"spell_id": "...", "points": [[x,y], ...]}, ...]（数组每项一个样本）
 	var f := FileAccess.open("res://assets/spell_templates.json", FileAccess.READ)
 	if f != null:
 		var j: Variant = JSON.parse_string(f.get_as_text())
-		if j is Dictionary and j.has("templates"):
-			_templates = j["templates"]
+		if j is Array and not (j as Array).is_empty():
+			var loaded: Dictionary = {}
+			for entry in j:
+				if entry is Dictionary and entry.has("spell_id") and entry.has("points"):
+					var sid := String(entry["spell_id"])
+					var pts: Array[Vector2] = []
+					for p in entry["points"]:
+						if p is Array and (p as Array).size() >= 2:
+							pts.append(Vector2(float(p[0]), float(p[1])))
+					if pts.size() >= 2:
+						if not loaded.has(sid):
+							loaded[sid] = []
+						loaded[sid].append(pts)
+			if not loaded.is_empty():
+				_templates = loaded
 
-## 识别一笔。points 为原始屏幕坐标序列，返回 {id, conf, name}
+## 识别一笔（对内置/JSON 模板库）。返回 {"match": bool, "similarity": float, "spell_id": String}
+## match=false 时 spell_id 为空；similarity 恒为最佳值（供调用方判断 <0.50 新纹路）。
 func recognize(points: Array[Vector2]) -> Dictionary:
 	if points.size() < 8:
-		return {}
+		return {"match": false, "similarity": 0.0, "spell_id": ""}
+	var best_id := ""
+	var best_sim := -1.0
+	for id in _templates:
+		for raw_tpl in _templates[id]:
+			var sim := score(points, raw_tpl)
+			if sim > best_sim:
+				best_sim = sim
+				best_id = String(id)
+	if best_id.is_empty() or best_sim < MATCH_THRESHOLD:
+		return {"match": false, "similarity": maxf(best_sim, 0.0), "spell_id": ""}
+	return {"match": true, "similarity": best_sim, "spell_id": best_id}
+
+## 两笔相似度（0~1）：神文录槽位比对入口，template 为任意原始点序列
+func score(points: Array[Vector2], template: Array) -> float:
+	if points.size() < 2 or template.size() < 2:
+		return 0.0
+	var tpl: Array[Vector2] = []
+	for p in template:
+		tpl.append(p if p is Vector2 else Vector2(float(p[0]), float(p[1])))
+	var a := _normalize(points)
+	var b := _normalize(tpl)
+	return clampf(1.0 - _path_distance(a, b) / (0.5 * sqrt(2.0 * BOUND * BOUND)), 0.0, 1.0)
+
+## 归一化预处理链：重采样 → 旋转 → 缩放 → 平移
+func _normalize(points: Array[Vector2]) -> Array[Vector2]:
 	var pts := _resample(points, RESAMPLE_N)
 	pts = _rotate_to_zero(pts)
 	pts = _scale_to_square(pts)
-	pts = _translate_to_origin(pts)
-	var best_id := ""
-	var best_dist := INF
-	for id in _templates:
-		for raw_tpl in _templates[id]:
-			var tpl := _resample(raw_tpl, RESAMPLE_N)
-			tpl = _rotate_to_zero(tpl)
-			tpl = _scale_to_square(tpl)
-			tpl = _translate_to_origin(tpl)
-			var d := _path_distance(pts, tpl)
-			if d < best_dist:
-				best_dist = d
-				best_id = id
-	if best_id.is_empty():
-		return {}
-	var conf := 1.0 - best_dist / (0.5 * sqrt(2.0 * BOUND * BOUND))
-	if conf < 0.55:  # BUG-08 放宽阈值 0.68→0.55
-		return {}
-	return {"id": best_id, "conf": conf, "name": SPELLS[best_id]["name"]}
+	return _translate_to_origin(pts)
 
 ## 重采样为 N 个等距点
 func _resample(points: Array[Vector2], n: int) -> Array[Vector2]:

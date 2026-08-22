@@ -344,16 +344,17 @@ func _add_spell_point(p: Vector2) -> void:
 func _release_spell() -> void:
 	_exit_bullet_time()
 	var result := spell_recognizer.recognize(spell_points)
-	if result.is_empty():
+	if not bool(result.get("match", false)):
 		state = State.PLAY
 		numbers.append({
 			"pos": player.position + Vector2(0, -30.0),
 			"val": 0, "red": false, "t": 0.0,
 		})
 		return
-	var cost: float = SpellRecognizer.SPELLS[result["id"]]["time_cost"]
+	var spell_id := String(result["spell_id"])
+	var cost: float = SpellRecognizer.SPELLS[spell_id]["time_cost"]
 	time_value = maxf(0.0, time_value - cost)
-	spell_caster.cast(result["id"])
+	spell_caster.cast(spell_id)
 	state = State.PLAY
 
 func start_rewind_from_spell() -> void:
