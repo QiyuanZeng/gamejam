@@ -77,11 +77,11 @@ func _load_anim(dir: String) -> void:
 		return
 	d.list_dir_begin()
 	var states: Array[String] = []
-	var name := d.get_next()
-	while name != "":
-		if d.current_is_dir() and not name.begins_with(".") and name != "effects":
-			states.append(name)
-		name = d.get_next()
+	var sub_name := d.get_next()
+	while sub_name != "":
+		if d.current_is_dir() and not sub_name.begins_with(".") and sub_name != "effects":
+			states.append(sub_name)
+		sub_name = d.get_next()
 	d.list_dir_end()
 	for state in states:
 		var sd := DirAccess.open(dir.path_join(state))
@@ -97,8 +97,8 @@ func _load_anim(dir: String) -> void:
 		sd.list_dir_end()
 		files.sort()
 		var frames: Array[Texture2D] = []
-		for f in files:
-			frames.append(load(dir.path_join(state).path_join(f)))
+		for fname in files:
+			frames.append(load(dir.path_join(state).path_join(fname)))
 		if not frames.is_empty():
 			anims[state] = frames
 
