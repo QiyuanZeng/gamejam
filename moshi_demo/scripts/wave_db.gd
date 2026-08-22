@@ -1,9 +1,7 @@
 class_name WaveDB
 extends RefCounted
-## 刷怪波表总入口。扫描 res://data/waves/ 下全部 .tres，按 until_time 排好队。
-## 加一段新波次 = 在该目录丢一个 .tres，不用改任何代码。
-
-const DIR := "res://data/waves/"
+## 刷怪波表总入口。读 res://data/balance.tres 的 waves 数组，按 until_time 排好队。
+## 加一段新波次 = 在编辑器里打开 balance.tres，waves 数组加一项，不用改任何代码。
 
 static var _segs: Array = []       # 按 until_time 升序
 static var _loaded := false
@@ -31,6 +29,7 @@ static func final_seg() -> WaveData:
 static func reload() -> void:
 	_loaded = false
 	_segs.clear()
+	BalanceConfig.reload()
 	_load()
 
 ## 配表体检：返回问题清单，空数组代表没毛病。测试与开发期自检用。
@@ -38,7 +37,7 @@ static func validate() -> Array:
 	var errs: Array = []
 	var segs := all()
 	if segs.is_empty():
-		errs.append("波表为空：%s 下没有任何 .tres" % DIR)
+		errs.append("波表为空：%s 的 waves 一段都没有" % BalanceConfig.PATH)
 		return errs
 	for w in segs:
 		if w.interval <= 0.0:
@@ -59,30 +58,13 @@ static func validate() -> Array:
 static func _load() -> void:
 	_loaded = true
 	_segs.clear()
-	var dir := DirAccess.open(DIR)
-	if dir == null:
-		push_error("WaveDB: 打不开目录 %s" % DIR)
-		return
-	dir.list_dir_begin()
-	var f := dir.get_next()
-	while f != "":
-		if not dir.current_is_dir():
-			# 导出包里资源可能带 .remap 后缀，剥掉再 load
-			var name := f
-			if name.ends_with(".remap"):
-				name = name.trim_suffix(".remap")
-			if name.get_extension().to_lower() == "tres":
-				_add(DIR.path_join(name))
-		f = dir.get_next()
-	dir.list_dir_end()
+	for w in BalanceConfig.get_config().waves:
+		if w == null:
+			push_warning("WaveDB: waves 里有空项，已跳过")
+			continue
+		_segs.append(w)
 	if _segs.is_empty():
-		push_error("WaveDB: %s 下没扫到任何 .tres —— 导出包请确认 data/ 已打进资源过滤器" % DIR)
+		push_error("WaveDB: %s 的 waves 是空的 —— 导出包请确认 data/ 已打进资源过滤器"
+			% BalanceConfig.PATH)
 		return
 	_segs.sort_custom(func(a, b): return a.until_time < b.until_time)
-
-static func _add(path: String) -> void:
-	var res := ResourceLoader.load(path)
-	if res == null or not (res is WaveData):
-		push_warning("WaveDB: 跳过非 WaveData 资源 %s" % path)
-		return
-	_segs.append(res)

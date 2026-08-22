@@ -11,8 +11,10 @@ enum State { PLAY, SPELL, DASH, BURST, REWIND, LAG, GAMEOVER }
 
 const ARENA := Vector2(3000.0, 3000.0)
 const PLAYER_HP := 100.0
-const MAX_ENEMIES := 130
-const SPAWN_MARGIN := 26.0
+
+## 刷怪全局参数已搬到 res://data/balance.tres（BalanceConfig），_ready 里读进来。
+var max_enemies := 130
+var spawn_margin := 26.0
 
 ## 相机死区跟随（移植 proto/clock-swing）：死区内不动，超出 lerp 跟随，超出安全距离强制 snap
 const CAM_DEADZONE := 150.0
@@ -148,9 +150,9 @@ const GREY := Color("#4A443C")
 const AP_FULL := Color("#243744")
 const AP_EMPTY := Color("#6D8498")
 
-## 怪物配置已搬到 res://data/enemies/*.tres，统一由 EnemyDB 按 id 加载。
-## 刷怪波表已搬到 res://data/waves/*.tres，统一由 WaveDB 按 until_time 排段。
-## 改数值 / 换模型 / 调刷怪节奏都在那边改，本文件不再存表。详见 docs/enemies.md。
+## 怪物数值、刷怪波表、刷怪全局参数统一收在 res://data/balance.tres（BalanceConfig），
+## 由 EnemyDB 按 id、WaveDB 按 until_time 取用。改数值 / 换模型 / 调刷怪节奏都在编辑器里
+## 双击那份总表改，本文件不再存表。详见 docs/enemies.md。
 
 ## §10 局外养成接口（只留数据层，商店 UI 与存档另做）
 var upgrades := {
@@ -251,6 +253,7 @@ var ink_editor: CanvasLayer
 var spell_lab: CanvasLayer
 var key_mat: ShaderMaterial
 var paper_tex: Texture2D
+var surface_phase := 0.0       # 水面底纹流动相位，同编辑器 InkEditor.surface_phase
 var camera: Camera2D
 var dial_pointer: Sprite2D
 var dial_clock: Sprite2D
@@ -260,6 +263,9 @@ const DIAL_POINTER_LEN := 110.0
 
 func _ready() -> void:
 	randomize()
+	var bal := BalanceConfig.get_config()
+	max_enemies = bal.max_enemies
+	spawn_margin = bal.spawn_margin
 	_build_skills()
 	var shader: Shader = load("res://shaders/paper_key.gdshader")
 	if shader != null:
@@ -276,9 +282,7 @@ func _ready() -> void:
 	bg_layer.paint = _paint_bg
 	ink_layer.paint = _paint_ink
 	fx_layer.paint = _paint_fx
-	bleed = BleedCanvas.new()
-	bleed.z_index = -80
-	add_child(bleed)
+	# 渗墨拓印层已停用：F1 编辑器里没有这层，留着会让局内水痕多一层残留而对不上
 	player = Player.new()
 	player.setup(key_mat)
 	player.max_hp = PLAYER_HP
@@ -825,7 +829,6 @@ func _begin_dash(path: PackedVector2Array, realtime := false) -> void:
 	rewind_hist.append(dash_pts.duplicate())
 	while rewind_hist.size() > rewind_slots():
 		rewind_hist.remove_at(0)
-	bleed.stamp(path, false)
 
 func _update_dash(delta: float) -> void:
 	var prev := player.position
@@ -997,7 +1000,7 @@ func _kill_enemy(e: Enemy, source := "normal") -> void:
 	if state != State.BURST:
 		hit_stop = maxf(hit_stop, KILL_FREEZE)
 
-## 分裂怪死亡：按 .tres 的 split_count / split_child_id 生成子体。
+## 分裂怪死亡：按总表里该怪的 split_count / split_child_id 生成子体。
 ## 子体配置里 split_child_id 为空，所以不会二次分裂。
 func _split_on_death(e: Enemy) -> void:
 	if int(e.cfg.get("behavior", 0)) != EnemyData.Behavior.SPLITTER:
@@ -1006,7 +1009,7 @@ func _split_on_death(e: Enemy) -> void:
 	var n := int(e.cfg.get("split_count", 0))
 	if child == "" or n <= 0 or not EnemyDB.has(child):
 		return
-	n = mini(n, maxi(MAX_ENEMIES - enemies.size(), 0))
+	n = mini(n, maxi(max_enemies - enemies.size(), 0))
 	if n <= 0:
 		return
 	var spread := float(e.cfg.get("split_spread", 46.0))
@@ -1313,7 +1316,6 @@ func _update_rewind(delta: float) -> void:
 		return
 	if rewind_d == 0.0:
 		dash_stamp += 1
-		bleed.stamp(rewind_hist[rewind_i], true)
 	var path: PackedVector2Array = rewind_hist[rewind_i]
 	var prev := player.position
 	rewind_d += delta / REWIND_PATH_TIME
@@ -1410,7 +1412,7 @@ func _update_waves(delta: float, factor: float) -> void:
 	spawn_timer -= delta * factor
 	if spawn_timer <= 0.0:
 		spawn_timer = seg.interval
-		if enemies.size() < mini(seg.cap, MAX_ENEMIES):
+		if enemies.size() < mini(seg.cap, max_enemies):
 			spawn_enemy_at(seg.roll(randf()), _edge_pos())
 
 ## 按 id 在指定位置生成一只怪。刷怪表、分裂、测试都走这里。
@@ -1426,7 +1428,7 @@ func spawn_enemy_at(id: String, pos: Vector2) -> Enemy:
 	return e
 
 func _edge_pos() -> Vector2:
-	var m := SPAWN_MARGIN
+	var m := spawn_margin
 	match randi() % 4:
 		0:
 			return Vector2(randf_range(m, ARENA.x - m), m)
@@ -1480,6 +1482,7 @@ func _update_fx(delta: float) -> void:
 
 func _update_timers(delta: float) -> void:
 	# 水痕计龄：与编辑器 _Pad._process 同构，逐点变老
+	surface_phase += delta
 	for i in ink_ages.size():
 		ink_ages[i] += delta
 	for i in dash_ages.size():
@@ -1507,14 +1510,10 @@ func _update_timers(delta: float) -> void:
 # ============================== 绘制 ==============================
 
 func _paint_bg(l: PaintLayer) -> void:
-	if paper_tex != null:
-		# 竞技场 3000x3000 远大于原图，改平铺避免拉伸变形
-		l.draw_texture_rect(paper_tex, Rect2(Vector2.ZERO, ARENA), true)
-	else:
-		l.draw_rect(Rect2(Vector2.ZERO, ARENA), Color("#F5F1E8"))
-		# 円相：背景一枚巨大淡墨圆
-		l.draw_arc(ARENA * 0.5, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.06), 28.0)
-		l.draw_arc(ARENA * 0.5, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.04), 52.0)
+	# 底：与 F1 编辑器试笔画布同一套水面（按编辑器画布尺寸平铺，底纹特征大小一致）
+	var vs := get_viewport_rect().size
+	var view := Rect2(camera.get_screen_center_position() - vs * 0.5, vs).grow(WaterRenderer.TILE.x)
+	WaterRenderer.draw_water_surface_tiled(l, Rect2(Vector2.ZERO, ARENA), view, {}, surface_phase)
 
 func _paint_ink(l: PaintLayer) -> void:
 	# 水痕：飞鸟掠水的流体尾迹（参数来自 WaterRenderer.current，F1 编辑器保存即生效）。

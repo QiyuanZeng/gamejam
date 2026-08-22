@@ -1,8 +1,16 @@
 # 怪物系统速查
 
-所有怪物的数值、素材、行为参数都在 `res://data/enemies/*.tres` 里；
-刷怪节奏与配比在 `res://data/waves/*.tres` 里。
-**改一只怪 = 改一个 .tres；改刷怪 = 改一个 .tres。都不用碰代码。**
+所有怪物的数值、素材、行为参数，以及刷怪节奏与配比，**全部收在一份总表**
+`res://data/balance.tres` 里（资源类型 `BalanceConfig`）。
+**在 Godot 编辑器里双击它，Inspector 里改完 Ctrl+S 就生效，不用碰代码。**
+
+总表分三组：
+
+| 组 | 字段 | 管什么 |
+|---|---|---|
+| 刷怪全局 | `max_enemies` / `spawn_margin` | 全场怪物数硬顶、刷怪点边界内缩 |
+| 怪物 | `enemies`（9 项 `EnemyData`） | 每只怪的血量 / 伤害 / 速度 / 半径 / 素材 / 行为参数 |
+| 波表 | `waves`（5 段 `WaveData`） | 每段的时段、**刷怪频率 `interval`**、场上上限 `cap`、配比 `mix` |
 
 全场**只有 4 种怪**（4 套素材，一种行为一只），精英与分裂子体全部复用本体的图。
 
@@ -12,12 +20,12 @@
 
 ### 4 种基础怪
 
-| 行为 | id | 中文名 | 配置文件 | 素材路径 |
-|---|---|---|---|---|
-| 近战 | `melee_mite` | 影蚋 | `data/enemies/melee_mite.tres` | `assets/art/enemies/shadow_mite/`（帧动画） |
-| 远程 | `ranged_crystal` | 晶哨 | `data/enemies/ranged_crystal.tres` | `assets/art/enemies/crystal_sentinel/animations/`（帧动画） |
-| 冲锋 | `charger_fast` | 疾影 | `data/enemies/charger_fast.tres` | `assets/enemy_fast.png` |
-| 分裂 | `splitter_bomber` | 磐妖 | `data/enemies/splitter_bomber.tres` | `assets/enemy_tank.png` |
+| 行为 | id | 中文名 | 素材路径 |
+|---|---|---|---|
+| 近战 | `melee_mite` | 影蚋 | `assets/art/enemies/shadow_mite/`（帧动画） |
+| 远程 | `ranged_crystal` | 晶哨 | `assets/art/enemies/crystal_sentinel/animations/`（帧动画） |
+| 冲锋 | `charger_fast` | 疾影 | `assets/enemy_fast.png` |
+| 分裂 | `splitter_bomber` | 磐妖 | `assets/enemy_tank.png` |
 
 | id | hp | speed | dmg | radius |
 |---|---|---|---|---|
@@ -36,17 +44,19 @@
 | `elite_charger` | 疾影·精英 | 复用疾影贴图 | 同疾影 |
 | `elite_splitter` | 磐妖·精英 | 复用磐妖贴图，死后同样炸出 2 只**普通**碎块 | 同磐妖 |
 
-> `data/enemies/` 一共 9 份 .tres，但**只用到 4 套美术资源**。
+> `enemies` 一共 9 项，但**只用到 4 套美术资源**。
 > `assets/enemy_blob.png`、`assets/art/enemies/boss_wuming.png` 等已无人引用，文件留着备用。
 
 ---
 
 ## 2. 我要改 XX，该动哪一行
 
+下表的「改哪里」都指 **`data/balance.tres` → `enemies` 里对应那一项**（波表相关的指 `waves`）。
+
 | 想改什么 | 改哪里 |
 |---|---|
-| **换模型（单张贴图）** | 该怪 .tres 的 `tex`，填 png 路径；同时把 `anim_dir` 清空 |
-| **换模型（帧动画）** | 该怪 .tres 的 `anim_dir`，指向动画根目录；`tex` 清空 |
+| **换模型（单张贴图）** | `tex`，填 png 路径；同时把 `anim_dir` 清空 |
+| **换模型（帧动画）** | `anim_dir`，指向动画根目录；`tex` 清空 |
 | **贴图太大/太小** | `tex_target`（缩放后的目标边长，像素） |
 | **换动作** | 在 `anim_dir` 下加/改子目录即可，目录名 = 状态名，见第 4 节 |
 | **攻击动画对不上** | `anim_attack` 填该怪攻击动画的**子目录名**（如 `attack_shard_barrage`） |
@@ -55,9 +65,13 @@
 | **技能打不打得到** | `radius`——所有技能命中都拿它算，调大即变好打 |
 | **分裂子体太容易被秒 / 太肉** | `split_child_invuln`，子体出生无敌秒数，默认 0.5 |
 | **掉落与计分** | `score` / `coin` / `tv` |
-| **换了本体图，精英跟着换** | 精英 .tres 的 `tex` / `anim_dir` 要**手动同步**成本体的（测试会卡这条） |
-| **刷怪时段与配比** | `data/waves/*.tres`，一段一个文件，见第 7 节 |
-| **刷怪快慢 / 场上上限** | 对应波段 .tres 的 `interval` / `cap`，见第 7 节 |
+| **换了本体图，精英跟着换** | 精英那项的 `tex` / `anim_dir` 要**手动同步**成本体的（测试会卡这条） |
+| **刷怪时段与配比** | `waves` 里对应那一段的 `until_time` / `mix`，见第 7 节 |
+| **刷怪快慢 / 场上上限** | `waves` 对应段的 `interval` / `cap`，见第 7 节 |
+| **全场怪物数硬顶** | 总表根部的 `max_enemies`（默认 130） |
+| **刷怪点离边界多远** | 总表根部的 `spawn_margin`（默认 26） |
+| **加一只新怪** | `enemies` 数组 `+` 一项 → 选 `New EnemyData` → 填 `id` 与数值 |
+| **加一段新波次** | `waves` 数组 `+` 一项 → 选 `New WaveData` → 填 `until_time` / `interval` / `mix` |
 
 ### 单图怪必须是「宣纸底」
 
@@ -187,11 +201,13 @@ assets/art/enemies/shadow_mite/
 
 | 文件 | 职责 |
 |---|---|
-| `scripts/enemy_data.gd` | `EnemyData` 资源类，怪物 .tres 的字段定义都在这 |
-| `scripts/enemy_db.gd` | `EnemyDB`，开机扫描 `data/enemies/` 建 id 索引 |
+| `data/balance.tres` | **配平总表**（`BalanceConfig`）：刷怪全局 + 9 只怪 + 5 段波表，编辑器双击即改 |
+| `scripts/balance_config.gd` | `BalanceConfig` 资源类，总表的结构定义 + 全局单例读取 |
+| `scripts/enemy_data.gd` | `EnemyData` 资源类，怪物条目的字段定义都在这 |
+| `scripts/enemy_db.gd` | `EnemyDB`，读总表的 `enemies` 建 id 索引 |
 | `scripts/enemy.gd` | `Enemy` 单类，按 `behavior` 分发行为 + 绘制 + 预警与精英光环 |
-| `scripts/wave_data.gd` | `WaveData` 资源类，波段 .tres 的字段定义 + 按权重抽怪 |
-| `scripts/wave_db.gd` | `WaveDB`，扫描 `data/waves/` 按 `until_time` 排段 + 配表体检 |
+| `scripts/wave_data.gd` | `WaveData` 资源类，波段条目的字段定义 + 按权重抽怪 |
+| `scripts/wave_db.gd` | `WaveDB`，读总表的 `waves` 按 `until_time` 排段 + 配表体检 |
 | `scripts/main.gd` | 刷怪（`spawn_enemy_at`）、分裂（`_split_on_death`）、敌方弹幕、伤害与击杀 |
 
 ### 命中判定说明
@@ -208,8 +224,8 @@ assets/art/enemies/shadow_mite/
 
 ### BOSS
 BOSS 配置已删。`EnemyData.Behavior.BOSS` 枚举与 `enemy.gd` 的 `_tick_boss()`
-保留为休眠骨架（枚举在末位，不影响 0–3 的取值），以后要加 BOSS 时直接建一份
-`.tres` 填 `behavior = 4` 即可。
+保留为休眠骨架（枚举在末位，不影响 0–3 的取值），以后要加 BOSS 时直接在总表的
+`enemies` 里加一项、填 `behavior = 4` 即可。
 
 ---
 
@@ -223,17 +239,19 @@ BOSS 配置已删。`EnemyData.Behavior.BOSS` 枚举与 `enemy.gd` 的 `_tick_bo
 
 ### 7.2 配置位置
 
+`data/balance.tres` → `waves` 数组，5 段：
+
 ```
-data/waves/
-├── seg1_opening.tres     0 – 5s      开局
-├── seg2_rush.tres        5 – 12s     冲锋入场
-├── seg3_ranged.tres      12 – 20s    远程 + 分裂 + 首精英
-├── seg4_elite.tres       20 – 27s    三种精英
-└── seg5_plateau.tres     27s 以后    永久平台期
+waves
+├── seg1_opening     0 – 5s      开局
+├── seg2_rush        5 – 12s     冲锋入场
+├── seg3_ranged      12 – 20s    远程 + 分裂 + 首精英
+├── seg4_elite       20 – 27s    三种精英
+└── seg5_plateau     27s 以后    永久平台期
 ```
 
-段与段按 `until_time` 从小到大自动排队，**文件名不影响顺序**。
-加一段新波次 = 在这个目录再丢一个 .tres，把 `until_time` 排在想插入的位置即可，不用改代码。
+段与段按 `until_time` 从小到大自动排队，**数组顺序不影响段序**。
+加一段新波次 = `waves` 数组加一项，把 `until_time` 排在想插入的位置即可，不用改代码。
 
 ### 7.3 字段说明
 
@@ -241,8 +259,8 @@ data/waves/
 |---|---|
 | `id` | 段名，只用于调试和文档对照 |
 | `until_time` | `run_time` 小于它就走这一段（秒）。**最大的那一段兼作永久平台期** |
-| `interval` | 每隔多少秒刷一只。**越小刷得越快** |
-| `cap` | 本段场上怪物数上限，还受 `main.gd` 的 `MAX_ENEMIES = 130` 硬顶约束 |
+| `interval` | 每隔多少秒刷一只。**越小刷得越快**——这就是刷怪频率 |
+| `cap` | 本段场上怪物数上限，还受总表 `max_enemies = 130` 硬顶约束 |
 | `mix` | `EnemyData.id` → 权重的字典，**权重和要等于 1.0** |
 | `note` | 这一段想营造什么节奏，写给人看的 |
 
@@ -280,7 +298,7 @@ data/waves/
 - **12 秒**：晶哨（远程）+ 磐妖（分裂）+ 首只精英（影蚋·精英）。战场开始有弹幕，逼玩家用技能清弹。
 - **20 秒**：精英扩到三种（近战 / 冲锋 / 远程），近战占比继续下滑。
 - **27 秒以后**：进入永久平台期，磐妖·精英补位，四种精英到齐、合计占 26%，比例定死不再变化。
-  想让后期更凶就调 `seg5_plateau.tres` 的 `interval` / `cap`。
+  想让后期更凶就调 `waves` 里 `seg5_plateau` 那一项的 `interval` / `cap`。
 
 > `splitter_bomber_shard`（磐妖碎块）**不在任何波段里**，它只由磐妖死亡分裂产生。
 
@@ -290,7 +308,7 @@ data/waves/
 
 - `interval` / `cap` 不是正数
 - `mix` 是空的
-- `mix` 引用了 `data/enemies/` 里不存在的怪 id
+- `mix` 引用了 `enemies` 里不存在的怪 id
 - 某个权重不是正数
 - **权重和不等于 1.0**
 

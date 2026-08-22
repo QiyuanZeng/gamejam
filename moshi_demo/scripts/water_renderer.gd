@@ -205,7 +205,9 @@ static func tri(c: CanvasItem, a: Vector2, b: Vector2, d: Vector2,
 	c.draw_polygon(PackedVector2Array([a, b, d]), PackedColorArray([ca, cb, cd]))
 
 ## 水面底纹：浅蓝白底 + 焦散网（程序化、确定性；phase 可让底纹缓慢流动）
-static func draw_water_surface(c: CanvasItem, rect: Rect2, p: Dictionary, phase := 0.0) -> void:
+## seed_off 让平铺时相邻块图案不重样。
+static func draw_water_surface(c: CanvasItem, rect: Rect2, p: Dictionary, phase := 0.0,
+		seed_off := 0) -> void:
 	if p.is_empty():
 		ensure_loaded()
 		p = current
@@ -213,7 +215,8 @@ static func draw_water_surface(c: CanvasItem, rect: Rect2, p: Dictionary, phase 
 	var water := getc(p, "water_color")
 	var foam := getc(p, "foam_color")
 	c.draw_rect(rect, surf)
-	for k in 26:
+	for k0 in 26:
+		var k := k0 + seed_off
 		var hx := hash_f(k * 5 + 3)
 		var hy := hash_f(k * 7 + 11)
 		var hr := hash_f(k * 11 + 23)
@@ -221,7 +224,8 @@ static func draw_water_surface(c: CanvasItem, rect: Rect2, p: Dictionary, phase 
 		var ctr := rect.position + Vector2(hx * rect.size.x + drift, hy * rect.size.y)
 		var r := lerpf(rect.size.y * 0.06, rect.size.y * 0.22, hr)
 		c.draw_circle(ctr, r, Color(water.r, water.g, water.b, 0.06 + hr * 0.05))
-	for k in 46:
+	for k0 in 46:
+		var k := k0 + seed_off
 		var h0 := hash_f(k * 13 + 5)
 		var h1 := hash_f(k * 17 + 29)
 		var y0 := rect.position.y + h0 * rect.size.y
@@ -236,6 +240,28 @@ static func draw_water_surface(c: CanvasItem, rect: Rect2, p: Dictionary, phase 
 				+ sin(t * rect.size.x * freq * 2.7 + h1 * 5.0 + phase * 0.9) * amp * 0.4
 			line.append(Vector2(x, clampf(y, rect.position.y, rect.end.y)))
 		c.draw_polyline(line, Color(foam.r, foam.g, foam.b, 0.09 + h1 * 0.11), 1.0 + h0 * 1.2)
+
+## 编辑器试笔画布尺寸。世界里按这个尺寸平铺水面，底纹特征大小才和 F1 里看到的一模一样。
+const TILE := Vector2(744.0, 590.0)
+
+## 平铺水面：只画与 view 相交的块，避免整张竞技场每帧几千次 draw。
+static func draw_water_surface_tiled(c: CanvasItem, world: Rect2, view: Rect2,
+		p: Dictionary, phase := 0.0) -> void:
+	if p.is_empty():
+		ensure_loaded()
+		p = current
+	c.draw_rect(world, getc(p, "surface_color"))
+	var clip := world.intersection(view)
+	if clip.size.x <= 0.0 or clip.size.y <= 0.0:
+		return
+	var i0 := int(floorf((clip.position.x - world.position.x) / TILE.x))
+	var i1 := int(floorf((clip.end.x - world.position.x) / TILE.x))
+	var j0 := int(floorf((clip.position.y - world.position.y) / TILE.y))
+	var j1 := int(floorf((clip.end.y - world.position.y) / TILE.y))
+	for j in range(j0, j1 + 1):
+		for i in range(i0, i1 + 1):
+			var org := world.position + Vector2(float(i) * TILE.x, float(j) * TILE.y)
+			draw_water_surface(c, Rect2(org, TILE), p, phase, (i * 7 + j * 13) * 31)
 
 ## 主入口：飞鸟掠水尾迹。ages[i] 为对应采样点已存在的秒数（尾部最大）。
 static func draw_water_path(c: CanvasItem, pts: PackedVector2Array,
