@@ -1,0 +1,273 @@
+[gd_resource type="Resource" script_class="BalanceConfig" format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_data.gd" id="1_e7bv1"]
+[ext_resource type="Script" path="res://scripts/balance_config.gd" id="2_75r0e"]
+[ext_resource type="Script" path="res://scripts/wave_data.gd" id="3_njojm"]
+
+[sub_resource type="Resource" id="Resource_j68rn"]
+script = ExtResource("1_e7bv1")
+id = "charger_fast"
+display_name = "疾影"
+behavior = 2
+hp = 14.0
+speed = 130.0
+dmg = 6.0
+radius = 22.0
+score = 15
+tv = 10.0
+tex = "res://assets/enemy_fast.png"
+tex_target = 76.0
+color = Color(0.290196, 0.266667, 0.235294, 1)
+draw_style = "fast"
+inertia = true
+charge_warn_color = Color(0.752941, 0.223529, 0.168627, 1)
+legacy_type = "fast"
+
+[sub_resource type="Resource" id="Resource_icusp"]
+script = ExtResource("1_e7bv1")
+id = "elite_charger"
+display_name = "疾影·精英"
+behavior = 2
+hp = 56.0
+speed = 110.5
+dmg = 10.8
+radius = 22.0
+score = 45
+coin = 3
+tv = 25.0
+tex = "res://assets/enemy_fast.png"
+tex_target = 76.0
+color = Color(0.290196, 0.266667, 0.235294, 1)
+draw_style = "fast"
+inertia = true
+is_elite = true
+elite_of = "charger_fast"
+scale_mul = 1.5
+tint = Color(1.3, 1.05, 0.75, 1)
+charge_range = 640.0
+charge_time = 1.6
+charge_speed = 1000.0
+charge_cd = 2.2
+charge_warn_color = Color(0.752941, 0.223529, 0.168627, 1)
+legacy_type = "fast"
+
+[sub_resource type="Resource" id="Resource_2bvcb"]
+script = ExtResource("1_e7bv1")
+id = "elite_melee"
+display_name = "影蚋·精英"
+hp = 40.0
+speed = 51.0
+dmg = 14.4
+score = 30
+coin = 3
+tv = 20.0
+anim_dir = "res://assets/art/enemies/shadow_mite/"
+tex_target = 88.0
+color = Color(0.164706, 0.164706, 0.2, 1)
+anim_attack = "attack_thrust"
+is_elite = true
+elite_of = "melee_mite"
+scale_mul = 1.5
+tint = Color(1.3, 1.05, 0.75, 1)
+legacy_type = "mite"
+
+[sub_resource type="Resource" id="Resource_htc7v"]
+script = ExtResource("1_e7bv1")
+id = "elite_ranged"
+display_name = "晶哨·精英"
+behavior = 1
+hp = 96.0
+speed = 42.5
+dmg = 21.6
+radius = 48.0
+score = 135
+coin = 9
+tv = 65.0
+anim_dir = "res://assets/art/enemies/crystal_sentinel/animations/"
+tex_target = 160.0
+color = Color(0.239216, 0.352941, 0.501961, 1)
+use_pivot = true
+draw_style = "tank"
+anim_attack = "attack_shard_barrage"
+is_elite = true
+elite_of = "ranged_crystal"
+scale_mul = 1.5
+tint = Color(1.3, 1.05, 0.75, 1)
+attack_range = 460.0
+attack_cd = 1.3
+bullet_speed = 290.0
+bullet_dmg = 9.0
+bullet_radius = 12.0
+bullet_color = Color(0.239216, 0.352941, 0.501961, 1)
+legacy_type = "tank"
+
+[sub_resource type="Resource" id="Resource_4r1k0"]
+script = ExtResource("1_e7bv1")
+id = "elite_splitter"
+display_name = "磐妖·精英"
+behavior = 3
+hp = 64.0
+speed = 68.0
+dmg = 18.0
+radius = 26.0
+score = 75
+coin = 6
+tv = 30.0
+tex = "res://assets/enemy_tank.png"
+tex_target = 88.0
+color = Color(0.556863, 0.231373, 0.172549, 1)
+draw_style = "bomber"
+is_elite = true
+elite_of = "splitter_bomber"
+scale_mul = 1.5
+tint = Color(1.3, 1.05, 0.75, 1)
+split_count = 2
+split_child_id = "splitter_bomber_shard"
+split_spread = 44.0
+legacy_type = "bomber"
+
+[sub_resource type="Resource" id="Resource_h2r3a"]
+script = ExtResource("1_e7bv1")
+id = "melee_mite"
+display_name = "影蚋"
+anim_dir = "res://assets/art/enemies/shadow_mite/"
+tex_target = 88.0
+color = Color(0.164706, 0.164706, 0.2, 1)
+legacy_type = "mite"
+
+[sub_resource type="Resource" id="Resource_nrj84"]
+script = ExtResource("1_e7bv1")
+id = "ranged_crystal"
+display_name = "晶哨"
+behavior = 1
+hp = 24.0
+speed = 50.0
+dmg = 12.0
+radius = 48.0
+score = 45
+coin = 3
+tv = 26.0
+anim_dir = "res://assets/art/enemies/crystal_sentinel/animations/"
+tex_target = 160.0
+color = Color(0.239216, 0.352941, 0.501961, 1)
+use_pivot = true
+draw_style = "tank"
+anim_attack = "attack_shard_barrage"
+bullet_color = Color(0.239216, 0.352941, 0.501961, 1)
+legacy_type = "tank"
+
+[sub_resource type="Resource" id="Resource_4d5og"]
+script = ExtResource("1_e7bv1")
+id = "splitter_bomber"
+display_name = "磐妖"
+behavior = 3
+hp = 16.0
+speed = 80.0
+dmg = 10.0
+radius = 26.0
+score = 25
+coin = 2
+tv = 12.0
+tex = "res://assets/enemy_tank.png"
+tex_target = 88.0
+color = Color(0.556863, 0.231373, 0.172549, 1)
+draw_style = "bomber"
+split_count = 2
+split_child_id = "splitter_bomber_shard"
+split_spread = 34.0
+legacy_type = "bomber"
+
+[sub_resource type="Resource" id="Resource_wc6uy"]
+script = ExtResource("1_e7bv1")
+id = "splitter_bomber_shard"
+display_name = "磐妖碎块"
+behavior = 3
+hp = 5.0
+speed = 105.0
+dmg = 5.0
+radius = 16.0
+score = 8
+coin = 0
+tv = 4.0
+tex = "res://assets/enemy_tank.png"
+tex_target = 53.0
+color = Color(0.556863, 0.231373, 0.172549, 1)
+draw_style = "bomber"
+split_count = 0
+
+[sub_resource type="Resource" id="Resource_tg4km"]
+script = ExtResource("3_njojm")
+id = "seg1_opening"
+mix = {
+"melee_mite": 1.0
+}
+note = "开局纯近战，让玩家先摸清斩击手感。只有影蚋。"
+
+[sub_resource type="Resource" id="Resource_iptrd"]
+script = ExtResource("3_njojm")
+id = "seg2_rush"
+until_time = 12.0
+interval = 0.38
+cap = 28
+mix = {
+"charger_fast": 0.25,
+"melee_mite": 0.75
+}
+note = "冲锋兵入场。开始出现需要走位躲的东西，冲锋预警条第一次登场。"
+
+[sub_resource type="Resource" id="Resource_mcp0g"]
+script = ExtResource("3_njojm")
+id = "seg3_ranged"
+until_time = 20.0
+interval = 0.3
+cap = 38
+mix = {
+"charger_fast": 0.2,
+"elite_melee": 0.05,
+"melee_mite": 0.45,
+"ranged_crystal": 0.2,
+"splitter_bomber": 0.1
+}
+note = "远程晶哨与分裂磐妖入场，首只精英露面。战场开始有弹幕，逼玩家用技能清弹。"
+
+[sub_resource type="Resource" id="Resource_e1y4e"]
+script = ExtResource("3_njojm")
+id = "seg4_elite"
+until_time = 27.0
+interval = 0.24
+cap = 48
+mix = {
+"charger_fast": 0.18,
+"elite_charger": 0.05,
+"elite_melee": 0.06,
+"elite_ranged": 0.05,
+"melee_mite": 0.34,
+"ranged_crystal": 0.18,
+"splitter_bomber": 0.14
+}
+note = "三种精英同场。近战占比下滑，远程与分裂顶上来，场面开始拥挤。"
+
+[sub_resource type="Resource" id="Resource_qm5k3"]
+script = ExtResource("3_njojm")
+id = "seg5_plateau"
+until_time = 999999.0
+interval = 0.18
+cap = 64
+mix = {
+"charger_fast": 0.16,
+"elite_charger": 0.07,
+"elite_melee": 0.08,
+"elite_ranged": 0.06,
+"elite_splitter": 0.05,
+"melee_mite": 0.26,
+"ranged_crystal": 0.18,
+"splitter_bomber": 0.14
+}
+note = "永久平台期。本局没有时限，27 秒之后一直用这一段，直到玩家体力（时滞次数）耗尽。
+这是全局最高强度：0.18 秒一只、场上最多 64 只，四种精英到齐、合计占两成六。
+想让后期更凶就调这里的 interval / cap，想加新段就在本目录再丢一个 .tres 并把 until_time 排在它前面。"
+
+[resource]
+script = ExtResource("2_75r0e")
+enemies = Array[ExtResource("1_e7bv1")]([SubResource("Resource_j68rn"), SubResource("Resource_icusp"), SubResource("Resource_2bvcb"), SubResource("Resource_htc7v"), SubResource("Resource_4r1k0"), SubResource("Resource_h2r3a"), SubResource("Resource_nrj84"), SubResource("Resource_4d5og"), SubResource("Resource_wc6uy")])
+waves = Array[ExtResource("3_njojm")]([SubResource("Resource_tg4km"), SubResource("Resource_iptrd"), SubResource("Resource_mcp0g"), SubResource("Resource_e1y4e"), SubResource("Resource_qm5k3")])
