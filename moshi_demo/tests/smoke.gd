@@ -8,6 +8,7 @@ var t := 0.0
 var fails: Array[String] = []
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS  # 编辑器会暂停树，测试驱动必须继续跑
 	g = Game.new()
 	add_child(g)
 	g.wave_rest = 999.0  # 推迟自然波次，隔离测试环境

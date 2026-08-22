@@ -4,8 +4,12 @@ extends Node
 var fails: Array[String] = []
 
 func _ready() -> void:
+	# res:// 预设值（用户可能在编辑器里调过并存为默认）
+	var preset: InkBrushStyle = ResourceLoader.load(
+		InkStyle.RES_PATH, "", ResourceLoader.CACHE_MODE_IGNORE)
 	_chk(InkStyle.current != null, "InkStyle.current loaded")
-	_chk(absf(InkStyle.current.width_start - 13.0) < 0.001, "default width_start=13")
+	_chk(absf(InkStyle.current.width_start - preset.width_start) < 0.001,
+		"default == res:// preset (%.1f)" % preset.width_start)
 	# 热改
 	InkStyle.set_param(&"width_start", 25.0)
 	_chk(absf(InkStyle.current.width_start - 25.0) < 0.001, "set_param hot")
@@ -63,7 +67,7 @@ func _ready() -> void:
 	# 清理测试产生的 user 文件
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(InkStyle.USER_PATH))
 	InkStyle.reload_from_disk()
-	_chk(absf(InkStyle.current.width_start - 13.0) < 0.001, "reload falls back to res:// default")
+	_chk(absf(InkStyle.current.width_start - preset.width_start) < 0.001, "reload falls back to res:// default")
 	for f in fails:
 		print("FAIL: ", f)
 	print("INKSTYLE ", "PASS" if fails.is_empty() else "FAIL")

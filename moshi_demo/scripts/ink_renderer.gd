@@ -46,8 +46,9 @@ static func ribbon_poly(pts: PackedVector2Array, widths: Array, scale: float, ji
 		var dir := tangent(pts, i)
 		var nrm := Vector2(-dir.y, dir.x)
 		var w: float = float(widths[i]) * scale
-		var h := fposmod(sin(float(i) * 7.13 + seed * 3.7) * 937.7, 1.0)
-		var j := (h * 2.0 - 1.0) * w * jitter
+		# 低频平滑波（非逐点 hash）：周期远大于点距，边缘有机摆动且不自交
+		var h := sin(float(i) * 0.55 + seed * 3.7) * 0.6 + sin(float(i) * 0.17 + seed) * 0.4
+		var j := h * w * jitter
 		left.append(pts[i] + nrm * (w + j))
 		right.append(pts[i] - nrm * (w - j))
 	var poly := PackedVector2Array()
@@ -62,14 +63,16 @@ static func poly(c: CanvasItem, pts: PackedVector2Array, col: Color) -> void:
 	if tri != null and not tri.is_empty():
 		c.draw_polygon(pts, PackedColorArray([col]))
 		return
-	# 自交兜底：拆段四边形（共享边无缝）
+	# 自交兜底：拆段四边形（共享边无缝，逐段校验防报错）
 	var half := pts.size() / 2
 	if pts.size() >= 4 and pts.size() % 2 == 0:
 		for i in half - 1:
 			var quad := PackedVector2Array([
 				pts[i], pts[i + 1],
 				pts[2 * half - 2 - i], pts[2 * half - 1 - i]])
-			c.draw_polygon(quad, PackedColorArray([col]))
+			var qt := Geometry2D.triangulate_polygon(quad)
+			if qt != null and not qt.is_empty():
+				c.draw_polygon(quad, PackedColorArray([col]))
 
 static func draw_brush_path(c: CanvasItem, pts: PackedVector2Array, alpha: float, red: bool, boost := 1.0, style: InkBrushStyle = null) -> void:
 	var m := pts.size()
