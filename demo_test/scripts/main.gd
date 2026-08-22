@@ -17,9 +17,10 @@ const REWIND_MULT := 1.0
 const POST_DASH_INVULN := 0.3
 const SAMPLE_DIST := 6.0
 const CLOCK_TIME := 25.0
-const REWIND_SLOTS := 3
+const REWIND_SLOTS := 5           # 回溯段数（策划案 5 段基础，BUG-04）
 const REWIND_PATH_TIME := 0.15
 const BURST_FREEZE := 0.16
+const ROUND_TIME := 60.0         # 单局时长（BUG-06，30~60s，先用 60s）
 const MARK_RETAIN := 1.5
 const PLAYER_HP := 100.0
 const TRAIL_INTERVAL := 0.03
@@ -32,7 +33,7 @@ const HIT_CHARGE_PENALTY := 8.0  # 受击扣回溯充能秒数（P0 BUG-01，无
 ## 时钟斩（v0.3 定案）：左键点击 = 普攻式冲刺，朝指针方向前冲固定距离
 ## 指针自转每满一圈 +1 行动点；行动点耗尽则左键无响应
 const CLOCK_SWEEP_DEG := 180.0   # 2s/圈（360/180=2），决策节奏快
-const CLOCK_DASH_DIST := 240.0   # 单次冲刺距离
+const CLOCK_DASH_DIST := 500.0   # 单次冲刺距离（策划案 500，BUG-03）
 const AP_MAX := 3                # 行动点上限
 const AP_START := 3              # 开局行动点
 
@@ -72,6 +73,7 @@ var upgrades := {"ink_max": 0, "ink_regen": 0, "rewind_slots": 0}
 var state: State = State.PLAY
 var sim_time := 0.0
 var run_time := 0.0
+var round_timer := ROUND_TIME    # BUG-06 单局倒计时
 var swing_deg := -90.0   # 表盘指针角度：-90 = 12点方向为起点
 var action_points := AP_START   # 当前行动点
 var swing_accum := 0.0   # 指针自转累计度数，满 360 回复 1 点行动点
@@ -276,6 +278,12 @@ func _process(delta: float) -> void:
 		_separate()
 	if state != State.BURST:
 		_update_fx(delta)
+	# BUG-06 时限倒计时：PLAY/DRAW/SPELL_DRAW 态才消耗时间
+	if state != State.GAMEOVER:
+		round_timer -= delta
+		if round_timer <= 0.0:
+			round_timer = 0.0
+			_game_over()
 	_update_timers(delta)
 	ink_layer.queue_redraw()
 	fx_layer.queue_redraw()

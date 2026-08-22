@@ -69,9 +69,13 @@ func _paint(r: Control) -> void:
 	r.draw_rect(Rect2(20, 62, 220.0 * tv_f, 10), tv_col)
 	r.draw_rect(Rect2(20, 62, 220, 10), Color(0, 0, 0, 0.35), false, 1.0)
 	_text(r, Vector2(244, 56), "时", 13, GREY)
-	# —— 右上：波次 / 斩杀 / 得分 ——
+	# —— 右上：波次 / 斩杀 / 得分 / 倒计时 ——
 	var stat := "波 %d    斩 %d    分 %d" % [game.wave_idx, game.kills, game.score]
 	_text(r, Vector2(w - 20.0, 14), stat, 18, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 340.0)
+	# 倒计时（右上角，时间不多时变红提示）
+	var t_left := int(ceilf(game.round_timer))
+	var t_col := RED if t_left <= 10 else GREY
+	_text(r, Vector2(w - 20.0, 36), "%d s" % t_left, 22, t_col, HORIZONTAL_ALIGNMENT_RIGHT, 100.0)
 	# —— 顶部中央：时钟（分针追时针） ——
 	var c := Vector2(w * 0.5, 66.0)
 	var rad := 30.0
