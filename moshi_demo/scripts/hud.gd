@@ -125,7 +125,7 @@ func _paint(r: Control) -> void:
 	if game.kills == 0 and game.help_t > 0.0:
 		var ha: float = clampf(game.help_t, 0.0, 1.0)
 		_text_center(r, w * 0.5, h - 96.0,
-			"左键 表盘定向斩 · 按住右键 子弹时间书写（松开斩击，笔形对上即施咒）· R 回溯",
+			"左键 表盘定向斩 · 空格 表盘倒转 · 按住右键 子弹时间书写（松开斩击，笔形对上即施咒）· R 回溯",
 			15, Color(GREY.r, GREY.g, GREY.b, ha * 0.85))
 	# —— 时滞 ——
 	if game.state == game.State.LAG:

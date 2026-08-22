@@ -174,6 +174,7 @@ var state: State = State.PLAY
 var sim_time := 0.0
 var run_time := 0.0
 var dial_t := 0.0
+var dial_dir := 1.0                # 表盘转向：1 正走，-1 倒转（空格切换），左键斩的指向跟着反
 var ap := 3.0
 var last_slash := -99.0
 var tv := 500.0
@@ -537,8 +538,15 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_R and state == State.PLAY and clock_charge >= CLOCK_TIME:
 			_begin_rewind()
+		elif event.keycode == KEY_SPACE and (state == State.PLAY or state == State.SPELL):
+			_flip_dial()
 		elif event.keycode == KEY_ESCAPE and state == State.SPELL:
 			_cancel_draw()
+
+## 空格：表盘倒转。指针反着走，左键定向斩的指向也跟着反 —— 用来把时针"倒推"回想要的钟点。
+func _flip_dial() -> void:
+	dial_dir = -dial_dir
+	AudioMgr.play("clock", 1.15 if dial_dir < 0.0 else 0.9, -10.0)
 
 var _editor_pending := false
 
@@ -677,7 +685,7 @@ func _redraw_all() -> void:
 	hud.request_redraw()
 
 func _regen(delta: float, f: float) -> void:
-	dial_t += delta * f
+	dial_t += delta * f * dial_dir
 	ap = minf(ap + ap_rate() * delta * f, float(ap_max()))
 	if state == State.PLAY:
 		tv = minf(tv + tv_regen() * delta, tv_max())
@@ -687,6 +695,46 @@ func _regen(delta: float, f: float) -> void:
 			AudioMgr.play("clock", 1.0, -4.0)
 
 # ============================== §3.2 表盘斩击 ==============================
+
+const DASH_EDGE_MARGIN := 8.0
+
+## 撞墙不再削平截停：把剩余冲刺距离沿边界镜面反射折回场内，返回折线的各个拐点。
+func _bounce_path(from: Vector2, dir: Vector2, dist: float) -> PackedVector2Array:
+	var lo := Vector2(DASH_EDGE_MARGIN, DASH_EDGE_MARGIN)
+	var hi := ARENA - lo
+	var pos := Vector2(clampf(from.x, lo.x, hi.x), clampf(from.y, lo.y, hi.y))
+	var d := dir.normalized()
+	var pts := PackedVector2Array([pos])
+	var left := dist
+	var guard := 0
+	while left > 0.5 and guard < 8:
+		guard += 1
+		var tx := INF
+		if d.x > 1e-5:
+			tx = (hi.x - pos.x) / d.x
+		elif d.x < -1e-5:
+			tx = (lo.x - pos.x) / d.x
+		var ty := INF
+		if d.y > 1e-5:
+			ty = (hi.y - pos.y) / d.y
+		elif d.y < -1e-5:
+			ty = (lo.y - pos.y) / d.y
+		var t := maxf(minf(tx, ty), 0.0)
+		if t >= left:
+			pos += d * left
+			pts.append(pos)
+			left = 0.0
+			break
+		pos += d * t
+		pts.append(pos)
+		left -= t
+		if tx <= ty:
+			d.x = -d.x
+		if ty <= tx:
+			d.y = -d.y
+	if pts.size() < 2:
+		pts.append(pos + d)
+	return pts
 
 ## 直线补点：只有两端的路径在 WaterRenderer 里会被首尾锥化吃成零宽（等于看不见），
 ## 按 SAMPLE_DIST 铺成和手绘同密度的点列，斩击才留得下水痕。
@@ -702,12 +750,15 @@ func _dial_slash() -> void:
 		return
 	ap -= 1.0
 	last_slash = sim_time
-	var dir := hour_dir()
-	var raw := player.position + dir * dash_dist()
-	var dst := Vector2(
-		clampf(raw.x, 8.0, ARENA.x - 8.0),
-		clampf(raw.y, 8.0, ARENA.y - 8.0))
-	_begin_dash(_straight_path(player.position, dst), true)
+	var legs := _bounce_path(player.position, hour_dir(), dash_dist())
+	var path := PackedVector2Array()
+	for i in legs.size() - 1:
+		var seg := _straight_path(legs[i], legs[i + 1])
+		for j in seg.size():
+			if i > 0 and j == 0:
+				continue
+			path.append(seg[j])
+	_begin_dash(path, true)
 	_shake(SHAKE_DASH, SHAKE_DASH_TIME)
 
 # ============================== §5 子弹时间书写 ==============================

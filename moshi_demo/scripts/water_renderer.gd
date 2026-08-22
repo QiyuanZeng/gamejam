@@ -197,13 +197,20 @@ static func ribbon_gradient(c: CanvasItem, pts: PackedVector2Array, widths: Arra
 		tri(c, left[i], left[i + 1], right[i + 1], c0, c1, c1)
 		tri(c, left[i], right[i + 1], right[i], c0, c1, c0)
 
-## 单个三角形（零面积 / 非法坐标直接丢弃）
+## 单个三角形（零面积 / 过扁 / 非法坐标直接丢弃）
 static func tri(c: CanvasItem, a: Vector2, b: Vector2, d: Vector2,
 		ca: Color, cb: Color, cd: Color) -> void:
 	if not (is_finite(a.x) and is_finite(a.y) and is_finite(b.x) and is_finite(b.y) \
 		and is_finite(d.x) and is_finite(d.y)):
 		return
-	if absf((b - a).cross(d - a)) < 0.002:
+	# 绝对面积阈值拦不住"长而扁"的针状三角（路径 180° 折返时成片出现），
+	# 它们画出来看不见却会让引擎三角化失败刷屏 —— 按最小高判：低于半像素直接丢。
+	var ab := b - a
+	var ad := d - a
+	var longest := maxf(ab.length(), maxf(ad.length(), (d - b).length()))
+	if longest < 0.05:
+		return
+	if absf(ab.cross(ad)) < 0.5 * longest:
 		return
 	c.draw_polygon(PackedVector2Array([a, b, d]), PackedColorArray([ca, cb, cd]))
 
