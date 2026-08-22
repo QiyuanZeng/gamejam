@@ -113,8 +113,15 @@ func _load_anim(dir: String) -> void:
 		sd.list_dir_begin()
 		var f := sd.get_next()
 		while f != "":
-			if f.get_extension().to_lower() == "png" and not f.begins_with("."):
-				files.append(f)
+			# 导出包里 PNG 登记成 xxx.png.import（.ctex 的侧车），脚本/资源则是 xxx.remap，
+			# 两种尾巴都剥掉再按 .png 过滤——enemy_db / wave_db 剥 .remap 同款处理。
+			var name := f
+			if name.ends_with(".remap"):
+				name = name.trim_suffix(".remap")
+			elif name.ends_with(".import"):
+				name = name.trim_suffix(".import")
+			if name.get_extension().to_lower() == "png" and not name.begins_with("."):
+				files.append(name)
 			f = sd.get_next()
 		sd.list_dir_end()
 		files.sort()
