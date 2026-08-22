@@ -99,7 +99,26 @@
 | `attack_cd` | 两发之间的间隔（秒） |
 | `attack_windup` | 抬手时间，这段时间播 `anim_attack` 的动画 |
 | `bullet_speed` / `bullet_dmg` / `bullet_radius` / `bullet_life` | 子弹速度 / 伤害 / 半径 / 存活秒数 |
-| `bullet_color` | 子弹颜色 |
+| `bullet_color` | 子弹颜色。**只有在贴图缺失、退回画圆时才看得见**（见下） |
+
+#### 子弹长什么样：贴图帧 + 圆形兜底
+
+弹体统一用一套 6 帧贴图，与是哪只远程怪无关：
+
+| 项 | 值 |
+|---|---|
+| 帧目录 | `assets/art/enemies/crystal_sentinel/vfx/crystal_projectile/crystal_projectile_000..005.png` |
+| 源图尺寸 | 256 × 256（`BULLET_TEX_SIZE`） |
+| 图里弹体半径 | 28 px（`BULLET_TEX_RADIUS`） |
+| 弹体中心偏移 | 沿飞行方向偏离图心 18.5 px（`BULLET_TEX_OFFSET`），左边那截是画好的拖尾 |
+| 播放速度 | 14 fps（`BULLET_ANIM_FPS`），按子弹自身寿命 `b.t` 循环 |
+
+绘制时按 `bullet_radius ÷ 28` 缩放，所以**改 `bullet_radius` 会同时改贴图大小和判定半径，两者始终一致**；
+图心再沿飞行方向回退 18.5 px，弹体中心才压在真正的判定点上。贴图目录缺失时
+（`bullet_frames` 为空）自动退回旧的「拖尾线 + 实心圆」画法，用的就是 `bullet_color`。
+外面那圈红色描边环任何情况下都照画，它是给玩家的可击落提示。
+
+代码：`main.gd._load_bullet_frames()` 加载，`main.gd._paint_fx()` 绘制。
 
 ### 冲锋（`behavior = 2` CHARGER）
 朝玩家移动，进到 `charge_range` 停步蓄力，**在预警红线出现的那一帧就把冲锋方向钉死**，

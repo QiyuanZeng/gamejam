@@ -262,6 +262,13 @@ var ink_editor: CanvasLayer
 var spell_lab: CanvasLayer
 var key_mat: ShaderMaterial
 var paper_tex: Texture2D
+## 敌方远程弹贴图帧。源图 256×256，弹体主体半径 28px、
+## 中心沿飞行方向偏离图心 18.5px（左侧那截是画好的拖尾）。
+var bullet_frames: Array[Texture2D] = []
+const BULLET_TEX_SIZE := 256.0
+const BULLET_TEX_RADIUS := 28.0
+const BULLET_TEX_OFFSET := 18.5
+const BULLET_ANIM_FPS := 14.0
 var surface_phase := 0.0       # 水面底纹流动相位，同编辑器 InkEditor.surface_phase
 var camera: Camera2D
 var dial_pointer: Sprite2D
@@ -277,6 +284,7 @@ func _ready() -> void:
 	spawn_margin = bal.spawn_margin
 	_load_player_config()
 	_build_skills()
+	_load_bullet_frames()
 	var shader: Shader = load("res://shaders/paper_key.gdshader")
 	if shader != null:
 		key_mat = ShaderMaterial.new()
@@ -1133,6 +1141,13 @@ func _split_on_death(e: Enemy) -> void:
 # ============================== 敌方弹幕 ==============================
 ## 与技能命中一样走纯距离数学，不引入物理。子弹可被玩家的左键斩与右键神纹销毁。
 
+func _load_bullet_frames() -> void:
+	var dir := "res://assets/art/enemies/crystal_sentinel/vfx/crystal_projectile"
+	for i in 6:
+		var p := "%s/crystal_projectile_%03d.png" % [dir, i]
+		if ResourceLoader.exists(p):
+			bullet_frames.append(load(p))
+
 func spawn_enemy_bullet(pos: Vector2, dir: Vector2, cfg: Dictionary) -> void:
 	enemy_bullets.append({
 		"pos": pos, "dir": dir,
@@ -1658,8 +1673,19 @@ func _paint_fx(l: PaintLayer) -> void:
 	for b in enemy_bullets:
 		var bc: Color = b.col
 		var br: float = float(b.r)
-		l.draw_line(b.pos - b.dir * br * 2.4, b.pos, Color(bc.r, bc.g, bc.b, 0.3), br * 0.8)
-		l.draw_circle(b.pos, br, Color(bc.r, bc.g, bc.b, 0.9))
+		if bullet_frames.is_empty():
+			l.draw_line(b.pos - b.dir * br * 2.4, b.pos, Color(bc.r, bc.g, bc.b, 0.3), br * 0.8)
+			l.draw_circle(b.pos, br, Color(bc.r, bc.g, bc.b, 0.9))
+		else:
+			# 贴图弹体：按 r / 源图弹体半径 缩放，保证直径与原来画的圆一致；
+			# 图心要沿飞行方向回退 BULLET_TEX_OFFSET，弹体中心才落在 b.pos 上。
+			var s: float = br / BULLET_TEX_RADIUS
+			var idx: int = int(float(b.t) * BULLET_ANIM_FPS) % bullet_frames.size()
+			l.draw_set_transform(b.pos, b.dir.angle(), Vector2(s, s))
+			l.draw_texture_rect(bullet_frames[idx], Rect2(
+				-Vector2(BULLET_TEX_SIZE * 0.5 + BULLET_TEX_OFFSET, BULLET_TEX_SIZE * 0.5),
+				Vector2(BULLET_TEX_SIZE, BULLET_TEX_SIZE)), false)
+			l.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		l.draw_arc(b.pos, br + 2.0, 0.0, TAU, 12, Color(RED.r, RED.g, RED.b, 0.55), 1.5)
 	_paint_spells(l)
 	# 被标记怪：红痕 + 红环

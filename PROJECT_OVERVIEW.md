@@ -29,9 +29,9 @@ d:\zhanji\
 │  ├─ shaders\            4 个 .gdshader
 │  ├─ data\balance.tres   ★ 配平总表：刷怪全局 + 9 只怪 + 5 段波表
 │  ├─ data\player.tres    ★ 人物总表：血量 / 冲刺斩 / 表盘 / 回溯 / 笔墨 / 七道神纹
-│  ├─ assets\, art\       贴图 / 帧动画目录
+│  ├─ assets\, art\       贴图 / 帧动画目录 / 字体（`assets\fonts\`）
 │  ├─ tests\              11 套 headless 测试
-│  ├─ docs\               5 份设计与改动说明
+│  ├─ docs\               6 份设计说明 + 1 份美术色板
 │  ├─ addons\godot_ai\    编辑器 MCP 插件（非玩法）
 │  └─ run*.log            测试日志（不入库）
 ├─ demo_test\             早期原型，勿改
@@ -68,11 +68,12 @@ Game (Node2D)
 ├─ bg_layer     PaintLayer   z=-100   宣纸平铺 + 円相弧
 ├─ bleed        BleedCanvas  z=-80    渗墨画布合成输出
 ├─ ink_layer    PaintLayer   z=-50    水痕/冲刺/回溯轨迹
+├─ dial_clock   Sprite2D     z=-1     表盘钟面贴图，跟着玩家走（素材可选，缺则代码画圆+刻度）
 ├─ player       Player                无脸兜帽剑客
 ├─ (enemies)    Enemy × N
-├─ fx_layer     PaintLayer   z=+50    技能特效/残影/闪电
-├─ camera       Camera2D              死区跟随
-├─ dial_pointer Sprite2D              表盘指针（素材可选）
+├─ dial_pointer Sprite2D     z=+1     表盘指针（素材可选）
+├─ fx_layer     PaintLayer   z=+50    技能特效/残影/敌弹/闪电
+├─ camera       Camera2D              死区跟随，位置抬高 90px、zoom 0.82
 └─ hud          HUD (CanvasLayer)
 ```
 
@@ -109,14 +110,14 @@ Game (Node2D)
 
 ### 3.3 玩家资源
 
-| 组 | 常量 |
+| 组 | 现值（**权威在 `data/player.tres`**，`main.gd` 顶部同名大写量只是它的运行时镜像 + 加载失败兜底） |
 |---|---|
-| 生存 | `PLAYER_HP=100`，半径 30，受击无敌 0.6s |
-| 场地 | `ARENA=3000×3000`，敌上限 `MAX_ENEMIES=130` |
-| 行动点 AP | 基础上限 3、封顶 6；时针 2s/点、秒针 0.5s/0.25 点、分针 1.0s/0.25 点 |
-| 时间之力 TV | 上限 500，回复 20/s；书写 1 TV/px，子弹时间额外 30/s 抽干，退出留 10 |
+| 生存 | `player_hp=100`，半径 30，受击无敌 0.6s；接触 / 中弹另有 `contact_dmg_mult` / `bullet_dmg_mult` 两个倍率 |
+| 场地 | `ARENA=3000×3000`，敌上限 `max_enemies=130`（这条在 `balance.tres`） |
+| 行动点 AP | 基础上限 3、封顶 6；**时针 1s/点**、秒针 0.5s/0.25 点、分针 1.0s/0.25 点 |
+| 时间之力 TV | **上限 1000（代码 `tv_max()` 同样封顶 1000），回复 240/s**；书写 1 TV/px，子弹时间额外 30/s 抽干，退出留 10 |
 | 冲刺 | 速度 3200，判定半径 140，伤害 20，距离 520（上限 800），后摇无敌 0.3s |
-| 回溯 | 充能 12s，5 槽历史，伤害 ×0.5，标记保留 1.5s |
+| 回溯 | 充能 12s，5 槽历史，伤害 ×0.5，标记保留 1.5s；**挨打不再扣充能**（`hit_charge_penalty=0`，填 3.0 恢复旧手感） |
 
 局外养成字典 `upgrades`（`main.gd:154`）：ap_regen / tv_max / dash_dist / dash_width / rewind_slots / rewind_mult / burst_radius / pointer / skill_power / coin_gain / tv_gain / ap_cap。**目前无存档持久化**。
 
@@ -254,6 +255,21 @@ stamp(pts, red) → _pending
 - **`WaterRenderer`**：飞鸟掠水式尾迹，40+ 参数存 `user://water_style.json`。每点带独立年龄，8 层叠画：浅水 halo → 水体主带 → V 形开尔文尾波 → 涟漪环 → 焦散丝 → 泡沫 → 接触切痕 → 脚印。
 - **F1 `ink_editor`** 调的是 **WaterRenderer**（41 滑块 + 3 色板 + 试笔水面），存 `user://water_style.json`；墨笔样式走另一条 `ink_style.tres`。**两者别搞混。**
 
+### 6.4 战斗表现（贴图化的几处）
+
+| 元素 | 画法 | 兜底 |
+|---|---|---|
+| 表盘钟面 | `dial_clock` Sprite2D，贴图 `assets/art/effects/dial_clock.png`，直径 = `DIAL_RADIUS × 4.55`，`z=-1`、`alpha 0.8`，每帧贴玩家位置 | 素材缺失时退回代码画圆 + 12 刻度 |
+| 表盘指针 | `dial_pointer` Sprite2D，`z=+1`，按 `DIAL_POINTER_PIVOT_FRAC` 定轴心 | 无素材则不建节点，指针仍由 `_paint_dial` 画线 |
+| 行动点（AP） | 头顶四角白星，间距 24px、抬高 92px，满格亮 `#F3FAFF` / 空格暗 `#C8F3FF`（`_draw_four_point_star`） | 无 |
+| 冲刺残影 | `_draw_player_ghost`：直接拿玩家 sprite 贴图按 `k²` 淡出 | 无贴图时退回墨色剪影 |
+| 敌方子弹 | 6 帧贴图 14fps（`crystal_projectile_000..005`），按 `bullet_radius ÷ 28` 缩放、图心回退 18.5px 对齐判定点；详见 `docs/enemies.md` | `bullet_frames` 为空时退回拖尾线 + 实心圆 |
+| 相机 | 死区跟随，位置抬高 90px，`zoom 0.82` | 无 |
+
+### 6.5 字体
+
+`ink_editor` / `spell_lab` 的中文界面统一加载 `res://assets/fonts/MFYueYuan_Noncommercial-Regular.ttf`（字段类型是 `Font`，不再用 `SystemFont` 探系统字体，避免换机器字形不一致）。**该字体为非商用授权，出商业包前需替换。**
+
 ---
 
 ## 7. HUD（`hud.gd`，纯 `_draw`）
@@ -281,6 +297,8 @@ start "" /b "D:\godot\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_wi
 | `spell_test` | 施法链路、乱涂不误触、「时」接管状态 | `SPELL PASS` |
 | `skill_fx_test` | 技能效果层 | `SKILLFX PASS` |
 | `stroke_persist_test` | 笔形落盘，分 write / read 两趟跨进程验证 | `STROKE_PERSIST_WRITE PASS` / `STROKE_PERSIST PASS` |
+| `player_config_test` | 人物总表逐字段灌入是否生效：受伤倍率 / 无敌 / 墨上限 / 神纹冷却 / **挨打不掉 R 充能** | `PLAYERCFG PASS` |
+| `water_parity_test` | 水痕编辑器与局内渲染一致性：44 项参数逐键、逐点年龄、水面相位 | `WATER_PARITY PASS` |
 | `spell_lab_test` | 调试台冒烟 | `SPELLLAB PASS` ⚠️ **禁止执行**（仍需同步维护） |
 
 日志里没有 PASS 行 = 场景没跑到收尾，按 `AGENTS.md §2` 排查（先读日志 → `--check-only` 验语法 → `--import` 验全项目）。
@@ -296,6 +314,7 @@ start "" /b "D:\godot\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_wi
 | `docs/怪物系统改动说明-v1.0.md` | 怪物精简为 4 种、精英复用、冲锋锁向、分裂无敌、删 BOSS |
 | `docs/神纹系统改动说明-v1.1.md` | 6 固定咒语 → 2 古纹 + 6 空碑，$Q 识别器落地 |
 | `docs/时间刺客-程序执行方案-v1.0.md` | 旧名「时间刺客」的程序执行方案（部分数值已过时，如单局 30s） |
+| `docs/冰蓝圣境_色板v1.md` / `.html` | 美术色板：冰蓝圣境配色（html 可直接开浏览器看色卡） |
 | `AGENTS.md` | 工程规则：测试跑法、超时排查、脚本约定、编辑禁忌 |
 
 ---
@@ -314,3 +333,6 @@ start "" /b "D:\godot\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_wi
 10. **构建产物混入数据目录**：`moshi_demo/data/enemies/墨时 InkTime.exe` 应清掉。
 11. **渗墨拓印层已停用**：`main.gd._ready` 不再创建 `bleed`（水面渲染改造中），调用点已加判空，恢复时记得一起去掉守卫。
 12. **`skill_fx_test` 偶发假失败**：阿尔法突袭 / 落剑清空两条断言的时间余量卡得太紧，斩杀顿帧（`KILL_FREEZE`）一多就超时。与总表改造无关，改造前就存在，重跑即过。
+13. **墨上限的封顶写在代码里**：`main.gd.tv_max()` 的 `minf(..., 1000.0)` 会夹掉总表 `tv_max_base` 里更大的值。改大墨管必须两处一起动，否则总表填了也不生效（曾出现填 8000 实际仍是 750 的事故）。
+14. **`smoke` 的表盘斩偶发假失败**：`dial slash kill, got 3` —— 表盘斩没蹭到怪，与改动无关，重跑即过。
+15. **导出产物散落仓库根目录与 `moshi_demo/`**：三个 `墨时 InkTime.exe` 处于未跟踪状态，`.gitignore` 尚未收编。
