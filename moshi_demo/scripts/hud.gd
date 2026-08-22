@@ -3,12 +3,19 @@ extends CanvasLayer
 ## HUD：血条 / TV 条 / 回溯充能钟（12 s）/ 倒计时·斩杀·得分 / 技能栏 / 绑定盘 / 结算评级。
 
 const INK := Color("#1A1714")
-const RED := Color("#C0392B")
+const RED := Color("#E9A0AC")
 const GREY := Color("#4A443C")
 const PAPER := Color("#F5F1E8")
+const UI_TEXT_WHITE := Color("#F3FAFF")
+const HP_CYAN := Color("#8FE7F5")
+const TIME_BLUE := Color("#5FAEDB")
+const TIME_HIGHLIGHT := Color("#C8F3FF")
+const CLOCK_BLUE := Color("#78D7F4")
+const CLOCK_IDLE := Color("#6D8498")
+const SKILL_BLUE_BLACK := Color("#243744")
 
 var game
-var font: SystemFont
+var font: Font
 var board: Control
 
 class _Board extends Control:
@@ -18,9 +25,7 @@ class _Board extends Control:
 			hud._paint(self)
 
 func _ready() -> void:
-	font = SystemFont.new()
-	font.font_names = PackedStringArray([
-		"Microsoft YaHei UI", "Microsoft YaHei", "SimHei", "Noto Sans CJK SC"])
+	font = load("res://assets/fonts/MFYueYuan_Noncommercial-Regular.ttf")
 	board = _Board.new()
 	board.hud = self
 	board.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -48,32 +53,30 @@ func _paint(r: Control) -> void:
 	if game.hit_flash > 0.0:
 		r.draw_rect(Rect2(0, 0, w, h),
 			Color(0.75, 0.2, 0.15, 0.22 * clampf(game.hit_flash / 0.25, 0.0, 1.0)))
-	# —— 左上：血条 / TV 条 ——
+	# —— 左上：血条 ——
 	var hp_f: float = clampf(game.player.hp / game.player.max_hp, 0.0, 1.0)
 	r.draw_rect(Rect2(20, 16, 220, 14), Color(0, 0, 0, 0.10))
-	r.draw_rect(Rect2(20, 16, 220.0 * hp_f, 14), RED)
+	r.draw_rect(Rect2(20, 16, 220.0 * hp_f, 14), HP_CYAN)
 	r.draw_rect(Rect2(20, 16, 220, 14), Color(0, 0, 0, 0.35), false, 1.0)
-	_text(r, Vector2(244, 14), "体", 13, GREY)
+	_text(r, Vector2(244, 14), "体", 13, UI_TEXT_WHITE)
+	# —— 主角右侧：时间竖条 ——
 	var tv_f: float = clampf(game.tv / game.tv_max(), 0.0, 1.0)
-	r.draw_rect(Rect2(20, 42, 220, 10), Color(0, 0, 0, 0.10))
-	var tv_col := INK if not game.dry_pen else GREY
-	r.draw_rect(Rect2(20, 42, 220.0 * tv_f, 10), tv_col)
-	r.draw_rect(Rect2(20, 42, 220, 10), Color(0, 0, 0, 0.35), false, 1.0)
-	# 觉醒线刻度：这一笔要烧掉起笔余额的 BIND_ENERGY_RATIO，条子掉到这条线以下才够格点亮空碑。
-	# 没在书写时按当下余额预演 —— 告诉玩家「现在起笔的话得画到哪儿」。
-	var base: float = game.draw_tv0 if game.state == game.State.SPELL else game.tv
-	var bx: float = 20.0 + 220.0 * clampf(
-		base * (1.0 - game.BIND_ENERGY_RATIO) / game.tv_max(), 0.0, 1.0)
-	r.draw_line(Vector2(bx, 40), Vector2(bx, 54), Color(RED.r, RED.g, RED.b, 0.6), 1.5)
-	_text(r, Vector2(244, 36), "时 %d" % int(game.tv), 13, GREY)
+	var player_screen: Vector2 = game.get_viewport().get_canvas_transform() * game.player.position
+	var tv_pos := player_screen + Vector2(105.0, -54.0)
+	var tv_box := Rect2(tv_pos, Vector2(12.0, 108.0))
+	var tv_col := TIME_BLUE if not game.dry_pen else CLOCK_IDLE
+	r.draw_rect(tv_box, Color(0.05, 0.12, 0.16, 0.28))
+	var tv_fill := Rect2(tv_box.position + Vector2(2.0, 2.0 + (102.0 * (1.0 - tv_f))),
+		Vector2(8.0, 102.0 * tv_f))
+	r.draw_rect(tv_fill, tv_col)
+	r.draw_rect(Rect2(tv_fill.position, Vector2(3.0, tv_fill.size.y)), TIME_HIGHLIGHT)
+	r.draw_rect(tv_box, Color(UI_TEXT_WHITE.r, UI_TEXT_WHITE.g, UI_TEXT_WHITE.b, 0.72), false, 1.0)
 	# —— 右上：体力 / 斩杀 / 得分 ——
 	# 本局没有时限，唯一的结束条件是体力（时滞次数）耗尽，所以这里常驻显示体力。
 	var stam: int = maxi(game.LAG_MAX - game.lag_count, 0)
 	var stat := "体力 %d/%d    斩 %d    分 %d    ×%.1f" % [
 		stam, game.LAG_MAX, game.kills, int(round(game.score)), game.score_mult]
-	_text(r, Vector2(w - 20.0, 14), stat, 18,
-		GREY if stam > 1 else Color(RED.r, RED.g, RED.b, 0.9),
-		HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
+	_text(r, Vector2(w - 20.0, 14), stat, 18, UI_TEXT_WHITE, HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
 	_text(r, Vector2(w - 20.0, 38), "已撑 %.0fs" % game.run_time,
 		14, Color(GREY.r, GREY.g, GREY.b, 0.7), HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
 	# —— 顶部中央：回溯充能钟（12 s） ——
@@ -81,21 +84,21 @@ func _paint(r: Control) -> void:
 	var rad := 30.0
 	var t: float = clampf(game.clock_charge / game.CLOCK_TIME, 0.0, 1.0)
 	var ready: bool = game.clock_charge >= game.CLOCK_TIME
-	var ring_col := Color(GREY.r, GREY.g, GREY.b, 0.8)
+	var ring_col := Color(CLOCK_IDLE.r, CLOCK_IDLE.g, CLOCK_IDLE.b, 0.8)
 	if ready:
 		var pulse := 0.5 + 0.5 * sin(game.sim_time * 8.0)
-		ring_col = Color(RED.r, RED.g, RED.b, 0.55 + 0.45 * pulse)
+		ring_col = Color(CLOCK_BLUE.r, CLOCK_BLUE.g, CLOCK_BLUE.b, 0.55 + 0.45 * pulse)
 	r.draw_arc(c, rad, 0.0, TAU, 48, ring_col, 2.0)
 	if t > 0.0 and t < 1.0:
 		r.draw_arc(c, rad + 5.0, -PI / 2.0, -PI / 2.0 + TAU * t, 48,
-			Color(RED.r, RED.g, RED.b, 0.45), 2.5)
+			Color(CLOCK_BLUE.r, CLOCK_BLUE.g, CLOCK_BLUE.b, 0.45), 2.5)
 	r.draw_line(c, c + Vector2(0, -17), ring_col, 4.0)
 	var mang := -PI / 2.0 + TAU * t
 	r.draw_line(c, c + Vector2(cos(mang), sin(mang)) * 23.0, ring_col, 2.5)
 	r.draw_circle(c, 2.5, ring_col)
 	if ready:
 		var blink := 0.55 + 0.45 * sin(game.sim_time * 6.0)
-		_text_center(r, c.x, 104.0, "R · 回溯", 16, Color(RED.r, RED.g, RED.b, blink))
+		_text_center(r, c.x, 104.0, "R · 回溯", 16, Color(CLOCK_BLUE.r, CLOCK_BLUE.g, CLOCK_BLUE.b, blink))
 	# —— 底部：咒语栏 ——
 	_paint_skills(r, w, h)
 	# —— 公告 ——
@@ -163,23 +166,23 @@ func _paint_skills(r: Control, w: float, h: float) -> void:
 		var bound: bool = bool(s.bound)
 		var cool: float = float(s.cd_left)
 		var box := Rect2(x + 4.0, y, cw - 8.0, 40.0)
-		r.draw_rect(box, Color(0, 0, 0, 0.06))
-		r.draw_rect(box, Color(0, 0, 0, 0.22), false, 1.0)
+		r.draw_rect(box, Color(SKILL_BLUE_BLACK.r, SKILL_BLUE_BLACK.g, SKILL_BLUE_BLACK.b, 0.32))
+		r.draw_rect(box, Color(CLOCK_IDLE.r, CLOCK_IDLE.g, CLOCK_IDLE.b, 0.55), false, 1.0)
 		if cool > 0.0:
 			var f: float = clampf(cool / float(s.cd), 0.0, 1.0)
 			r.draw_rect(Rect2(box.position.x, box.position.y, box.size.x * f, box.size.y),
 				Color(0, 0, 0, 0.22))
-		var name_col := GREY
+		var name_col := UI_TEXT_WHITE
 		if not bound:
-			name_col = Color(GREY.r, GREY.g, GREY.b, 0.35)
+			name_col = Color(UI_TEXT_WHITE.r, UI_TEXT_WHITE.g, UI_TEXT_WHITE.b, 0.45)
 		elif cool <= 0.0:
-			name_col = INK
+			name_col = UI_TEXT_WHITE
 		_text_center(r, x + cw * 0.5, y + 4.0, String(s.name) if bound else "空碑", 14, name_col)
 		var note := "古纹" if bool(s.ancient) else ("神纹" if bound else "待觉醒")
 		if cool > 0.0:
 			note = "%.1fs" % cool
 		_text_center(r, x + cw * 0.5, y + 22.0, note, 12,
-			Color(GREY.r, GREY.g, GREY.b, 0.75))
+			Color(UI_TEXT_WHITE.r, UI_TEXT_WHITE.g, UI_TEXT_WHITE.b, 0.75))
 
 func _paint_settle(r: Control, w: float, h: float) -> void:
 	r.draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.045, 0.04, 0.85))

@@ -250,12 +250,15 @@ func _last_awakened() -> Dictionary:
 
 ## 一个够长的陌生形：闭合三角。
 ## 圆不行 —— 跟「时」的方框有 64% 相似，太贴撞形闸；折线也不行 —— 「雷」本身就是折线。
-## 三角边长 150 时周长约 457px，过得了 350px 的觉醒线，对两个古纹最高才 58%。
+## 边长按**当前墨上限**推算，保证周长压过觉醒线一成有余；$Q 是尺度无关的，放大不影响相似度。
 func _awaken_shape() -> PackedVector2Array:
+	# 正三角周长 = 3√3 × 外接圆半径 ≈ 5.196 R
+	var want: float = g.tv_max() * g.BIND_ENERGY_RATIO * 1.12
+	var r: float = maxf(want / 5.196, 88.0)
 	var out := PackedVector2Array()
 	for i in 4:
 		var a := -PI * 0.5 + TAU * float(i) / 3.0
-		out.append(Vector2(560, 320) + Vector2(cos(a), sin(a)) * 88.0)
+		out.append(Vector2(560, 320) + Vector2(cos(a), sin(a)) * r)
 	return out
 
 ## 同样陌生但笔太短的形：半径 30 的圆约 188px，够得着识别门槛却够不着觉醒线。

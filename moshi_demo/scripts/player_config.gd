@@ -67,8 +67,8 @@ const PATH := "res://data/player.tres"
 @export var ap_max_base: int = 3
 ## 行动点上限的成长天花板。
 @export var ap_max_cap: int = 6
-## 时针转一圈的秒数。同时决定左键斩的朝向变化快慢。
-@export var hour_period: float = 2.0
+## 时针转一圈的秒数。同时决定左键斩的朝向变化快慢。每秒一圈 = 每秒回 1 AP。
+@export var hour_period: float = 1.0
 ## 时针转一圈回多少行动点。
 @export var ap_per_hour: float = 1.0
 ## 秒针周期（秒），买了指针升级才生效。
@@ -99,10 +99,11 @@ const PATH := "res://data/player.tres"
 # ============================== 笔墨（时间之力） ==============================
 
 @export_group("笔墨")
-## 时间之力上限，也就是「一管墨」有多少。
-@export var tv_max_base: float = 500.0
+## 时间之力上限，也就是「一管墨」有多少。1 墨 = 1 px 笔画。
+## 注意 `Game.tv_max()` 还压着一条成长封顶 1000，填更大的数不会生效。
+@export var tv_max_base: float = 1000.0
 ## 时间之力每秒回复量（只在非书写状态回）。
-@export var tv_regen_base: float = 20.0
+@export var tv_regen_base: float = 240.0
 ## **每画 1 像素消耗多少墨。调小就能画更长的线**，调到 0 等于无限长。
 @export var tv_cost_per_px: float = 1.0
 ## 子弹时间倍率：书写期间怪物按这个倍速行动。越小越慢。
