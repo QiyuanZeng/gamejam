@@ -10,11 +10,12 @@ enum State { PLAY, SPELL, DASH, BURST, REWIND, LAG, GAMEOVER }
 # ============================== §1 全局 ==============================
 
 const ARENA := Vector2(3000.0, 3000.0)
-
 ## ↓↓↓ 以下这批大写量都是**人物总表** res://data/player.tres（PlayerConfig）的镜像，
 ## `_load_player_config()` 在 _ready 开头统一灌进来。这里写的字面量只是加载失败时的兜底。
 ## 保留大写命名是为了不动散落在 HUD / 调试台 / 测试里的几十个引用点。
 var PLAYER_HP := 100.0
+const STAR_GOLD := preload("res://assets/ui/star_gold.png")
+const STAR_BLUE := preload("res://assets/ui/star_blue.png")
 ## 撞怪 / 中弹时的受伤倍率，乘在怪自身的 dmg / bullet_dmg 上。
 var CONTACT_DMG_MULT := 1.0
 var BULLET_DMG_MULT := 1.0
@@ -238,6 +239,10 @@ var hit_flash := 0.0
 var hit_stop := 0.0
 var announce_t := 0.0
 var announce_text := ""
+const SKILL_ART_DURATION := 2.5
+var skill_art_id := ""
+var skill_art_t := 0.0
+var skill_art_queue: Array[String] = []
 var zan_t := 0.0
 var zan_text := "斬"
 var zan_red := false
@@ -834,6 +839,7 @@ func _end_draw() -> void:
 ## 返回 CAST_DONE（斩击照常）/ CAST_TAKEOVER（如「时」直接接管进回溯）。
 func _fire(s: Dictionary) -> int:
 	s.cd_left = float(s.cd)
+	_show_skill_art(String(s.id))
 	zan_t = 0.5
 	zan_red = true
 	zan_text = String(s.name).split("·")[0]
@@ -841,6 +847,15 @@ func _fire(s: Dictionary) -> int:
 	return CAST_TAKEOVER if _cast(String(s.id)) else CAST_DONE
 
 ## 神纹录里还空着的碑位下标，按表内顺序。面板的 1~N 就是照这个列表点名的。
+func _show_skill_art(id: String) -> void:
+	if id == "time":
+		return
+	if skill_art_t > 0.0:
+		skill_art_queue.append(id)
+		return
+	skill_art_id = id
+	skill_art_t = SKILL_ART_DURATION
+
 func blank_slots() -> Array:
 	var out: Array = []
 	for i in skills.size():
@@ -892,6 +907,7 @@ func _bind_slot(i: int) -> void:
 	var s: Dictionary = skills[i]
 	s.cloud = bind_feat.cloud
 	s.bound = true
+	_show_skill_art(String(s.id))
 	announce_text = "神纹觉醒 · %s" % String(s.name)
 	announce_t = 1.8
 	_close_bind(_fire(s) == CAST_TAKEOVER)
@@ -1673,6 +1689,11 @@ func _update_timers(delta: float) -> void:
 		hit_flash = maxf(hit_flash - delta, 0.0)
 	if announce_t > 0.0:
 		announce_t = maxf(announce_t - delta, 0.0)
+	if skill_art_t > 0.0:
+		skill_art_t = maxf(skill_art_t - delta, 0.0)
+		if skill_art_t <= 0.0 and not skill_art_queue.is_empty():
+			skill_art_id = skill_art_queue.pop_front()
+			skill_art_t = SKILL_ART_DURATION
 	if zan_t > 0.0:
 		zan_t = maxf(zan_t - delta, 0.0)
 	if help_t > 0.0:
@@ -1877,14 +1898,33 @@ func _paint_dial(l: PaintLayer) -> void:
 			l.draw_line(c + hour_dir() * DIAL_RADIUS, c + hour_dir() * (DIAL_RADIUS + 12.0),
 				Color(RED.r, RED.g, RED.b, 0.55), 2.0)
 		l.draw_circle(c, 3.0, hcol)
-	# 头顶 AP：四角白星，最新一格最亮，整体抬高避开角色头部。
+	# 头顶 AP：星星图标，有次数=金色，用完=蓝色，最新一格最亮。
 	var n := ap_max()
 	var full := int(floor(ap))
-	var w := 24.0 * float(n - 1)
+	var w := 36.0 * float(n - 1)
 	for i in n:
-		var p := c + Vector2(-w * 0.5 + 24.0 * float(i), -92.0)
-		var col := Color("#F3FAFF", 0.95) if i < full else Color("#C8F3FF", 0.55)
-		_draw_four_point_star(l, p, 8.5, 3.4, col)
+		var p := c + Vector2(-w * 0.5 + 36.0 * float(i), -92.0)
+		var tex := STAR_GOLD if i < full else STAR_BLUE
+		var a := 0.95 if i < full else 0.55
+		l.draw_texture_rect(tex, Rect2(p - Vector2(12.75, 12.75), Vector2(25.5, 25.5)),
+			false, Color(1, 1, 1, a))
+	# 时间值环形条：放在表盘外缘，饱和蓝色
+	var tv_f: float = clampf(tv / tv_max(), 0.0, 1.0)
+	var tv_ring_r := 162.0
+	var tv_col := Color("#F3FAFF") if not dry_pen else Color("#6D8498")
+	l.draw_arc(c, tv_ring_r, 0.0, TAU, 64, Color(1, 1, 1, 0.12), 2.0)
+	if tv_f > 0.0:
+		l.draw_arc(c, tv_ring_r, -PI * 0.5, -PI * 0.5 + TAU * tv_f, 48,
+			Color(tv_col.r, tv_col.g, tv_col.b, 0.9), 3.0)
+	# 血条：人物正下方，同层级绘制
+	var hp_f: float = clampf(player.hp / player.max_hp, 0.0, 1.0)
+	var hp_pos := c + Vector2(-68.0, 46.0)
+	var hp_size := Vector2(136.0, 6.0)
+	var hp_col := Color("#B67D86")
+	l.draw_rect(Rect2(hp_pos, hp_size), Color(0, 0, 0, 0.10))
+	l.draw_rect(Rect2(hp_pos, Vector2(hp_size.x * hp_f, hp_size.y)),
+		Color(hp_col.r, hp_col.g, hp_col.b, 0.8))
+	l.draw_rect(Rect2(hp_pos, hp_size), Color(0, 0, 0, 0.35), false, 1.0)
 
 func _draw_four_point_star(l: PaintLayer, pos: Vector2, outer: float, inner: float, col: Color) -> void:
 	var pts := PackedVector2Array([

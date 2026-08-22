@@ -14,9 +14,22 @@ const CLOCK_BLUE := Color("#78D7F4")
 const CLOCK_IDLE := Color("#6D8498")
 const SKILL_BLUE_BLACK := Color("#243744")
 
+const SKILL_ART := {
+	"thunder": preload("res://assets/ui/skill_thunder.png"),
+	"quake": preload("res://assets/ui/skill_quake.png"),
+	"ent": preload("res://assets/ui/skill_ent.png"),
+	"flood": preload("res://assets/ui/skill_flood.png"),
+	"domain": preload("res://assets/ui/skill_domain.png"),
+	"swords": preload("res://assets/ui/skill_swords.png"),
+	"alpha": preload("res://assets/ui/skill_alpha.png"),
+}
+
 var game
 var font: Font
 var board: Control
+var dial_clock_tex: Texture2D
+var dial_outer_clock_tex: Texture2D
+var dial_pointer_tex: Texture2D
 
 class _Board extends Control:
 	var hud: HUD
@@ -26,6 +39,9 @@ class _Board extends Control:
 
 func _ready() -> void:
 	font = load("res://assets/fonts/MFYueYuan_Noncommercial-Regular.ttf")
+	dial_clock_tex = load("res://assets/ui/hud_top_clock.png")
+	dial_outer_clock_tex = load("res://assets/art/effects/dial_clock.png")
+	dial_pointer_tex = load("res://assets/art/effects/dial_pointer.png")
 	board = _Board.new()
 	board.hud = self
 	board.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -53,24 +69,7 @@ func _paint(r: Control) -> void:
 	if game.hit_flash > 0.0:
 		r.draw_rect(Rect2(0, 0, w, h),
 			Color(0.75, 0.2, 0.15, 0.22 * clampf(game.hit_flash / 0.25, 0.0, 1.0)))
-	# —— 左上：血条 ——
-	var hp_f: float = clampf(game.player.hp / game.player.max_hp, 0.0, 1.0)
-	r.draw_rect(Rect2(20, 16, 220, 14), Color(0, 0, 0, 0.10))
-	r.draw_rect(Rect2(20, 16, 220.0 * hp_f, 14), HP_CYAN)
-	r.draw_rect(Rect2(20, 16, 220, 14), Color(0, 0, 0, 0.35), false, 1.0)
-	_text(r, Vector2(244, 14), "体", 13, UI_TEXT_WHITE)
-	# —— 主角右侧：时间竖条 ——
-	var tv_f: float = clampf(game.tv / game.tv_max(), 0.0, 1.0)
-	var player_screen: Vector2 = game.get_viewport().get_canvas_transform() * game.player.position
-	var tv_pos := player_screen + Vector2(105.0, -54.0)
-	var tv_box := Rect2(tv_pos, Vector2(12.0, 108.0))
-	var tv_col := TIME_BLUE if not game.dry_pen else CLOCK_IDLE
-	r.draw_rect(tv_box, Color(0.05, 0.12, 0.16, 0.28))
-	var tv_fill := Rect2(tv_box.position + Vector2(2.0, 2.0 + (102.0 * (1.0 - tv_f))),
-		Vector2(8.0, 102.0 * tv_f))
-	r.draw_rect(tv_fill, tv_col)
-	r.draw_rect(Rect2(tv_fill.position, Vector2(3.0, tv_fill.size.y)), TIME_HIGHLIGHT)
-	r.draw_rect(tv_box, Color(UI_TEXT_WHITE.r, UI_TEXT_WHITE.g, UI_TEXT_WHITE.b, 0.72), false, 1.0)
+	# 血条 / 时间值环 已移到 main.gd `_paint_dial`（与表盘同一 PaintLayer，同层级绘制）
 	# —— 右上：体力 / 斩杀 / 得分 ——
 	# 本局没有时限，唯一的结束条件是体力（时滞次数）耗尽，所以这里常驻显示体力。
 	var stam: int = maxi(game.LAG_MAX - game.lag_count, 0)
@@ -79,23 +78,33 @@ func _paint(r: Control) -> void:
 	_text(r, Vector2(w - 20.0, 14), stat, 18, UI_TEXT_WHITE, HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
 	_text(r, Vector2(w - 20.0, 38), "已撑 %.0fs" % game.run_time,
 		14, Color(GREY.r, GREY.g, GREY.b, 0.7), HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
-	# —— 顶部中央：回溯充能钟（12 s） ——
-	var c := Vector2(w * 0.5, 66.0)
-	var rad := 30.0
+	# —— 顶部中央：回溯充能钟 ——
+	var c := Vector2(w * 0.5, 76.0)
+	var rad := 46.0
 	var t: float = clampf(game.clock_charge / game.CLOCK_TIME, 0.0, 1.0)
 	var ready: bool = game.clock_charge >= game.CLOCK_TIME
 	var ring_col := Color(CLOCK_IDLE.r, CLOCK_IDLE.g, CLOCK_IDLE.b, 0.8)
 	if ready:
 		var pulse := 0.5 + 0.5 * sin(game.sim_time * 8.0)
 		ring_col = Color(CLOCK_BLUE.r, CLOCK_BLUE.g, CLOCK_BLUE.b, 0.55 + 0.45 * pulse)
-	r.draw_arc(c, rad, 0.0, TAU, 48, ring_col, 2.0)
-	if t > 0.0 and t < 1.0:
-		r.draw_arc(c, rad + 5.0, -PI / 2.0, -PI / 2.0 + TAU * t, 48,
-			Color(CLOCK_BLUE.r, CLOCK_BLUE.g, CLOCK_BLUE.b, 0.45), 2.5)
-	r.draw_line(c, c + Vector2(0, -17), ring_col, 4.0)
-	var mang := -PI / 2.0 + TAU * t
-	r.draw_line(c, c + Vector2(cos(mang), sin(mang)) * 23.0, ring_col, 2.5)
-	r.draw_circle(c, 2.5, ring_col)
+	if dial_outer_clock_tex != null:
+		r.draw_texture_rect(dial_outer_clock_tex, Rect2(c - Vector2(rad * 1.24, rad * 1.24), Vector2(rad * 2.48, rad * 2.48)), false,
+			Color(1.0, 1.0, 1.0, 0.62))
+	if dial_clock_tex != null:
+		r.draw_texture_rect(dial_clock_tex, Rect2(c - Vector2(rad, rad), Vector2(rad * 2.0, rad * 2.0)), false,
+			Color(1.0, 1.0, 1.0, 0.86))
+	else:
+		r.draw_arc(c, rad, 0.0, TAU, 48, ring_col, 2.0)
+	if dial_pointer_tex != null:
+		var pointer_size := Vector2(64.0, 9.0)
+		var pointer_transform := Transform2D(-PI / 2.0 + TAU * t, c)
+		pointer_transform = pointer_transform.translated_local(Vector2(0.0, -pointer_size.y * 0.5))
+		r.draw_set_transform_matrix(pointer_transform)
+		r.draw_texture_rect(dial_pointer_tex, Rect2(Vector2.ZERO, pointer_size), false, ring_col)
+		r.draw_set_transform_matrix(Transform2D.IDENTITY)
+	else:
+		var mang := -PI / 2.0 + TAU * t
+		r.draw_line(c, c + Vector2(cos(mang), sin(mang)) * 23.0, ring_col, 2.5)
 	if ready:
 		var blink := 0.55 + 0.45 * sin(game.sim_time * 6.0)
 		_text_center(r, c.x, 104.0, "R · 回溯", 16, Color(CLOCK_BLUE.r, CLOCK_BLUE.g, CLOCK_BLUE.b, blink))
@@ -107,6 +116,8 @@ func _paint(r: Control) -> void:
 		aa = aa * aa
 		_text_center(r, w * 0.5, 150.0, game.announce_text, 34,
 			Color(INK.r, INK.g, INK.b, aa))
+	# —— 技能图：中心展开 → 左右扫描显现，完整停留 2 秒 ——
+	_paint_skill_art(r, w, h)
 	# —— 伤害数字 ——
 	for n in game.numbers:
 		var k: float = n.t / 0.8
@@ -139,6 +150,23 @@ func _paint(r: Control) -> void:
 		_paint_settle(r, w, h)
 
 ## 觉醒面板：只列还空着的碑，序号就是要按的键。
+func _paint_skill_art(r: Control, w: float, h: float) -> void:
+	if game.skill_art_t <= 0.0 or not SKILL_ART.has(game.skill_art_id):
+		return
+	var elapsed: float = game.SKILL_ART_DURATION - game.skill_art_t
+	var grow: float = clampf(elapsed / 0.35, 0.0, 1.0)
+	var scan: float = clampf((elapsed - 0.18) / 0.55, 0.0, 1.0)
+	var fade: float = clampf(game.skill_art_t / 0.35, 0.0, 1.0)
+	var tex: Texture2D = SKILL_ART[game.skill_art_id]
+	var max_size := Vector2(430.0, 242.0)
+	var size := max_size * (0.65 + 0.35 * grow)
+	var rect := Rect2(Vector2(w, h) * 0.5 - size * 0.5, size)
+	var reveal := Rect2(rect.position, Vector2(rect.size.x * scan, rect.size.y))
+	if scan > 0.0:
+		r.draw_texture_rect_region(tex, reveal, Rect2(0, 0, tex.get_width() * scan, tex.get_height()), Color(1, 1, 1, fade))
+		var x := rect.position.x + rect.size.x * scan
+		r.draw_line(Vector2(x, rect.position.y), Vector2(x, rect.end.y), Color(0.75, 0.94, 1.0, fade), 2.0)
+
 func _paint_bind(r: Control, w: float, h: float) -> void:
 	r.draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.045, 0.04, 0.72))
 	_text_center(r, w * 0.5, h * 0.24, "神纹觉醒", 48, PAPER)

@@ -292,8 +292,8 @@ static func draw_water_path(c: CanvasItem, pts: PackedVector2Array,
 	var foam := getc(p, "foam_color")
 	var life_time := getf(p, "life_time")
 	var curve := getf(p, "fade_curve")
-	var w_start := getf(p, "width_start")
-	var w_end := getf(p, "width_end")
+	var w_start := getf(p, "width_start") * 0.1
+	var w_end := getf(p, "width_end") * 0.1
 	var w_taper := getf(p, "width_taper")
 	var spread := getf(p, "spread_speed")
 	var wob_amp := getf(p, "wobble_amp")

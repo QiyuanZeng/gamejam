@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://bifmrcyewhhg1"
+
+[deps]
+
+files=["res://docs/冰蓝圣境_色板调参表.脚本位置.translation", "res://docs/冰蓝圣境_色板调参表.当前Hex.translation", "res://docs/冰蓝圣境_色板调参表.当前RGB.translation", "res://docs/冰蓝圣境_色板调参表.建议用途.translation"]
+
+source_file="res://docs/冰蓝圣境_色板调参表.csv"
+dest_files=["res://docs/冰蓝圣境_色板调参表.脚本位置.translation", "res://docs/冰蓝圣境_色板调参表.当前Hex.translation", "res://docs/冰蓝圣境_色板调参表.当前RGB.translation", "res://docs/冰蓝圣境_色板调参表.建议用途.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

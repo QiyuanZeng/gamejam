@@ -457,7 +457,7 @@ func _draw_charge_warn() -> void:
 	var warn: Color = cfg.get("charge_warn_color", RED)
 	var r: float = float(cfg.radius)
 	var full: float = float(cfg.get("charge_dist", 900.0))
-	var w: float = r * 0.95
+	var w: float = r * 0.095
 	var perp := Vector2(-charge_dir.y, charge_dir.x)
 	# 外框：全长范围，提前告知落点
 	var outline := PackedVector2Array([

@@ -12,6 +12,7 @@ const BG_PATHS := [
 const CAROUSEL_INTERVAL := 8.0
 const FADE_TIME := 1.0
 const GOLD := Color("#E8C36A")
+const GAME_FONT := preload("res://assets/fonts/MFYueYuan_Noncommercial-Regular.ttf")
 
 ## 菜单热区（与设计稿对齐：中心/尺寸为视口百分比）
 const MENU_ITEMS := [
@@ -34,6 +35,7 @@ var busy := false
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_theme_font_override("font", GAME_FONT)
 	_build_background()
 	_build_menu()
 	_build_toast()
@@ -113,6 +115,7 @@ func _build_toast() -> void:
 	toast = Label.new()
 	toast.text = ""
 	toast.add_theme_color_override("font_color", GOLD)
+	toast.add_theme_font_override("font", GAME_FONT)
 	toast.add_theme_font_size_override("font_size", 22)
 	add_child(toast)
 
