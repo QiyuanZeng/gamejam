@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="WaveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/wave_data.gd" id="1_wave"]
+
+[resource]
+script = ExtResource("1_wave")
+id = "seg2_rush"
+until_time = 12.0
+interval = 0.38
+cap = 28
+mix = {
+"charger_fast": 0.25,
+"melee_mite": 0.75
+}
+note = "冲锋兵入场。开始出现需要走位躲的东西，冲锋预警条第一次登场。"

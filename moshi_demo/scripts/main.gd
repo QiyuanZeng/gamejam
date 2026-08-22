@@ -10,7 +10,6 @@ enum State { PLAY, SPELL, DASH, BURST, REWIND, LAG, GAMEOVER }
 # ============================== §1 全局 ==============================
 
 const ARENA := Vector2(3000.0, 3000.0)
-const RUN_LIMIT := 30.0
 const PLAYER_HP := 100.0
 const MAX_ENEMIES := 130
 const SPAWN_MARGIN := 26.0
@@ -147,41 +146,9 @@ const INK := Color("#1A1714")
 const RED := Color("#C0392B")
 const GREY := Color("#4A443C")
 
-const ENEMY_CFGS := {
-	"blob": {"type": "blob", "hp": 10.0, "speed": 60.0, "dmg": 8.0, "radius": 30.0,
-		"score": 10, "coin": 1, "tv": 8.0,
-		"tex_target": 84.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_blob.png"},
-	"fast": {"type": "fast", "hp": 6.0, "speed": 130.0, "dmg": 6.0, "radius": 22.0,
-		"score": 15, "coin": 1, "tv": 10.0,
-		"tex_target": 76.0, "color": Color("#4A443C"), "tex": "res://assets/enemy_fast.png"},
-	"tank": {"type": "tank", "hp": 40.0, "speed": 35.0, "dmg": 15.0, "radius": 54.0,
-		"score": 40, "coin": 3, "tv": 25.0,
-		"tex_target": 172.0, "color": Color("#1A1714"), "tex": "res://assets/enemy_tank.png"},
-	"bomber": {"type": "bomber", "hp": 8.0, "speed": 80.0, "dmg": 10.0, "radius": 26.0,
-		"score": 25, "coin": 2, "tv": 12.0,
-		"tex_target": 80.0, "color": Color("#8E3B2C"), "tex": "res://assets/enemy_bomber.png"},
-	"mite": {"type": "mite", "hp": 8.0, "speed": 115.0, "dmg": 7.0, "radius": 24.0,
-		"score": 15, "coin": 1, "tv": 10.0,
-		"tex_target": 88.0, "color": Color("#2A2A33"), "tex": "",
-		"anim_dir": "res://assets/art/enemies/shadow_mite/"},
-	"crystal": {"type": "tank", "hp": 40.0, "speed": 38.0, "dmg": 15.0, "radius": 48.0,
-		"score": 45, "coin": 3, "tv": 26.0,
-		"tex_target": 160.0, "color": Color("#3D5A80"), "tex": "",
-		"anim_dir": "res://assets/art/enemies/crystal_sentinel/animations/",
-		"pivot_frac": Vector2(0.5, 0.875)},
-}
-
-## §7 时段连续生成表
-const WAVE_TABLE := [
-	{"t": 5.0, "interval": 0.80, "cap": 12, "mix": {"blob": 1.0}},
-	{"t": 12.0, "interval": 0.60, "cap": 18, "mix": {"blob": 0.75, "fast": 0.1, "mite": 0.15}},
-	{"t": 20.0, "interval": 0.50, "cap": 24,
-		"mix": {"blob": 0.5, "fast": 0.15, "mite": 0.15, "tank": 0.1, "crystal": 0.05, "bomber": 0.05}},
-	{"t": 27.0, "interval": 0.40, "cap": 30,
-		"mix": {"blob": 0.4, "fast": 0.15, "mite": 0.1, "tank": 0.13, "crystal": 0.12, "bomber": 0.1}},
-	{"t": 30.0, "interval": 0.30, "cap": 40,
-		"mix": {"blob": 0.3, "fast": 0.2, "mite": 0.1, "tank": 0.13, "crystal": 0.12, "bomber": 0.15}},
-]
+## 怪物配置已搬到 res://data/enemies/*.tres，统一由 EnemyDB 按 id 加载。
+## 刷怪波表已搬到 res://data/waves/*.tres，统一由 WaveDB 按 until_time 排段。
+## 改数值 / 换模型 / 调刷怪节奏都在那边改，本文件不再存表。详见 docs/enemies.md。
 
 ## §10 局外养成接口（只留数据层，商店 UI 与存档另做）
 var upgrades := {
@@ -248,6 +215,7 @@ var domains: Array = []           # 时间领域：{pos, left, pw}
 var swords: Array = []            # 无限剑阵：{pos, t, pw}
 var alpha_left := 0               # 阿尔法突袭：剩余斩击段数
 var alpha_gap := 0.0
+var enemy_bullets: Array = []     # 远程小兵普攻弹：{pos, dir, spd, dmg, r, life, col}
 
 var flash_t := 0.0
 var hit_flash := 0.0
@@ -522,7 +490,8 @@ func _process(delta: float) -> void:
 		return
 	var f := enemy_speed_factor()
 	if state != State.GAMEOVER:
-		run_time = minf(run_time + delta * f, RUN_LIMIT)
+		# 本局没有时限：run_time 只作为「已持续多久」的统计量与波表推进依据
+		run_time += delta * f
 	match state:
 		State.PLAY:
 			_regen(delta, f)
@@ -554,8 +523,7 @@ func _process(delta: float) -> void:
 	if state != State.BURST:
 		_update_fx(delta)
 	_update_timers(delta)
-	if state != State.GAMEOVER and run_time >= RUN_LIMIT:
-		_settle()
+	# 本局不再有时间结算：唯一的结束条件是体力（时滞次数）耗尽，见 _enter_lag()
 	_update_camera(delta)
 	_redraw_all()
 
@@ -789,6 +757,7 @@ func _cast_thunder(pw: float) -> void:
 		var pos: Vector2 = target.position
 		bolts.append({"a": pos + Vector2(randf_range(-30.0, 30.0), -260.0), "b": pos, "t": 0.0})
 		rings.append({"pos": pos, "r": THUNDER_RADIUS, "t": 0.0})
+		clear_enemy_bullets_in(pos, THUNDER_RADIUS)
 		for e in enemies.duplicate():
 			if not e.dead and e.position.distance_to(pos) <= THUNDER_RADIUS + float(e.cfg.radius):
 				_damage(e, THUNDER_DMG * pw, true, "normal")
@@ -867,6 +836,7 @@ func _update_dash(delta: float) -> void:
 		_begin_burst(false)
 
 func _mark_enemies_at(pos: Vector2, dmg: float) -> void:
+	clear_enemy_bullets_in(pos, dash_radius())
 	for e in enemies:
 		if e.position.distance_to(pos) <= dash_radius() + float(e.cfg.radius):
 			if e.mark_stamp != dash_stamp:
@@ -948,7 +918,7 @@ func _resolve_burst() -> void:
 		ghost_trail.clear()
 
 func _damage(e: Enemy, dmg: float, red: bool, source: String) -> void:
-	if e == null or e.dead:
+	if e == null or e.dead or e.invuln_left > 0.0:
 		return
 	e.hp -= dmg
 	numbers.append({
@@ -979,6 +949,7 @@ func _kill_enemy(e: Enemy, source := "normal") -> void:
 		sand += 1
 	if type == "bomber":
 		blasts.append({"pos": e.position, "t": BOMB_DELAY})
+	_split_on_death(e)
 	var pos: Vector2 = e.position
 	var r: float = float(e.cfg.radius)
 	var n := 4 + randi() % 3
@@ -999,6 +970,123 @@ func _kill_enemy(e: Enemy, source := "normal") -> void:
 	if state != State.BURST:
 		hit_stop = maxf(hit_stop, KILL_FREEZE)
 
+## 分裂怪死亡：按 .tres 的 split_count / split_child_id 生成子体。
+## 子体配置里 split_child_id 为空，所以不会二次分裂。
+func _split_on_death(e: Enemy) -> void:
+	if int(e.cfg.get("behavior", 0)) != EnemyData.Behavior.SPLITTER:
+		return
+	var child := String(e.cfg.get("split_child_id", ""))
+	var n := int(e.cfg.get("split_count", 0))
+	if child == "" or n <= 0 or not EnemyDB.has(child):
+		return
+	n = mini(n, maxi(MAX_ENEMIES - enemies.size(), 0))
+	if n <= 0:
+		return
+	var spread := float(e.cfg.get("split_spread", 46.0))
+	var invuln := float(e.cfg.get("split_child_invuln", 0.5))
+	var base := randf() * TAU
+	var lo := Vector2(8, 8)
+	var hi: Vector2 = ARENA - Vector2(8, 8)
+	for i in n:
+		var ang := base + TAU * float(i) / float(n)
+		var dir := Vector2(cos(ang), sin(ang))
+		var c := spawn_enemy_at(child, (e.position + dir * spread).clamp(lo, hi))
+		if c != null:
+			c.spawn_left = 0.18
+			# 无敌一小会儿：父体的爆裂连锁就埋在脚下，不给这段子体必被秒
+			c.invuln_left = invuln
+			c.velocity = dir * float(c.cfg.speed)
+
+# ============================== 敌方弹幕 ==============================
+## 与技能命中一样走纯距离数学，不引入物理。子弹可被玩家的左键斩与右键神纹销毁。
+
+func spawn_enemy_bullet(pos: Vector2, dir: Vector2, cfg: Dictionary) -> void:
+	enemy_bullets.append({
+		"pos": pos, "dir": dir,
+		"spd": float(cfg.get("bullet_speed", 260.0)),
+		"dmg": float(cfg.get("bullet_dmg", 6.0)),
+		"r": float(cfg.get("bullet_radius", 10.0)),
+		"life": float(cfg.get("bullet_life", 4.0)),
+		"col": cfg.get("bullet_color", RED),
+		"t": 0.0,
+	})
+
+func _update_enemy_bullets(delta: float, f: float) -> void:
+	if enemy_bullets.is_empty():
+		return
+	var lo := Vector2(-48, -48)
+	var hi: Vector2 = ARENA + Vector2(48, 48)
+	for b in enemy_bullets:
+		b.life = float(b.life) - delta * f
+		b.t = float(b.t) + delta
+		b.pos = b.pos + b.dir * float(b.spd) * delta * f
+		if float(b.life) <= 0.0:
+			continue
+		if b.pos.x < lo.x or b.pos.y < lo.y or b.pos.x > hi.x or b.pos.y > hi.y:
+			b.life = 0.0
+			continue
+		if player != null and f > 0.0 and state != State.GAMEOVER:
+			if b.pos.distance_to(player.position) <= float(b.r) + Player.RADIUS:
+				if player.take_hit(float(b.dmg)):
+					b.life = 0.0
+					_pop_bullet(b.pos, b.col)
+					_on_player_hurt()
+	enemy_bullets = enemy_bullets.filter(func(x): return float(x.life) > 0.0)
+
+## 玩家吃到伤害后的统一反应：接触受击与中弹都走这里，别再各写一份。
+func _on_player_hurt() -> void:
+	hit_flash = 0.25
+	AudioMgr.play("hit", 0.9, -2.0)
+	clock_charge = maxf(clock_charge - HIT_CHARGE_PENALTY, 0.0)
+	score_mult = maxf(score_mult - HIT_MULT_PENALTY, MULT_BASE)
+	kill_streak = 0
+	if player.hp <= 0.0:
+		_enter_lag()
+
+## 圆形清弹：技能范围内的敌弹一并销毁。返回销毁数量。
+func clear_enemy_bullets_in(pos: Vector2, radius: float) -> int:
+	if enemy_bullets.is_empty():
+		return 0
+	var n := 0
+	for b in enemy_bullets:
+		if float(b.life) > 0.0 and b.pos.distance_to(pos) <= radius + float(b.r):
+			b.life = 0.0
+			_pop_bullet(b.pos, b.col)
+			n += 1
+	if n > 0:
+		enemy_bullets = enemy_bullets.filter(func(x): return float(x.life) > 0.0)
+	return n
+
+## 线段清弹：水漫金山那种向外推的浪，扫过的区间内敌弹一并销毁。
+func clear_enemy_bullets_seg(org: Vector2, dir: Vector2, from_d: float, to_d: float, width: float) -> int:
+	if enemy_bullets.is_empty():
+		return 0
+	var n := 0
+	for b in enemy_bullets:
+		if float(b.life) <= 0.0:
+			continue
+		var off: Vector2 = b.pos - org
+		var along: float = off.dot(dir)
+		if along < from_d or along > to_d:
+			continue
+		if absf(off.cross(dir)) > width + float(b.r):
+			continue
+		b.life = 0.0
+		_pop_bullet(b.pos, b.col)
+		n += 1
+	if n > 0:
+		enemy_bullets = enemy_bullets.filter(func(x): return float(x.life) > 0.0)
+	return n
+
+func _pop_bullet(pos: Vector2, col: Color) -> void:
+	for i in 3:
+		var ang := randf() * TAU
+		particles.append({
+			"pos": pos, "vel": Vector2(cos(ang), sin(ang)) * randf_range(50.0, 150.0),
+			"life": 0.0, "max": randf_range(0.18, 0.32),
+			"col": col, "r": randf_range(1.5, 3.5),
+		})
+
 # ============================== §6 爆裂连锁 ==============================
 
 func _update_blasts(delta: float) -> void:
@@ -1016,6 +1104,7 @@ func _update_blasts(delta: float) -> void:
 func _blast_at(pos: Vector2) -> void:
 	rings.append({"pos": pos, "r": BOMB_RADIUS, "t": 0.0})
 	AudioMgr.play("burst", 1.25, -8.0)
+	clear_enemy_bullets_in(pos, BOMB_RADIUS)
 	for e in enemies.duplicate():
 		if e.dead:
 			continue
@@ -1035,6 +1124,7 @@ func _update_status(delta: float, f: float) -> void:
 		if float(s.cd_left) > 0.0:
 			s.cd_left = maxf(float(s.cd_left) - delta, 0.0)
 	_update_blasts(delta)
+	_update_enemy_bullets(delta, enemy_speed_factor())
 	_update_quakes(delta)
 	_update_ents(delta, f)
 	_update_floods(delta)
@@ -1055,6 +1145,7 @@ func _update_quakes(delta: float) -> void:
 		var pos: Vector2 = player.position
 		rings.append({"pos": pos, "r": QUAKE_RADIUS, "t": 0.0})
 		_shake(SHAKE_DASH, SHAKE_DASH_TIME)
+		clear_enemy_bullets_in(pos, QUAKE_RADIUS)
 		for e in enemies.duplicate():
 			if not e.dead and e.position.distance_to(pos) <= QUAKE_RADIUS + float(e.cfg.radius):
 				_damage(e, QUAKE_DMG * float(q.pw), true, "normal")
@@ -1086,6 +1177,7 @@ func _update_floods(delta: float) -> void:
 	for w in floods:
 		var prev: float = float(w.d)
 		w.d = prev + FLOOD_SPEED * delta
+		clear_enemy_bullets_seg(w.org, w.dir, prev, float(w.d), FLOOD_WIDTH)
 		for e in enemies.duplicate():
 			if e.dead or w.hit.has(e.get_instance_id()):
 				continue
@@ -1105,6 +1197,7 @@ func _update_domains(delta: float) -> void:
 		return
 	for d in domains:
 		d.left = float(d.left) - delta
+		clear_enemy_bullets_in(d.pos, DOMAIN_RADIUS)
 		for e in enemies.duplicate():
 			if e.dead:
 				continue
@@ -1126,6 +1219,7 @@ func _update_swords(delta: float) -> void:
 		if prev >= SWORD_FALL or float(s.t) < SWORD_FALL:
 			continue
 		rings.append({"pos": s.pos, "r": SWORD_RADIUS, "t": 0.0})
+		clear_enemy_bullets_in(s.pos, SWORD_RADIUS)
 		for e in enemies.duplicate():
 			if not e.dead and e.position.distance_to(s.pos) <= SWORD_RADIUS + float(e.cfg.radius):
 				_damage(e, SWORD_DMG * float(s.pw), true, "normal")
@@ -1229,15 +1323,9 @@ func _check_contact() -> void:
 			continue
 		if e.position.distance_to(player.position) <= float(e.cfg.radius) + Player.RADIUS:
 			if player.take_hit(float(e.cfg.dmg)):
-				hit_flash = 0.25
-				AudioMgr.play("hit", 0.9, -2.0)
-				clock_charge = maxf(clock_charge - HIT_CHARGE_PENALTY, 0.0)
-				score_mult = maxf(score_mult - HIT_MULT_PENALTY, MULT_BASE)
-				kill_streak = 0
 				var away := (e.position - player.position).normalized()
 				e.position += away * 26.0
-			if player.hp <= 0.0:
-				_enter_lag()
+				_on_player_hurt()
 			return
 
 func _enter_lag() -> void:
@@ -1284,36 +1372,31 @@ func rating_mult() -> float:
 
 # ============================== §7 波次 ==============================
 
-func _wave_seg() -> Dictionary:
-	for w in WAVE_TABLE:
-		if run_time < float(w.t):
-			return w
-	return WAVE_TABLE[WAVE_TABLE.size() - 1]
+## 当前时刻该用哪一段波表。跑过最后一段后一直用它（永久平台期），本局没有时限。
+func _wave_seg() -> WaveData:
+	return WaveDB.seg_for(run_time)
 
 func _update_waves(delta: float, factor: float) -> void:
-	if run_time >= RUN_LIMIT:
-		return
 	var seg := _wave_seg()
+	if seg == null:
+		return
 	spawn_timer -= delta * factor
 	if spawn_timer <= 0.0:
-		spawn_timer = float(seg.interval)
-		if enemies.size() < mini(int(seg.cap), MAX_ENEMIES):
-			_spawn_enemy(seg.mix)
+		spawn_timer = seg.interval
+		if enemies.size() < mini(seg.cap, MAX_ENEMIES):
+			spawn_enemy_at(seg.roll(randf()), _edge_pos())
 
-func _spawn_enemy(mix: Dictionary) -> void:
-	var roll := randf()
-	var acc := 0.0
-	var type := "blob"
-	for k in mix:
-		acc += float(mix[k])
-		if roll <= acc:
-			type = String(k)
-			break
+## 按 id 在指定位置生成一只怪。刷怪表、分裂、测试都走这里。
+func spawn_enemy_at(id: String, pos: Vector2) -> Enemy:
+	var cfg := EnemyDB.cfg(id)
+	if cfg.is_empty():
+		return null
 	var e := Enemy.new()
-	e.position = _edge_pos()
-	e.setup(ENEMY_CFGS[type].duplicate(), self, key_mat)
+	e.position = pos
+	e.setup(cfg, self, key_mat)
 	add_child(e)
 	enemies.append(e)
+	return e
 
 func _edge_pos() -> Vector2:
 	var m := SPAWN_MARGIN
@@ -1434,6 +1517,12 @@ func _paint_fx(l: PaintLayer) -> void:
 		var ra: float = clampf(1.0 - r.t / 0.35, 0.0, 1.0)
 		l.draw_arc(r.pos, float(r.r) * (0.4 + 0.6 * (1.0 - ra)), 0.0, TAU, 48,
 			Color(RED.r, RED.g, RED.b, ra * 0.7), 3.0)
+	for b in enemy_bullets:
+		var bc: Color = b.col
+		var br: float = float(b.r)
+		l.draw_line(b.pos - b.dir * br * 2.4, b.pos, Color(bc.r, bc.g, bc.b, 0.3), br * 0.8)
+		l.draw_circle(b.pos, br, Color(bc.r, bc.g, bc.b, 0.9))
+		l.draw_arc(b.pos, br + 2.0, 0.0, TAU, 12, Color(RED.r, RED.g, RED.b, 0.55), 1.5)
 	_paint_spells(l)
 	# 被标记怪：红痕 + 红环
 	for e in enemies:

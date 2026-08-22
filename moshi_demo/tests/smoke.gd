@@ -150,9 +150,18 @@ func _process(delta: float) -> void:
 				_chk(false, "lag exit timeout, state %d" % g.state)
 				phase = 9
 		13:
-			g.run_time = g.RUN_LIMIT
-			phase = 14
+			# 本局没有时限：run_time 推多远都不该结算
+			g.run_time = 999.0
+			phase = 131
 			t = 0.0
+		131:
+			if t > 0.4:
+				_chk(g.state != g.State.GAMEOVER, "run_time 到 999 仍不结算（时限已拆）")
+				# 唯一的结束条件：体力（时滞次数）耗尽
+				while g.lag_count <= g.LAG_MAX:
+					g._enter_lag()
+				phase = 14
+				t = 0.0
 		14:
 			if g.state == g.State.GAMEOVER:
 				_chk(g.rating != "", "settle rating %s" % g.rating)
@@ -175,7 +184,7 @@ func _place(n: int, on_player := false) -> void:
 
 func _place_at(pos: Vector2) -> void:
 	var e := Enemy.new()
-	e.setup(g.ENEMY_CFGS["blob"].duplicate(), g, null)
+	e.setup(EnemyDB.cfg("melee_mite"), g, null)
 	e.position = pos
 	e.spawn_left = 0.0
 	g.add_child(e)

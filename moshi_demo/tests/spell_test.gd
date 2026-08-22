@@ -41,7 +41,7 @@ func _process(delta: float) -> void:
 		0:
 			if t > 0.5:
 				for i in 3:
-					_place_at(g.player.position + Vector2(-90.0 + 90.0 * i, -130.0), "blob")
+					_place_at(g.player.position + Vector2(-90.0 + 90.0 * i, -130.0), "melee_mite")
 				_reset()
 				g.bolts.clear()
 				pre_tv = g.tv
@@ -98,7 +98,7 @@ func _process(delta: float) -> void:
 		6:
 			# 「时」：应接管状态直接进回溯，且不再斩击
 			_chk(not g.rewind_hist.is_empty(), "D 已有回溯路径 %d 段" % g.rewind_hist.size())
-			_place_at(g._point_along(g.rewind_hist[g.rewind_hist.size() - 1], 0.5), "blob")
+			_place_at(g._point_along(g.rewind_hist[g.rewind_hist.size() - 1], 0.5), "melee_mite")
 			_reset()
 			_write(_stroke(SpellMatch.ancient_stroke("time"), 1.4, Vector2(300, 220), 1.5), 0.0)
 			var s3: Dictionary = _skill("time")
@@ -160,7 +160,7 @@ func _process(delta: float) -> void:
 				pass
 		12:
 			# 复现同一笔形 → 刚觉醒的神纹应释放；且不会再点亮第二块碑
-			tank = _place_at(Vector2(1060, 600), "tank")
+			tank = _place_at(Vector2(1060, 600), "elite_melee")
 			_reset()
 			var before3 := _bound_count()
 			_write(_densify(_awaken_shape(), 0.0), 0.0)
@@ -356,7 +356,7 @@ func _len(path: PackedVector2Array) -> float:
 
 func _place_at(pos: Vector2, kind: String) -> Enemy:
 	var e := Enemy.new()
-	e.setup(g.ENEMY_CFGS[kind].duplicate(), g, null)
+	e.setup(EnemyDB.cfg(kind), g, null)
 	e.position = pos
 	e.spawn_left = 0.0
 	g.add_child(e)

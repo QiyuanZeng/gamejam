@@ -40,6 +40,7 @@ start "" /b "D:\godot\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_wi
 SMOKE PASS / BLEED PASS / INKSTYLE PASS / QDOLLAR PASS
 SPELL PASS / SKILLFX PASS / SPELLLAB PASS
 STROKE_PERSIST_WRITE PASS / STROKE_PERSIST PASS
+ENEMY_REFACTOR PASS / WAVE_LIVE PASS
 ```
 
 日志里**没有**这一行 → 场景压根没跑到收尾，属于挂死或脚本加载失败，按下节排查。

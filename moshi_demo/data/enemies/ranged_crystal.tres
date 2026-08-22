@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+id = "ranged_crystal"
+display_name = "晶哨"
+behavior = 1
+hp = 24.0
+speed = 50.0
+dmg = 12.0
+radius = 48.0
+score = 45
+coin = 3
+tv = 26.0
+tex = ""
+anim_dir = "res://assets/art/enemies/crystal_sentinel/animations/"
+tex_target = 160.0
+color = Color(0.239216, 0.352941, 0.501961, 1)
+use_pivot = true
+pivot_frac = Vector2(0.5, 0.875)
+draw_style = "tank"
+inertia = false
+anim_attack = "attack_shard_barrage"
+anim_charge = ""
+is_elite = false
+elite_of = ""
+scale_mul = 1.0
+tint = Color(1, 1, 1, 1)
+attack_range = 420.0
+attack_cd = 1.6
+attack_windup = 0.35
+bullet_speed = 260.0
+bullet_dmg = 6.0
+bullet_radius = 10.0
+bullet_life = 4.0
+bullet_color = Color(0.239216, 0.352941, 0.501961, 1)
+legacy_type = "tank"

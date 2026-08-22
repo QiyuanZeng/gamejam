@@ -66,14 +66,16 @@ func _paint(r: Control) -> void:
 		base * (1.0 - game.BIND_ENERGY_RATIO) / game.tv_max(), 0.0, 1.0)
 	r.draw_line(Vector2(bx, 40), Vector2(bx, 54), Color(RED.r, RED.g, RED.b, 0.6), 1.5)
 	_text(r, Vector2(244, 36), "时 %d" % int(game.tv), 13, GREY)
-	# —— 右上：倒计时 / 斩杀 / 得分 ——
-	var left: float = maxf(game.RUN_LIMIT - game.run_time, 0.0)
-	var stat := "余 %.1fs    斩 %d    分 %d    ×%.1f" % [
-		left, game.kills, int(round(game.score)), game.score_mult]
-	_text(r, Vector2(w - 20.0, 14), stat, 18, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
-	if game.lag_count > 0:
-		_text(r, Vector2(w - 20.0, 38), "时滞 %d/%d" % [game.lag_count, game.LAG_MAX],
-			14, Color(RED.r, RED.g, RED.b, 0.8), HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
+	# —— 右上：体力 / 斩杀 / 得分 ——
+	# 本局没有时限，唯一的结束条件是体力（时滞次数）耗尽，所以这里常驻显示体力。
+	var stam: int = maxi(game.LAG_MAX - game.lag_count, 0)
+	var stat := "体力 %d/%d    斩 %d    分 %d    ×%.1f" % [
+		stam, game.LAG_MAX, game.kills, int(round(game.score)), game.score_mult]
+	_text(r, Vector2(w - 20.0, 14), stat, 18,
+		GREY if stam > 1 else Color(RED.r, RED.g, RED.b, 0.9),
+		HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
+	_text(r, Vector2(w - 20.0, 38), "已撑 %.0fs" % game.run_time,
+		14, Color(GREY.r, GREY.g, GREY.b, 0.7), HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
 	# —— 顶部中央：回溯充能钟（12 s） ——
 	var c := Vector2(w * 0.5, 66.0)
 	var rad := 30.0

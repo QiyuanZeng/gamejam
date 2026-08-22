@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WaveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/wave_data.gd" id="1_wave"]
+
+[resource]
+script = ExtResource("1_wave")
+id = "seg3_ranged"
+until_time = 20.0
+interval = 0.3
+cap = 38
+mix = {
+"charger_fast": 0.2,
+"elite_melee": 0.05,
+"melee_mite": 0.45,
+"ranged_crystal": 0.2,
+"splitter_bomber": 0.1
+}
+note = "远程晶哨与分裂磐妖入场，首只精英露面。战场开始有弹幕，逼玩家用技能清弹。"

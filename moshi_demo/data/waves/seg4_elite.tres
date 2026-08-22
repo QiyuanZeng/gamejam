@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="WaveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/wave_data.gd" id="1_wave"]
+
+[resource]
+script = ExtResource("1_wave")
+id = "seg4_elite"
+until_time = 27.0
+interval = 0.24
+cap = 48
+mix = {
+"charger_fast": 0.18,
+"elite_charger": 0.05,
+"elite_melee": 0.06,
+"elite_ranged": 0.05,
+"melee_mite": 0.34,
+"ranged_crystal": 0.18,
+"splitter_bomber": 0.14
+}
+note = "三种精英同场。近战占比下滑，远程与分裂顶上来，场面开始拥挤。"

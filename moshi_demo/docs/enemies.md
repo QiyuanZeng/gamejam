@@ -1,0 +1,316 @@
+# 怪物系统速查
+
+所有怪物的数值、素材、行为参数都在 `res://data/enemies/*.tres` 里；
+刷怪节奏与配比在 `res://data/waves/*.tres` 里。
+**改一只怪 = 改一个 .tres；改刷怪 = 改一个 .tres。都不用碰代码。**
+
+全场**只有 4 种怪**（4 套素材，一种行为一只），精英与分裂子体全部复用本体的图。
+
+---
+
+## 1. 一览表
+
+### 4 种基础怪
+
+| 行为 | id | 中文名 | 配置文件 | 素材路径 |
+|---|---|---|---|---|
+| 近战 | `melee_mite` | 影蚋 | `data/enemies/melee_mite.tres` | `assets/art/enemies/shadow_mite/`（帧动画） |
+| 远程 | `ranged_crystal` | 晶哨 | `data/enemies/ranged_crystal.tres` | `assets/art/enemies/crystal_sentinel/animations/`（帧动画） |
+| 冲锋 | `charger_fast` | 疾影 | `data/enemies/charger_fast.tres` | `assets/enemy_fast.png` |
+| 分裂 | `splitter_bomber` | 磐妖 | `data/enemies/splitter_bomber.tres` | `assets/enemy_tank.png` |
+
+| id | hp | speed | dmg | radius |
+|---|---|---|---|---|
+| `melee_mite` | 10 | 60 | 8 | 30 |
+| `ranged_crystal` | 24 | 50 | 12 | 48 |
+| `charger_fast` | 14 | 130 | 6 | 22 |
+| `splitter_bomber` | 16 | 80 | 10 | 26 |
+
+### 派生（不新增素材）
+
+| id | 中文名 | 说明 | 素材 |
+|---|---|---|---|
+| `splitter_bomber_shard` | 磐妖碎块 | 磐妖死亡分裂出的子体，`tex_target 53`＝本体 88 的 **0.6 倍** | 同 `assets/enemy_tank.png` |
+| `elite_melee` | 影蚋·精英 | 复用影蚋帧动画，放大 + 发光 | 同影蚋 |
+| `elite_ranged` | 晶哨·精英 | 复用晶哨帧动画 | 同晶哨 |
+| `elite_charger` | 疾影·精英 | 复用疾影贴图 | 同疾影 |
+| `elite_splitter` | 磐妖·精英 | 复用磐妖贴图，死后同样炸出 2 只**普通**碎块 | 同磐妖 |
+
+> `data/enemies/` 一共 9 份 .tres，但**只用到 4 套美术资源**。
+> `assets/enemy_blob.png`、`assets/art/enemies/boss_wuming.png` 等已无人引用，文件留着备用。
+
+---
+
+## 2. 我要改 XX，该动哪一行
+
+| 想改什么 | 改哪里 |
+|---|---|
+| **换模型（单张贴图）** | 该怪 .tres 的 `tex`，填 png 路径；同时把 `anim_dir` 清空 |
+| **换模型（帧动画）** | 该怪 .tres 的 `anim_dir`，指向动画根目录；`tex` 清空 |
+| **贴图太大/太小** | `tex_target`（缩放后的目标边长，像素） |
+| **换动作** | 在 `anim_dir` 下加/改子目录即可，目录名 = 状态名，见第 4 节 |
+| **攻击动画对不上** | `anim_attack` 填该怪攻击动画的**子目录名**（如 `attack_shard_barrage`） |
+| **锚点飘了（脚不着地）** | 勾 `use_pivot`，调 `pivot_frac`（0~1 的相对锚点，如 `(0.5, 0.875)` 是脚底） |
+| **血量/速度/伤害** | `hp` / `speed` / `dmg` |
+| **技能打不打得到** | `radius`——所有技能命中都拿它算，调大即变好打 |
+| **分裂子体太容易被秒 / 太肉** | `split_child_invuln`，子体出生无敌秒数，默认 0.5 |
+| **掉落与计分** | `score` / `coin` / `tv` |
+| **换了本体图，精英跟着换** | 精英 .tres 的 `tex` / `anim_dir` 要**手动同步**成本体的（测试会卡这条） |
+| **刷怪时段与配比** | `data/waves/*.tres`，一段一个文件，见第 7 节 |
+| **刷怪快慢 / 场上上限** | 对应波段 .tres 的 `interval` / `cap`，见第 7 节 |
+
+### 单图怪必须是「宣纸底」
+
+`assets/*.png` 那几张是米白纸底的水墨图，**不是透明底**。
+`main.gd` 把 `key_mat`（`shaders/paper_key.gdshader`）挂给单图怪，按亮度把纸底键控成透明
+（`threshold 0.55`）。所以换单图时：**深墨主体 + 亮纸底**，别给透明底或深色底。
+帧动画怪本身是透明底，不走这个 shader。
+
+---
+
+## 3. 行为与专属参数
+
+`behavior` 决定这只怪每帧走哪条分支（`scripts/enemy.gd`）。
+
+### 近战（`behavior = 0` MELEE）
+直追玩家，只靠触碰造成 `dmg` 伤害，没有技能。
+- `inertia`：勾上则高速惯性过弯（会冲过头再拐回来）。影蚋默认**关**，疾影开着。
+
+### 远程（`behavior = 1` RANGED）
+朝玩家移动，进到 `attack_range` 就停步开火。**子弹能被玩家的左键斩和右键神纹销毁。**
+
+| 字段 | 含义 |
+|---|---|
+| `attack_range` | 进到这个距离停下来打 |
+| `attack_cd` | 两发之间的间隔（秒） |
+| `attack_windup` | 抬手时间，这段时间播 `anim_attack` 的动画 |
+| `bullet_speed` / `bullet_dmg` / `bullet_radius` / `bullet_life` | 子弹速度 / 伤害 / 半径 / 存活秒数 |
+| `bullet_color` | 子弹颜色 |
+
+### 冲锋（`behavior = 2` CHARGER）
+朝玩家移动，进到 `charge_range` 停步蓄力，**在预警红线出现的那一帧就把冲锋方向钉死**，
+蓄满后沿这条线直冲出去。红线画的就是最终落点，蓄力途中玩家怎么跑都不会再修正方向——
+所以走位躲得开才算数。方向锁定在 `enemy.gd` 的 `_lock_charge_dir()`，只在进 `windup` 时调一次。
+
+| 字段 | 默认 | 含义 |
+|---|---|---|
+| `charge_range` | 600 | 进到这个距离开始蓄力 |
+| `charge_time` | 2.0 | 蓄力时长（秒），预警条铺满的时间 |
+| `charge_dist` | 900 | 冲锋总距离 |
+| `charge_speed` | 900 | 冲锋速度 |
+| `charge_cd` | 2.5 | 冲完到下次能再蓄力的间隔 |
+| `charge_warn_color` | 朱砂红 | 预警带颜色 |
+
+### 分裂（`behavior = 3` SPLITTER）
+移动行为同近战。被击杀时炸出 **2 只子体**，子体用同一张图缩到 0.6 倍，再打死就彻底消失。
+子体出生自带一段无敌，期间免疫一切伤害与标记，贴图会快速闪烁提示。
+
+| 字段 | 值 | 含义 |
+|---|---|---|
+| `split_count` | 2 | 分裂出几个 |
+| `split_child_id` | `splitter_bomber_shard` | 子体用哪份配置。**留空 = 不分裂** |
+| `split_spread` | 34 | 子体围着尸体散开的半径 |
+| `split_child_invuln` | 0.5 | 子体出生无敌秒数。**填 0 就等于关掉** |
+
+> **为什么必须有这段无敌**：分裂怪的 `legacy_type` 是 `bomber`，死亡时会在原地埋一颗
+> 爆裂连锁（半径 90px），而子体就撒在爆心 34px 内。没有无敌的话，子体生出来的下一瞬
+> 就被自家爆炸连同范围技能一起清场，玩家根本看不到分裂。
+
+> 子体的 `split_child_id` 是空的，所以不会二次分裂。
+> `elite_splitter` 死后同样炸出 2 只**普通**碎块，不是精英碎块。
+
+---
+
+## 4. 帧动画目录规范
+
+`anim_dir` 指向一个目录，**下面每个子目录 = 一个动画状态**，目录名随美术包，代码不写死。
+子目录内所有 `.png` 按文件名排序即帧序列。名为 `effects` 的子目录会被跳过。
+
+```
+assets/art/enemies/crystal_sentinel/animations/
+├── idle/                    ← 必须有，没有 idle 就不会走帧动画分支
+├── move/
+├── death/                   ← 有这个才会播死亡动画，否则死了直接消失
+├── spawn/
+└── attack_shard_barrage/    ← 在 .tres 里用 anim_attack 指过来
+
+assets/art/enemies/shadow_mite/
+├── idle/  move/  hit/  death/
+├── attack_thrust/           ← 影蚋的攻击动作
+└── effects/                 ← 代码跳过，不当动作读
+```
+
+状态切换规则（`scripts/enemy.gd` 的 `_update_anim`）：
+`spawn` → `hit`（受击 0.22s）→ `anim_attack`（远程抬手中）→ `anim_charge`（蓄力中，留空则不切）
+→ `move`（速度 > 5）→ `idle`。找不到的状态一律回落 `idle`。
+
+---
+
+## 5. 精英怪
+
+精英**不新建行为、不新建素材**，就是拿本体的图放大 + 改色发光 + 独立数值。
+
+| 字段 | 作用 |
+|---|---|
+| `is_elite` | 勾上，身周多三层呼吸光环（`_draw_elite_glow()`） |
+| `elite_of` | 本体的 id。测试会拿它校验「精英必须复用本体素材」 |
+| `scale_mul` | 放大倍率。**同时放大 `tex_target` 与 `radius`**，填完不用再手调这两个 |
+| `tint` | 改色，叠乘到 sprite。分量可以超过 1（提亮） |
+
+现行统一倍率（4 份精英一致）：
+
+| 项 | 相对本体 |
+|---|---|
+| `scale_mul` | 1.5 |
+| `hp` | ×4 |
+| `dmg` | ×1.8 |
+| `speed` | ×0.85 |
+| `score` / `coin` | ×3 |
+| `tv` | ×2.5 |
+| `tint` | `(1.3, 1.05, 0.75)` 暖金提亮 |
+
+实际数值：
+
+| id | hp | speed | dmg | 实效 radius | score | coin | tv |
+|---|---|---|---|---|---|---|---|
+| `elite_melee` | 40 | 51 | 14.4 | 45 | 30 | 3 | 20 |
+| `elite_ranged` | 96 | 42.5 | 21.6 | 72 | 135 | 9 | 65 |
+| `elite_charger` | 56 | 110.5 | 10.8 | 33 | 45 | 3 | 25 |
+| `elite_splitter` | 64 | 68 | 18 | 39 | 75 | 6 | 30 |
+
+> 「实效 radius」= `radius × scale_mul`，是技能真正拿去判定命中的值。
+> 精英的远程/冲锋参数（`attack_cd`、`charge_time` 等）也单独调过，比本体更凶。
+
+---
+
+## 6. 代码入口
+
+| 文件 | 职责 |
+|---|---|
+| `scripts/enemy_data.gd` | `EnemyData` 资源类，怪物 .tres 的字段定义都在这 |
+| `scripts/enemy_db.gd` | `EnemyDB`，开机扫描 `data/enemies/` 建 id 索引 |
+| `scripts/enemy.gd` | `Enemy` 单类，按 `behavior` 分发行为 + 绘制 + 预警与精英光环 |
+| `scripts/wave_data.gd` | `WaveData` 资源类，波段 .tres 的字段定义 + 按权重抽怪 |
+| `scripts/wave_db.gd` | `WaveDB`，扫描 `data/waves/` 按 `until_time` 排段 + 配表体检 |
+| `scripts/main.gd` | 刷怪（`spawn_enemy_at`）、分裂（`_split_on_death`）、敌方弹幕、伤害与击杀 |
+
+### 命中判定说明
+本项目**不用物理引擎**，所有命中都是距离数学：技能遍历 `Game.enemies` 数组，
+比 `距离 <= 技能半径 + cfg.radius`。所以：
+
+- 加新怪不用配碰撞层，填好 `radius` 就能被所有技能打中。
+- 敌方子弹同理，被 `clear_enemy_bullets_in()` / `clear_enemy_bullets_seg()` 按半径销毁。
+  左键斩、雷霆、山崩、水漫、领域、剑阵、爆裂连锁都已接上清弹。
+
+### 精英光环画在哪
+`_draw_elite_glow()` 由 `_draw()` **无条件调用**，不能塞回 `_draw_body()`——
+后者只在「既没贴图也没帧动画」时才走，而现在四种怪全是贴图怪。
+
+### BOSS
+BOSS 配置已删。`EnemyData.Behavior.BOSS` 枚举与 `enemy.gd` 的 `_tick_boss()`
+保留为休眠骨架（枚举在末位，不影响 0–3 的取值），以后要加 BOSS 时直接建一份
+`.tres` 填 `behavior = 4` 即可。
+
+---
+
+## 7. 刷怪表（可配）
+
+### 7.1 局的结束条件
+
+**本局没有时限。** 唯一的结束方式是**体力耗尽**：血量归零进一次时滞（满血复活继续打），
+时滞用满 `LAG_MAX = 3` 次后结算。HUD 右上角常驻显示 `体力 3/3`，剩最后一格会转朱砂红。
+`run_time` 依然在跑，但已降级为「本局撑了多久」的统计量 + 波表推进依据。
+
+### 7.2 配置位置
+
+```
+data/waves/
+├── seg1_opening.tres     0 – 5s      开局
+├── seg2_rush.tres        5 – 12s     冲锋入场
+├── seg3_ranged.tres      12 – 20s    远程 + 分裂 + 首精英
+├── seg4_elite.tres       20 – 27s    三种精英
+└── seg5_plateau.tres     27s 以后    永久平台期
+```
+
+段与段按 `until_time` 从小到大自动排队，**文件名不影响顺序**。
+加一段新波次 = 在这个目录再丢一个 .tres，把 `until_time` 排在想插入的位置即可，不用改代码。
+
+### 7.3 字段说明
+
+| 字段 | 含义 |
+|---|---|
+| `id` | 段名，只用于调试和文档对照 |
+| `until_time` | `run_time` 小于它就走这一段（秒）。**最大的那一段兼作永久平台期** |
+| `interval` | 每隔多少秒刷一只。**越小刷得越快** |
+| `cap` | 本段场上怪物数上限，还受 `main.gd` 的 `MAX_ENEMIES = 130` 硬顶约束 |
+| `mix` | `EnemyData.id` → 权重的字典，**权重和要等于 1.0** |
+| `note` | 这一段想营造什么节奏，写给人看的 |
+
+### 7.4 五段总表
+
+| 段 | 时间 | 刷新间隔 | 场上上限 | 强度 |
+|---|---|---|---|---|
+| `seg1_opening` | 0 – 5s | 0.50s / 只 | 18 | 摸手感 |
+| `seg2_rush` | 5 – 12s | 0.38s / 只 | 28 | 开始要走位 |
+| `seg3_ranged` | 12 – 20s | 0.30s / 只 | 38 | 弹幕登场 |
+| `seg4_elite` | 20 – 27s | 0.24s / 只 | 48 | 场面拥挤 |
+| `seg5_plateau` | 27s 以后（**永久**） | 0.18s / 只 | 64 | 全局最高强度 |
+
+> 实测：钉在平台期打 12 秒，场上稳定在 50～55 只。
+
+### 7.5 每只怪什么时候出、占多少
+
+横排是时间段，格子里是该怪在这一段的**出现权重**（空 = 这段还不刷它）。每段合计 100%。
+
+| 怪 | 0–5s | 5–12s | 12–20s | 20–27s | 27s+ |
+|---|---|---|---|---|---|
+| `melee_mite` 影蚋（近战） | **100%** | 75% | 45% | 34% | 26% |
+| `charger_fast` 疾影（冲锋） | — | 25% | 20% | 18% | 16% |
+| `ranged_crystal` 晶哨（远程） | — | — | 20% | 18% | 18% |
+| `splitter_bomber` 磐妖（分裂） | — | — | 10% | 14% | 14% |
+| `elite_melee` 影蚋·精英 | — | — | 5% | 6% | 8% |
+| `elite_charger` 疾影·精英 | — | — | — | 5% | 7% |
+| `elite_ranged` 晶哨·精英 | — | — | — | 5% | 6% |
+| `elite_splitter` 磐妖·精英 | — | — | — | — | 5% |
+
+各阶段的登场节奏：
+
+- **0–5 秒**：只有影蚋。纯近战，先让玩家把斩击手感摸熟。
+- **5 秒**：冲锋兵入场。冲锋预警条第一次出现，开始需要走位。
+- **12 秒**：晶哨（远程）+ 磐妖（分裂）+ 首只精英（影蚋·精英）。战场开始有弹幕，逼玩家用技能清弹。
+- **20 秒**：精英扩到三种（近战 / 冲锋 / 远程），近战占比继续下滑。
+- **27 秒以后**：进入永久平台期，磐妖·精英补位，四种精英到齐、合计占 26%，比例定死不再变化。
+  想让后期更凶就调 `seg5_plateau.tres` 的 `interval` / `cap`。
+
+> `splitter_bomber_shard`（磐妖碎块）**不在任何波段里**，它只由磐妖死亡分裂产生。
+
+### 7.6 配表体检
+
+`WaveDB.validate()` 会把配歪的地方列出来，测试里已经接上，跑测试就能发现：
+
+- `interval` / `cap` 不是正数
+- `mix` 是空的
+- `mix` 引用了 `data/enemies/` 里不存在的怪 id
+- 某个权重不是正数
+- **权重和不等于 1.0**
+
+---
+
+## 8. 测试
+
+```cmd
+:: 怪物系统单测
+start "" /b "D:\godot\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_win64.exe" --headless --path d:\zhanji\moshi_demo res://tests/enemy_refactor_test.tscn > d:\zhanji\moshi_demo\run_enemy.log 2>&1
+
+:: 实机刷怪 + 波表配表校验
+start "" /b "D:\godot\Godot_v4.7.1-stable_mono_win64\Godot_v4.7.1-stable_mono_win64.exe" --headless --path d:\zhanji\moshi_demo res://tests/wave_live_test.tscn > d:\zhanji\moshi_demo\run_wave.log 2>&1
+```
+
+跑完读对应日志，末行应为 `ENEMY_REFACTOR PASS` / `WAVE_LIVE PASS`。
+
+- `enemy_refactor_test`：配置加载、**四类行为各只有 1 只**、**全场只用 4 套素材**、
+  **精英复用本体图**、四类行为实测、清弹接口、分裂 2 子体、精英倍率、标记/伤害/击杀链路。
+- `wave_live_test`：波表配表体检、时段查询、提速数值、真实主循环刷怪、无时限验证、敌弹致死进时滞。
+
+> **注意**：这些测试对帧时序敏感，**必须串行跑**。同时开两个 Godot 实例会让 `smoke`
+> 之类的用例假失败。

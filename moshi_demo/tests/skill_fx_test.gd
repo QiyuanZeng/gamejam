@@ -186,7 +186,7 @@ func _field(n: int, r: float) -> void:
 
 func _place_at(pos: Vector2) -> Enemy:
 	var e := Enemy.new()
-	e.setup(g.ENEMY_CFGS["blob"].duplicate(), g, null)
+	e.setup(EnemyDB.cfg("melee_mite"), g, null)
 	e.position = pos
 	e.spawn_left = 0.0
 	e.hp = 10.0

@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+id = "elite_splitter"
+display_name = "磐妖·精英"
+behavior = 3
+hp = 64.0
+speed = 68.0
+dmg = 18.0
+radius = 26.0
+score = 75
+coin = 6
+tv = 30.0
+tex = "res://assets/enemy_tank.png"
+anim_dir = ""
+tex_target = 88.0
+color = Color(0.556863, 0.231373, 0.172549, 1)
+use_pivot = false
+pivot_frac = Vector2(0.5, 0.875)
+draw_style = "bomber"
+inertia = false
+anim_attack = "attack"
+anim_charge = ""
+is_elite = true
+elite_of = "splitter_bomber"
+scale_mul = 1.5
+tint = Color(1.3, 1.05, 0.75, 1)
+split_count = 2
+split_child_id = "splitter_bomber_shard"
+split_spread = 44.0
+legacy_type = "bomber"

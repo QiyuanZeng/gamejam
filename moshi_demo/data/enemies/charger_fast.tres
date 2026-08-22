@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3 uid="uid://h1vm61gojyyu"]
+
+[ext_resource type="Script" uid="uid://dv3lf725m3nvc" path="res://scripts/enemy_data.gd" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+id = "charger_fast"
+display_name = "疾影"
+behavior = 2
+hp = 14.0
+speed = 130.0
+dmg = 6.0
+radius = 22.0
+score = 15
+tv = 10.0
+tex = "res://assets/enemy_fast.png"
+tex_target = 76.0
+color = Color(0.290196, 0.266667, 0.235294, 1)
+draw_style = "fast"
+inertia = true
+charge_warn_color = Color(0.752941, 0.223529, 0.168627, 1)
+legacy_type = "fast"
