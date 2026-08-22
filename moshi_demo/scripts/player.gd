@@ -1,14 +1,11 @@
 class_name Player
 extends Node2D
 ## 无脸兜帽剑客。素材缺失时程序化剪影兜底。
-## 脚下时钟（视觉参考 proto/clock-swing 的表盘）：底盘 + 12 刻度 + 长指针（指向移动目标，朱砂针尖）+ 慢转短针。
+## 脚下时钟表盘为美术素材（idle_ring），随呼吸帧循环，不叠代码指针。
 
 const RADIUS := 30.0
 const INK := Color("#1A1714")
 const RED := Color("#C0392B")
-
-## 时钟长指针长度（叠在美术表盘上）
-const CLOCK_LONG_HAND := 118.0
 
 var hp := 100.0
 var max_hp := 100.0
@@ -94,7 +91,6 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	_draw_clock()
 	if texture != null:
 		return
 	var col := Color(INK.r, INK.g, INK.b, _alpha)
@@ -112,13 +108,3 @@ func _draw() -> void:
 	# 笔形刀（朝 facing）
 	var dir := facing.normalized() if facing.length() > 0.01 else Vector2.RIGHT
 	draw_line(dir * 8.0, dir * 26.0, col, 3.0)
-
-## 长指针：叠在美术时钟表盘（idle_ring）上——粗黑针身指向移动目标（facing），朱砂针尖（参考 proto/clock-swing）
-func _draw_clock() -> void:
-	var a := _alpha
-	var col := Color(INK.r, INK.g, INK.b, a)
-	var red := Color(RED.r, RED.g, RED.b, a)
-	var dir := facing.normalized() if facing.length() > 0.01 else Vector2.RIGHT
-	draw_line(Vector2.ZERO, dir * CLOCK_LONG_HAND, col, 5.0, true)
-	draw_circle(dir * CLOCK_LONG_HAND, 5.0, red)
-	draw_circle(Vector2.ZERO, 3.0, red)
