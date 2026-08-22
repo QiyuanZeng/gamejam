@@ -1,7 +1,7 @@
 class_name InkEditor
 extends CanvasLayer
 ## 水笔编辑器：左侧试笔水面 + 右侧参数面板，实时预览水流笔触（WaterRenderer）。
-## 参数只存本编辑器内的 params 字典 + user://water_style.json，不触碰 InkStyle（主游戏水墨渲染不受影响）。
+## 「保存并应用」写 user://water_style.json 并推入 WaterRenderer.current —— 局内划线与地面拓印随即改观。
 ## F1 / Esc 关闭（恢复游戏）。
 
 signal closed
@@ -11,7 +11,7 @@ const PANEL_W := 372.0
 const ROW_H := 17.0
 const INK := Color("#1A1714")
 const GREY := Color("#4A443C")
-const SAVE_PATH := "user://water_style.json"
+const SAVE_PATH := WaterRenderer.SAVE_PATH
 
 const ROWS := [
 	{"p": "cut_width", "t": "切痕宽", "min": 0.5, "max": 10.0, "st": 0.1},
@@ -181,32 +181,11 @@ func _ready() -> void:
 	get_tree().create_timer(0.25).timeout.connect(_arm)
 
 func _load_params() -> Dictionary:
-	var p := WaterRenderer.DEFAULTS.duplicate(true)
-	if not FileAccess.file_exists(SAVE_PATH):
-		return p
-	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if f == null:
-		return p
-	var data: Variant = JSON.parse_string(f.get_as_text())
-	if data is Dictionary:
-		for k in p.keys():
-			if not data.has(k):
-				continue
-			if p[k] is Color:
-				p[k] = Color(str(data[k]))
-			else:
-				p[k] = data[k]
-	return p
+	WaterRenderer.ensure_loaded()
+	return WaterRenderer.current.duplicate(true)
 
 func _save_params() -> Error:
-	var out := {}
-	for k in params.keys():
-		out[k] = ("#" + (params[k] as Color).to_html(false)) if params[k] is Color else params[k]
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if f == null:
-		return FileAccess.get_open_error()
-	f.store_string(JSON.stringify(out, "\t"))
-	return OK
+	return WaterRenderer.save_to_disk(params)
 
 var _armed := false
 
@@ -331,7 +310,8 @@ func _on_reset() -> void:
 
 func _on_save() -> void:
 	var e := _save_params()
-	_toast("已保存 " + SAVE_PATH if e == OK else "保存失败 err=%d" % e)
+	WaterRenderer.set_current(params)
+	_toast("已保存并应用 " + SAVE_PATH if e == OK else "保存失败 err=%d" % e)
 
 func _on_close() -> void:
 	get_tree().paused = false

@@ -186,6 +186,7 @@ var bind_feat := {}                # 待刻上碑的笔形特征
 var bind_path := PackedVector2Array()   # 欠着的那一笔轨迹，选完碑再补斩击
 
 var ink_path := PackedVector2Array()
+var ink_ages := PackedFloat32Array()   # 与 ink_path 逐点对齐的年龄（秒），水痕按它老化
 var dry_pen := false
 var draw_tv0 := 0.0            # 起笔时的时间之力余额，觉醒门槛拿它当分母
 var path_alpha := 0.0
@@ -194,6 +195,7 @@ var dash_pts := PackedVector2Array()
 var dash_i := 0
 var dash_d := 0.0
 var dash_done := PackedVector2Array()
+var dash_ages := PackedFloat32Array()  # 与 dash_done 逐点对齐的年龄（秒）
 var dash_stamp := 0
 var dash_realtime := false     # 左键表盘斩：不进子弹时间，怪物照常移动
 var burst_timer := 0.0
@@ -260,7 +262,9 @@ func _ready() -> void:
 	if shader != null:
 		key_mat = ShaderMaterial.new()
 		key_mat.shader = shader
-	if ResourceLoader.exists("res://assets/bg_game_main.png"):
+	if ResourceLoader.exists("res://assets/bg_shuimian.png"):
+		paper_tex = load("res://assets/bg_shuimian.png")
+	elif ResourceLoader.exists("res://assets/bg_game_main.png"):
 		paper_tex = load("res://assets/bg_game_main.png")
 	bg_layer = _make_layer(-100)
 	bg_layer.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
@@ -581,6 +585,7 @@ func _begin_draw() -> void:
 	spell_timer = 0.0
 	ink_path = PackedVector2Array()
 	ink_path.append(_clamped_mouse())
+	ink_ages = PackedFloat32Array([0.0])
 	AudioMgr.play("draw", 1.2, -8.0)
 
 func _update_spell(delta: float) -> void:
@@ -603,10 +608,12 @@ func _sample_ink() -> void:
 		var afford := tv / TV_COST_PER_PX
 		if afford >= 3.0:
 			ink_path.append(last + (m - last).normalized() * afford)
+			ink_ages.append(0.0)
 		tv = 0.0
 		dry_pen = true
 		return
 	ink_path.append(m)
+	ink_ages.append(0.0)
 	tv -= cost
 
 func _cancel_draw() -> void:
@@ -786,6 +793,9 @@ func _begin_dash(path: PackedVector2Array, realtime := false) -> void:
 	dash_realtime = realtime
 	dash_stamp += 1
 	ink_path = path
+	if ink_ages.size() != path.size():
+		# 表盘斩 / 补斩这类非手绘轨迹没有真实计龄，整条按刚成形算
+		ink_ages = WaterRenderer.synth_ages(path.size(), 0.0, 0.0)
 	dash_pts = PackedVector2Array([player.position])
 	for p in path:
 		if p.distance_to(dash_pts[dash_pts.size() - 1]) > 0.01:
@@ -793,6 +803,7 @@ func _begin_dash(path: PackedVector2Array, realtime := false) -> void:
 	dash_i = 0
 	dash_d = 0.0
 	dash_done = PackedVector2Array([path[0]])
+	dash_ages = PackedFloat32Array([0.0])
 	trail.clear()
 	trail_acc = TRAIL_INTERVAL
 	player.invuln = 999.0
@@ -829,8 +840,11 @@ func _update_dash(delta: float) -> void:
 	_mark_enemies_at(player.position, DASH_DMG)
 	if dash_i >= 1 and player.position.distance_to(dash_done[dash_done.size() - 1]) > 0.5:
 		dash_done.append(player.position)
+		dash_ages.append(0.0)
 	if dash_done.size() > 400:
 		dash_done.remove_at(0)
+		if dash_ages.size() > 0:
+			dash_ages.remove_at(0)
 	_spawn_trail(delta)
 	if dash_i >= dash_pts.size() - 1:
 		_begin_burst(false)
@@ -1452,6 +1466,11 @@ func _update_fx(delta: float) -> void:
 	rings = rings.filter(func(x): return x.t < 0.35)
 
 func _update_timers(delta: float) -> void:
+	# 水痕计龄：与编辑器 _Pad._process 同构，逐点变老
+	for i in ink_ages.size():
+		ink_ages[i] += delta
+	for i in dash_ages.size():
+		dash_ages[i] += delta
 	if flash_t > 0.0:
 		flash_t = maxf(flash_t - delta, 0.0)
 	if hit_flash > 0.0:
@@ -1476,7 +1495,7 @@ func _update_timers(delta: float) -> void:
 
 func _paint_bg(l: PaintLayer) -> void:
 	if paper_tex != null:
-		# 竞技场 3000x3000 远大于原图 2752x1536，改平铺避免拉伸变形
+		# 竞技场 3000x3000 远大于原图，改平铺避免拉伸变形
 		l.draw_texture_rect(paper_tex, Rect2(Vector2.ZERO, ARENA), true)
 	else:
 		l.draw_rect(Rect2(Vector2.ZERO, ARENA), Color("#F5F1E8"))
@@ -1485,18 +1504,20 @@ func _paint_bg(l: PaintLayer) -> void:
 		l.draw_arc(ARENA * 0.5, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.04), 52.0)
 
 func _paint_ink(l: PaintLayer) -> void:
-	# 墨迹：毛笔枯笔飞白（样式参数来自 InkStyle.current，编辑器可实时改）
-	if ink_path.size() >= 2:
-		var alpha := 0.85
-		if state == State.PLAY:
-			alpha = 0.85 * path_alpha
-		InkRenderer.draw_brush_path(l, ink_path, alpha, false)
+	# 水痕：飞鸟掠水的流体尾迹（参数来自 WaterRenderer.current，F1 编辑器保存即生效）。
+	# 逐点年龄驱动淡出，与编辑器试笔画布同一套动态，故 alpha 恒为 1.0。
+	if ink_path.size() >= 2 and ink_ages.size() == ink_path.size():
+		WaterRenderer.draw_water_path(l, ink_path, ink_ages, 1.0)
 	if state == State.DASH or state == State.BURST:
-		InkRenderer.draw_brush_path(l, dash_done, 0.95, false)
+		if dash_done.size() >= 2 and dash_ages.size() == dash_done.size():
+			WaterRenderer.draw_water_path(l, dash_done, dash_ages, 1.0)
 	if state == State.REWIND:
+		# 历史轨迹没有逐点计龄，按「起点最老、终点最新」铺一条等价年龄带
+		var span := WaterRenderer.getf(WaterRenderer.current, "life_time") * 0.5
 		for path in rewind_hist:
 			if path.size() >= 2:
-				InkRenderer.draw_brush_path(l, path, 0.6, true)
+				WaterRenderer.draw_water_path(l, path,
+					WaterRenderer.synth_ages(path.size(), 0.0, span), 1.0)
 
 func _paint_fx(l: PaintLayer) -> void:
 	for t in trail:

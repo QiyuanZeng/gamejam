@@ -1,9 +1,9 @@
 class_name BleedCanvas
 extends Node2D
 ## 渗墨画布：双 SubViewport 乒乓反馈。
-## 每帧：目标画布 = 模糊消褪(另一画布) + 新盖章 → 逐帧迭代 ≈ 扩散方程，墨迹晕开消褪。
-## stamp() 盖章（复用 InkRenderer 笔形）；合成层叠加纸颗粒。
-## 全部参数每帧读 InkStyle.current —— 编辑器实时热改即生效。
+## 每帧：目标画布 = 模糊消褪(另一画布) + 新盖章 → 逐帧迭代 ≈ 扩散方程，痕迹晕开消褪。
+## stamp() 盖章（笔形走 WaterRenderer，与局内划线/F1 编辑器同一套水痕）；合成层叠加纸颗粒。
+## 扩散/消褪/颗粒参数每帧读 InkStyle.current。
 
 const SIZE := Vector2i(1152, 648)
 
@@ -101,7 +101,14 @@ func _process(_delta: float) -> void:
 		var pts: PackedVector2Array = p.pts
 		var red: bool = p.red
 		st.paint = func(c: CanvasItem) -> void:
-			InkRenderer.draw_brush_path(c, pts, 1.0, red, 1.15)
+			WaterRenderer.ensure_loaded()
+			var wp := {}
+			if red:
+				wp = WaterRenderer.current.duplicate(true)
+				wp["water_color"] = Color("#C0392B")
+				wp["surface_color"] = Color("#C0392B")
+			WaterRenderer.draw_water_path(c, pts,
+				WaterRenderer.synth_ages(pts.size(), 0.0, 0.0), 1.0, wp)
 		_stamp_box[_cur].add_child(st)
 	_pending.clear()
 

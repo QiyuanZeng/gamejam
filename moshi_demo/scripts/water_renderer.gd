@@ -1,11 +1,11 @@
 class_name WaterRenderer
 extends RefCounted
 ## 水体尾迹渲染器（静态，纯函数）—— 飞鸟浮空掠过水面的流体痕迹。
-## 只服务 F1 画笔编辑器，与主游戏使用的 InkRenderer（水墨）完全隔离，互不影响。
+## 局内划线、地面拓印、F1 编辑器共用同一套参数（current，来自 user://water_style.json）。
 ##
 ## 动态：每个采样点带独立年龄（秒）。年龄推进 → 切痕淡出、V 形散波向外扩张、
 ## 涟漪环扩大变淡、泡沫消散。尾部（最早落点）先消失，形成掠过后逐渐愈合的水面。
-## 参数以 Dictionary 传入，键缺失时回退 DEFAULTS。
+## 参数以 Dictionary 传入；传空字典则用 current，键缺失时回退 DEFAULTS。
 
 const DEFAULTS := {
 	# —— 接触切痕（掠水瞬时亮痕，柔和不锐利）
@@ -62,6 +62,54 @@ const DEFAULTS := {
 	"foam_color": Color("#FFFFFF"),
 	"surface_color": Color("#DDE9F3"),
 }
+
+const SAVE_PATH := "user://water_style.json"
+
+## 全局生效的一份参数：编辑器「保存并应用」写入，局内绘制读取。
+static var current: Dictionary = {}
+
+static func ensure_loaded() -> void:
+	if current.is_empty():
+		current = load_from_disk()
+
+static func load_from_disk() -> Dictionary:
+	var p := DEFAULTS.duplicate(true)
+	if not FileAccess.file_exists(SAVE_PATH):
+		return p
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return p
+	var data: Variant = JSON.parse_string(f.get_as_text())
+	if data is Dictionary:
+		for k in p.keys():
+			if not data.has(k):
+				continue
+			if p[k] is Color:
+				p[k] = Color(str(data[k]))
+			else:
+				p[k] = data[k]
+	return p
+
+static func set_current(p: Dictionary) -> void:
+	current = p.duplicate(true)
+
+static func save_to_disk(p: Dictionary) -> Error:
+	var out := {}
+	for k in p.keys():
+		out[k] = ("#" + (p[k] as Color).to_html(false)) if p[k] is Color else p[k]
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		return FileAccess.get_open_error()
+	f.store_string(JSON.stringify(out, "\t"))
+	return OK
+
+## 沿路径合成年龄：起笔点最老、笔尖最新。base 为笔尖已存在的秒数。
+static func synth_ages(n: int, base: float, span: float) -> PackedFloat32Array:
+	var a := PackedFloat32Array()
+	for i in n:
+		var t := 1.0 if n <= 1 else float(i) / float(n - 1)
+		a.append(base + span * (1.0 - t))
+	return a
 
 static func get_p(p: Dictionary, key: String) -> Variant:
 	return p[key] if p.has(key) else DEFAULTS[key]
@@ -142,12 +190,25 @@ static func ribbon_gradient(c: CanvasItem, pts: PackedVector2Array, widths: Arra
 		var c1: Color = cols[i + 1]
 		if c0.a <= 0.003 and c1.a <= 0.003:
 			continue
-		c.draw_polygon(
-			PackedVector2Array([left[i], left[i + 1], right[i + 1], right[i]]),
-			PackedColorArray([c0, c1, c1, c0]))
+		# 拆成两个三角形：路径急转时四边形会自交（蝴蝶形），四边形三角化会失败
+		tri(c, left[i], left[i + 1], right[i + 1], c0, c1, c1)
+		tri(c, left[i], right[i + 1], right[i], c0, c1, c0)
+
+## 单个三角形（零面积 / 非法坐标直接丢弃）
+static func tri(c: CanvasItem, a: Vector2, b: Vector2, d: Vector2,
+		ca: Color, cb: Color, cd: Color) -> void:
+	if not (is_finite(a.x) and is_finite(a.y) and is_finite(b.x) and is_finite(b.y) \
+		and is_finite(d.x) and is_finite(d.y)):
+		return
+	if absf((b - a).cross(d - a)) < 0.002:
+		return
+	c.draw_polygon(PackedVector2Array([a, b, d]), PackedColorArray([ca, cb, cd]))
 
 ## 水面底纹：浅蓝白底 + 焦散网（程序化、确定性；phase 可让底纹缓慢流动）
 static func draw_water_surface(c: CanvasItem, rect: Rect2, p: Dictionary, phase := 0.0) -> void:
+	if p.is_empty():
+		ensure_loaded()
+		p = current
 	var surf := getc(p, "surface_color")
 	var water := getc(p, "water_color")
 	var foam := getc(p, "foam_color")
@@ -181,6 +242,9 @@ static func draw_water_path(c: CanvasItem, pts: PackedVector2Array,
 		ages: PackedFloat32Array, alpha: float, p: Dictionary = {}) -> void:
 	if pts.size() < 2:
 		return
+	if p.is_empty():
+		ensure_loaded()
+		p = current
 	var res := smooth_with_ages(pts, ages, maxi(geti(p, "smooth_iters"), 0))
 	var sp: PackedVector2Array = res[0]
 	var sa: PackedFloat32Array = res[1]
