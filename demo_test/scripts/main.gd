@@ -278,10 +278,18 @@ func enemy_speed_factor() -> float:
 	match state:
 		State.PLAY:
 			return 1.0
+		State.DASH:
+			return 1.0      # 移动即攻击，怪不停 = 割草压力
 		State.DRAW:
-			return DRAW_ENEMY_FACTOR
+			return 0.35    # 画墨半慢，留思考空间但不卡死
+		State.SPELL_DRAW:
+			return 0.35     # 咒语绘制同画墨
+		State.BURST:
+			return 0.2     # 顿帧微冻，引爆瞬间戏剧性
+		State.REWIND:
+			return 0.4     # 回溯慢镜但不完全冻
 		_:
-			return 0.0
+			return 0.0     # GAMEOVER
 
 func ink_max() -> float:
 	return INK_MAX_BASE + 40.0 * float(upgrades.ink_max)
