@@ -823,16 +823,15 @@ func _update_timers(delta: float) -> void:
 # ============================== 绘制 ==============================
 
 func _paint_bg(l: PaintLayer) -> void:
-	# 纸纹跟随相机视口（玩家走到哪纸纹到哪，不黑屏）
-	var cam := camera.position if camera != null else ARENA * 0.5
-	var origin := cam - VIEWPORT * 0.5
+	# 纸纹平铺到世界坐标（tile=true），ARENA 3000×3000 全铺
+	# 相机移动时纸纹相对屏幕滚动，有"在空间里穿行"的移动感
 	if paper_tex != null:
-		l.draw_texture_rect(paper_tex, Rect2(origin, VIEWPORT), false)
+		l.draw_texture_rect(paper_tex, Rect2(Vector2.ZERO, ARENA), true)
 	else:
-		l.draw_rect(Rect2(origin, VIEWPORT), Color("#F5F1E8"))
-		# 円相：背景一枚巨大淡墨圆（跟随相机中心）
-		l.draw_arc(cam, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.06), 28.0)
-		l.draw_arc(cam, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.04), 52.0)
+		l.draw_rect(Rect2(Vector2.ZERO, ARENA), Color("#F5F1E8"))
+		# 円相：背景一枚巨大淡墨圆
+		l.draw_arc(ARENA * 0.5, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.06), 28.0)
+		l.draw_arc(ARENA * 0.5, 235.0, 0.0, TAU, 96, Color(0.1, 0.09, 0.08, 0.04), 52.0)
 
 func _paint_ink(l: PaintLayer) -> void:
 	# 墨迹：毛笔枯笔飞白（样式参数来自 InkStyle.current，编辑器可实时改）
