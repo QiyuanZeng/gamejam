@@ -3,7 +3,7 @@
 > 交接时间：2026-08-22
 > 交出方：本次 AI Coding 会话（proto/clock-swing）
 > 接手方：下一位开发同学
-> 基准 commit：`fd8cc9d`
+> 基准 commit：`78848f4`
 
 ---
 
@@ -33,6 +33,10 @@
 | P0 BUG-01 | 玩家不死亡，受击扣 8s 充能+清 combo | `9073b06` |
 | P1 BUG-03/04/06 | 斩击500 + 回溯5段 + 60s时限+HUD倒计时 | `2626b99` |
 | P1 BUG-08 | 万象斩「斩」全屏-30HP + TV数值5倍对齐 + 施法UI提示 | `fd8cc9d` |
+| P1 task-8 | 右键子弹时间 0.3×（time_scale+音频，四处恢复点，HUD real_time 补偿）；顺手修 hud.gd 存量 parse error（上棒"提示消失"根因） | `9aa742e` |
+| P2 BUG-13/15 | v2 画墨死代码清理（-374 行）+ smoke 重写 v0.3 协议 | `875c9b7` |
+| P2 BUG-10 | 得分倍率系统：+0.1/杀、上限 3.0、受击减半下限 1.0，HUD 显示 ×N.N | `f50005c` |
+| P2 BUG-07 | 爆魉连锁怪：死亡起爆 130px/-32HP，只伤怪，Wave5+ 占 15% | `78848f4` |
 | 数值表 | [`BALANCE.md`](file:///c:\Users\N32955\Desktop\NetEase网易互娱\00_GameJam比赛\gamejam-godot\demo_test\BALANCE.md) | `9073b06` |
 | 测试文档 | [`docs/TEST_v0.3_P0_P1.md`](file:///c:\Users\N32955\Desktop\NetEase网易互娱\00_GameJam比赛\gamejam-godot\demo_test\docs\TEST_v0.3_P0_P1.md) 9条用例 | `fd8cc9d` |
 
