@@ -9,6 +9,7 @@ const BG_PATHS := [
 	"res://assets/art/login/4.png",
 	"res://assets/art/login/5.png",
 ]
+const VIDEO_PATH := "res://assets/start.ogv"
 const CAROUSEL_INTERVAL := 8.0
 const FADE_TIME := 1.0
 const GOLD := Color("#E8C36A")
@@ -24,6 +25,7 @@ const MENU_ITEMS := [
 
 var bg_current: TextureRect
 var bg_next: TextureRect
+var bg_video: VideoStreamPlayer
 var bg_index := 0
 var buttons: Array[Button] = []
 
@@ -40,10 +42,23 @@ func _ready() -> void:
 	_build_menu()
 	_build_toast()
 	_build_settings()
-	_carousel_loop()
+	if bg_video == null:
+		_carousel_loop()
 	buttons[0].grab_focus()
 
 func _build_background() -> void:
+	if ResourceLoader.exists(VIDEO_PATH):
+		bg_video = VideoStreamPlayer.new()
+		bg_video.stream = load(VIDEO_PATH)
+		bg_video.set_anchors_preset(Control.PRESET_FULL_RECT)
+		bg_video.expand = true
+		bg_video.loop = true
+		bg_video.autoplay = true
+		bg_video.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bg_video.finished.connect(bg_video.play)
+		add_child(bg_video)
+		bg_video.play()
+		return
 	for tex_path in BG_PATHS:
 		if not ResourceLoader.exists(tex_path):
 			push_error("登录页背景缺失: " + tex_path)
