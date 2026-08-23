@@ -730,7 +730,7 @@ func _regen(delta: float, f: float) -> void:
 	if clock_charge < CLOCK_TIME:
 		clock_charge = minf(clock_charge + delta * f, CLOCK_TIME)
 		if clock_charge >= CLOCK_TIME:
-			AudioMgr.play("clock", 1.0, -4.0)
+			AudioMgr.play("clock_full", 1.0, -4.0)
 
 # ============================== §3.2 表盘斩击 ==============================
 

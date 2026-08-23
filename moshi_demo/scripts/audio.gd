@@ -1,6 +1,6 @@
 extends Node
-## AudioMgr —— 程序化音效：AudioStreamWAV 现场合成，零音频文件。
-## 击杀"啵"声音高随连杀递增（play_later 串成一片）。
+## AudioMgr —— 文件音效（外包 sfx_runtime_wav_v2：银刃/天穹魔法/星尘风）+ 程序化合成兜底。
+## 击杀"啵"声音高随连杀递增（play_later 串成一片）；斩击/受击带随机变体防耳朵疲劳。
 
 var _players: Array[AudioStreamPlayer] = []
 var _sfx: Dictionary = {}
@@ -12,6 +12,9 @@ const BGM_PATHS := {
 	"dial": "res://assets/audio/BGM_04_FinalClock_B_SOURCE.mp3",
 }
 
+## 文件音效目录（assets/audio/sfx/）。
+const SFX_DIR := "res://assets/audio/sfx/"
+
 func _ready() -> void:
 	for i in 12:
 		var p := AudioStreamPlayer.new()
@@ -19,17 +22,24 @@ func _ready() -> void:
 		_players.append(p)
 	_bgm_player = AudioStreamPlayer.new()
 	add_child(_bgm_player)
-	_sfx["kill"] = _tone(540.0, 0.16, 22.0, 0)
-	_sfx["dash"] = _noise(0.28, 9.0, 0.5)
+	# —— 文件音效（v2 外包：童话幻想·银刃天穹星尘）——
+	_sfx["dash"] = _load_variants(
+		["SFX_Move_Slash_01.wav", "SFX_Move_Slash_02.wav", "SFX_Move_Slash_03.wav"],
+		_noise(0.28, 9.0, 0.5))
+	_sfx["hit"] = _load_variants(
+		["SFX_Hit_01.wav", "SFX_Hit_02.wav"],
+		_tone(120.0, 0.22, 14.0, 2))
+	_sfx["kill"] = _load_one("SFX_Kill.wav", _tone(540.0, 0.16, 22.0, 0))
+	_sfx["rewind"] = _load_one("SFX_Time_Steal.wav", _sweep(180.0, 1400.0, 0.55))
+	_sfx["over"] = _load_one("SFX_Boss_Clock.wav", _sweep(420.0, 55.0, 1.4))
+	_sfx["clock"] = _load_one("SFX_Clock_Tick.wav", _tone(990.0, 0.3, 8.0, 0))
+	_sfx["clock_full"] = _load_one("SFX_Twelve_Complete.wav", _tone(880.0, 0.4, 6.0, 0))
+	# —— 高频小音效：程序化合成（省内存、零加载延迟）——
 	_sfx["burst"] = _tone(85.0, 0.4, 7.0, 2)
 	_sfx["mark"] = _tone(1500.0, 0.05, 60.0, 0)
-	_sfx["hit"] = _tone(120.0, 0.22, 14.0, 2)
 	_sfx["draw"] = _tone(760.0, 0.05, 50.0, 0)
 	_sfx["cancel"] = _tone(320.0, 0.12, 26.0, 0)
-	_sfx["rewind"] = _sweep(180.0, 1400.0, 0.55)
 	_sfx["wave"] = _tone(660.0, 0.28, 9.0, 0)
-	_sfx["clock"] = _tone(990.0, 0.3, 8.0, 0)
-	_sfx["over"] = _sweep(420.0, 55.0, 1.4)
 	_sfx["upgrade"] = _tone(880.0, 0.4, 6.0, 0)
 
 func play(sfx_name: String, pitch: float = 1.0, volume_db: float = 0.0) -> void:
@@ -61,11 +71,39 @@ func play_bgm(key: String, volume_db: float = -10.0) -> void:
 func stop_bgm() -> void:
 	_bgm_player.stop()
 
+## 取单条音效流：条目可能是单个流（文件/合成），也可能是变体数组（play 时随机挑一条）。
 func _assign(p: AudioStreamPlayer, sfx_name: String, pitch: float, volume_db: float) -> void:
-	p.stream = _sfx[sfx_name]
+	var s = _sfx[sfx_name]
+	if s is Array:
+		s = s[randi() % s.size()]
+	p.stream = s
 	p.pitch_scale = pitch
 	p.volume_db = volume_db
 	p.play()
+
+## 载入文件音效；文件缺失/损坏时退回程序化合成，保证事件永远有声。
+func _load_one(file: String, fallback: AudioStreamWAV) -> Variant:
+	var path := SFX_DIR + file
+	if ResourceLoader.exists(path):
+		var s = load(path)
+		if s is AudioStreamWAV:
+			return s
+	push_warning("SFX 文件缺失，走合成兜底: " + file)
+	return fallback
+
+## 载入一组变体；全部缺失时退回单条合成。
+func _load_variants(files: Array, fallback: AudioStreamWAV) -> Variant:
+	var out: Array = []
+	for f in files:
+		var path := SFX_DIR + String(f)
+		if ResourceLoader.exists(path):
+			var s = load(path)
+			if s is AudioStreamWAV:
+				out.append(s)
+	if out.is_empty():
+		push_warning("SFX 变体全缺失，走合成兜底: " + str(files))
+		return fallback
+	return out
 
 func _tone(freq: float, dur: float, decay: float, kind: int) -> AudioStreamWAV:
 	var rate := 22050
