@@ -99,13 +99,10 @@ func _paint(r: Control) -> void:
 	if dial_outer_clock_tex != null:
 		r.draw_texture_rect(dial_outer_clock_tex, Rect2(c - Vector2(rad * 1.24, rad * 1.24), Vector2(rad * 2.48, rad * 2.48)), false,
 			Color(1.0, 1.0, 1.0, 0.62))
-	if dial_clock_tex != null:
-		r.draw_texture_rect(dial_clock_tex, Rect2(c - Vector2(rad, rad), Vector2(rad * 2.0, rad * 2.0)), false,
-			Color(1.0, 1.0, 1.0, 0.86))
-	else:
-		r.draw_arc(c, rad, 0.0, TAU, 48, ring_col, 2.0)
+	# 白色表盘面已去掉：只留细描边圆环做底盘
+	r.draw_arc(c, rad, 0.0, TAU, 48, ring_col, 2.0)
 	if dial_pointer_tex != null:
-		var pointer_size := Vector2(64.0, 9.0)
+		var pointer_size := Vector2(40.0, 8.0)
 		var pointer_transform := Transform2D(-PI / 2.0 + TAU * t, c)
 		pointer_transform = pointer_transform.translated_local(Vector2(0.0, -pointer_size.y * 0.5))
 		r.draw_set_transform_matrix(pointer_transform)
@@ -116,7 +113,12 @@ func _paint(r: Control) -> void:
 		r.draw_line(c, c + Vector2(cos(mang), sin(mang)) * 23.0, ring_col, 2.5)
 	if ready:
 		var blink := 0.55 + 0.45 * sin(game.sim_time * 6.0)
-		_text_center(r, c.x, 104.0, "R · 回溯", 16, Color(CLOCK_BLUE.r, CLOCK_BLUE.g, CLOCK_BLUE.b, blink))
+		# 提示字挪进表盘中盘；深浅蓝折中色
+		var rc := Color("#4B92C7", blink)
+		_text_center(r, c.x - 0.5, c.y - 22.0, "按R", 16, rc)
+		_text_center(r, c.x + 0.5, c.y - 22.0, "按R", 16, rc)
+		_text_center(r, c.x - 0.5, c.y + 2.0, "回溯", 24, rc)
+		_text_center(r, c.x + 0.5, c.y + 2.0, "回溯", 24, rc)
 	# —— 底部：咒语栏 ——
 	_paint_skills(r, w, h)
 	# —— 公告 ——
@@ -223,9 +225,9 @@ func _paint_settle(r: Control, w: float, h: float) -> void:
 	r.draw_rect(Rect2(0, 0, w, h), Color(0.03, 0.08, 0.17, 0.10))
 
 	# 美术原图是透明大画布；region 只取有效区域，避免空白把版面挤散。
+	# 标题：整区域绘制（粗笔清晰优先，接受缩放轻微锯齿）；代码副标题已删，图内自带一行。
 	r.draw_texture_rect_region(SETTLE_TITLE, Rect2(36, 28, 270, 150),
 		Rect2(62, 196, 1322, 710))
-	_text(r, Vector2(66, 166), "命运未尽，时之回环", 18, Color("#DCE9F7"))
 	_text(r, Vector2(66, 202), "击 杀 积 分", 16, Color("#B8D3ED"))
 	_text(r, Vector2(62, 220), "%s" % _fmt_score(game.score), 76, Color.WHITE)
 
@@ -244,11 +246,14 @@ func _paint_settle(r: Control, w: float, h: float) -> void:
 		r.draw_line(Vector2(66, y + 29.0), Vector2(502, y + 29.0), Color(0.68, 0.82, 0.96, 0.24), 1.0)
 		y += 42.0
 
-	var pulse := 0.88 + 0.12 * sin(game.sim_time * 4.0)
-	# 等比绘制（区域 1391×418 ≈ 3.33:1），0.8x 尺寸：312×94，不再竖向压扁。
-	r.draw_texture_rect_region(SETTLE_BUTTON, Rect2(47, 526, 312, 94),
-		Rect2(33, 318, 1391, 418), Color(1.0, 1.0, 1.0, pulse))
-	_text_center(r, 242.0, 622.0, "点击 / 回车", 14, Color("#DCE9F7"))
+	# 结算按钮：常态半暗（50%），鼠标移入全亮（结算页无控件节点，用鼠标坐标命中测试）
+	var btn_rect := Rect2(47.0, 526.0, 312.0, 94.0)
+	var hover: bool = btn_rect.has_point(board.get_viewport().get_mouse_position())
+	var btn_a := 0.5
+	if hover:
+		btn_a = 0.9 + 0.1 * sin(game.sim_time * 4.0)
+	r.draw_texture_rect_region(SETTLE_BUTTON, btn_rect,
+		Rect2(33, 318, 1391, 418), Color(1.0, 1.0, 1.0, btn_a))
 
 func _fmt_score(v: float) -> String:
 	var raw := str(int(round(v)))

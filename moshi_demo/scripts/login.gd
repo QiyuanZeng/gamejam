@@ -89,6 +89,12 @@ func _build_start_button() -> void:
 	start_btn.anchor_bottom = BTN_START.y + BTN_START.h * 0.5
 	start_btn.mouse_entered.connect(start_btn.grab_focus)
 	start_btn.mouse_exited.connect(start_btn.release_focus)
+	# 常态压暗一半，hover / 聚焦全亮，整体明暗差一倍
+	start_btn.modulate = Color(1.0, 1.0, 1.0, 0.5)
+	start_btn.mouse_entered.connect(func(): start_btn.modulate = Color(1.0, 1.0, 1.0, 1.0))
+	start_btn.mouse_exited.connect(func(): start_btn.modulate = Color(1.0, 1.0, 1.0, 0.5))
+	start_btn.focus_entered.connect(func(): start_btn.modulate = Color(1.0, 1.0, 1.0, 1.0))
+	start_btn.focus_exited.connect(func(): start_btn.modulate = Color(1.0, 1.0, 1.0, 0.5))
 	start_btn.pressed.connect(_on_start_pressed)
 	add_child(start_btn)
 
