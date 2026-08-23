@@ -1769,8 +1769,8 @@ func _paint_rewind_guide(l: PaintLayer) -> void:
 	if rewind_hist.is_empty():
 		return
 	WaterRenderer.ensure_loaded()
-	# 底色是浅蓝水面，泡沫白压根看不见 —— 取水色压深当墨线
-	var base := WaterRenderer.getc(WaterRenderer.current, "water_color").darkened(0.5)
+	# 留下的回溯字迹用亮金色，压住浅蓝水面。
+	var base := Color("#FFE48A")
 	var ready := clock_charge >= CLOCK_TIME or state == State.REWIND
 	var a := 0.85 if ready else 0.40
 	var w := 3.5 if ready else 2.2
