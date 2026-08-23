@@ -28,7 +28,6 @@ func _ready() -> void:
 	_chk(is_equal_approx(g.TV_MAX_BASE, pc.tv_max_base), "墨上限 %.0f" % g.TV_MAX_BASE)
 	_chk(is_equal_approx(g.tv_max(), pc.tv_max_base), "实际墨上限按总表算 %.0f" % g.tv_max())
 	_chk(is_equal_approx(g.TV_COST_PER_PX, pc.tv_cost_per_px), "每像素墨耗 %.2f" % g.TV_COST_PER_PX)
-	_chk(g.LAG_MAX == pc.lag_max, "体力 %d 格" % g.LAG_MAX)
 	_chk(g.ap_max() == pc.ap_max_base, "行动点上限 %d" % g.ap_max())
 	_chk(is_equal_approx(g.CLOCK_TIME, pc.clock_time), "钟表充能 %.0fs" % g.CLOCK_TIME)
 	_chk(is_equal_approx(g.CONTACT_DMG_MULT, pc.contact_dmg_mult),

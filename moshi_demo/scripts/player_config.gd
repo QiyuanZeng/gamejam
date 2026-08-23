@@ -4,7 +4,7 @@ extends Resource
 ## 全部收在这一份 res://data/player.tres 里，编辑器双击打开，Inspector 里改完存盘即生效。
 ##
 ## 结构：
-##   生存     → 血量 / 受击无敌 / 接触伤害倍率 / 时滞
+##   生存     → 血量 / 受击无敌 / 接触伤害倍率
 ##   冲刺斩   → 左键表盘斩与右键笔画斩共用的速度、距离、半径、伤害
 ##   表盘     → 行动点上限与回复速率
 ##   回溯     → 钟表充能、回溯格数、伤害倍率、标记保留
@@ -24,7 +24,7 @@ const PATH := "res://data/player.tres"
 # ============================== 生存 ==============================
 
 @export_group("生存")
-## 人物最大血量。归零进一次时滞，满血复活继续打。
+## 人物最大血量。归零直接结算（时滞/复活已移除）。
 @export var player_hp: float = 100.0
 ## 撞到怪身上时受到的伤害倍率。怪的基础伤害是 balance.tres 里每只怪的 dmg，
 ## 这里乘一道系数：0.5 = 挨撞只掉一半，0 = 撞不死人。
@@ -33,10 +33,6 @@ const PATH := "res://data/player.tres"
 @export var bullet_dmg_mult: float = 1.0
 ## 挨一下之后的无敌时间（秒）。越大越吃得住连续挨打。
 @export var hit_invuln: float = 0.6
-## 体力：血量归零可以进几次时滞，用满就结算。HUD 右上角显示的就是它。
-@export var lag_max: int = 3
-## 单次时滞的时长（秒）。这段时间人物无敌但打不出手。
-@export var lag_time: float = 3.0
 ## 挨打扣掉的钟表充能（秒）。**默认 0 = 挨打不掉 R 的充能进度**，
 ## 想恢复「受伤打断蓄力」的手感就填回 3.0。
 @export var hit_charge_penalty: float = 0.0

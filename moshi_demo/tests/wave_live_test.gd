@@ -1,6 +1,6 @@
 extends Node
 ## 实机刷怪校验：跑真实主循环 + 真实波表（data/balance.tres 的 waves），确认波表配置没配歪、
-## 八种怪都能刷出来、四类行为都真正跑起来、局内无时限、敌弹致死能进时滞。
+## 八种怪都能刷出来、四类行为都真正跑起来、局内无时限、敌弹致死直接结算。
 ## 标签：WAVE_LIVE PASS / FAIL
 
 var g: Game
@@ -86,16 +86,14 @@ func _process(delta: float) -> void:
 				_clear()
 				_next(3)
 		3:
-			# 敌弹致死必须进时滞（这条以前是漏的）
+			# 敌弹致死直接结算（时滞已移除）
 			g.player.invuln = 0.0
 			g.player.hp = 1.0
-			var lag0 := g.lag_count
 			g.spawn_enemy_bullet(g.player.position, Vector2.RIGHT, {"bullet_dmg": 99.0})
 			g._update_enemy_bullets(0.016, 1.0)
 			_chk(g.player.hp <= 0.0, "敌弹打空玩家血量")
-			_chk(g.lag_count == lag0 + 1, "敌弹致死进入时滞（lag %d → %d）" % [lag0, g.lag_count])
-			_chk(g.state == g.State.LAG or g.state == g.State.GAMEOVER,
-				"致死后状态切到时滞/结算，当前 %d" % g.state)
+			_chk(g.state == g.State.GAMEOVER,
+				"致死后直接结算，当前 %d" % g.state)
 			_next(9)
 		9:
 			for f in fails:
