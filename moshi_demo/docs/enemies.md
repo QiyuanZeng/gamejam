@@ -22,10 +22,10 @@
 
 | 行为 | id | 中文名 | 素材路径 |
 |---|---|---|---|
-| 近战 | `melee_mite` | 影蚋 | `assets/art/enemies/shadow_mite/`（帧动画） |
-| 远程 | `ranged_crystal` | 晶哨 | `assets/art/enemies/crystal_sentinel/animations/`（帧动画） |
-| 冲锋 | `charger_fast` | 疾影 | `assets/enemy_fast.png` |
-| 分裂 | `splitter_bomber` | 磐妖 | `assets/enemy_tank.png` |
+| 近战 | `melee_mite` | 影蚋 | `assets/art/enemies/bear/frames/` |
+| 远程 | `ranged_crystal` | 晶哨 | `assets/art/enemies/bat_enemy/frames/` |
+| 冲锋 | `charger_fast` | 疾影 | `assets/art/enemies/small_boar/frames/` |
+| 分裂 | `splitter_bomber` | 磐妖 | `assets/art/enemies/horned_blob/frames/` |
 
 | id | hp | speed | dmg | radius |
 |---|---|---|---|---|
@@ -38,14 +38,15 @@
 
 | id | 中文名 | 说明 | 素材 |
 |---|---|---|---|
-| `splitter_bomber_shard` | 磐妖碎块 | 磐妖死亡分裂出的子体，`tex_target 53`＝本体 88 的 **0.6 倍** | 同 `assets/enemy_tank.png` |
+| `splitter_bomber_shard` | 磐妖碎块 | 磐妖死亡分裂出的子体，`tex_target 77`＝本体 128 的 **0.6 倍** | 同磐妖 |
 | `elite_melee` | 影蚋·精英 | 复用影蚋帧动画，放大 + 发光 | 同影蚋 |
 | `elite_ranged` | 晶哨·精英 | 复用晶哨帧动画 | 同晶哨 |
-| `elite_charger` | 疾影·精英 | 复用疾影贴图 | 同疾影 |
-| `elite_splitter` | 磐妖·精英 | 复用磐妖贴图，死后同样炸出 2 只**普通**碎块 | 同磐妖 |
+| `elite_charger` | 疾影·精英 | 复用疾影帧动画 | 同疾影 |
+| `elite_splitter` | 磐妖·精英 | 复用磐妖帧动画，死后同样炸出 2 只**普通**碎块 | 同磐妖 |
 
-> `enemies` 一共 9 项，但**只用到 4 套美术资源**。
-> `assets/enemy_blob.png`、`assets/art/enemies/boss_wuming.png` 等已无人引用，文件留着备用。
+> `enemies` 一共 9 项，但**只用到 4 套美术资源**，且四套全是帧动画。
+> 弃用素材全部收在 `assets/art/enemies/_legacy/`：`shadow_mite/`（旧近战帧动画包）、
+> 旧水墨单图 `enemy_fast/tank/blob.png`、`boss_wuming.png` 等，均已无人引用。
 
 ---
 
@@ -60,7 +61,9 @@
 | **贴图太大/太小** | `tex_target`（缩放后的目标边长，像素） |
 | **换动作** | 在 `anim_dir` 下加/改子目录即可，目录名 = 状态名，见第 4 节 |
 | **攻击动画对不上** | `anim_attack` 填该怪攻击动画的**子目录名**（如 `attack_shard_barrage`） |
-| **锚点飘了（脚不着地）** | 勾 `use_pivot`，调 `pivot_frac`（0~1 的相对锚点，如 `(0.5, 0.875)` 是脚底） |
+| **锚点飘了 / 人物偏出判定圈** | 勾 `use_pivot`，`pivot_frac` 填主体在画布里的**相对锚点**：填主体外接框中心（如 `(0.5, 0.66)`）＝主体压在判定圆心上；填 `(0.5, 0.875)` ＝脚底对齐节点原点。注意 x 一般保持 `0.5`，否则左右镜像会偏 |
+| **朝向反了（往左走却朝右）** | 素材原图**朝左**的包才勾 `art_faces_left`；朝右或正面对称的包保持不勾。现行四包全是不勾 |
+| **画布留白多导致人物太小** | `tex_target` 按 `想要的主体尺寸 ÷ 主体占画布比例` 反推。512 画布主体只占 0.6，就要填约 1.6 倍 |
 | **血量/速度/伤害** | `hp` / `speed` / `dmg` |
 | **技能打不打得到** | `radius`——所有技能命中都拿它算，调大即变好打 |
 | **分裂子体太容易被秒 / 太肉** | `split_child_invuln`，子体出生无敌秒数，默认 0.5 |
@@ -73,12 +76,14 @@
 | **加一只新怪** | `enemies` 数组 `+` 一项 → 选 `New EnemyData` → 填 `id` 与数值 |
 | **加一段新波次** | `waves` 数组 `+` 一项 → 选 `New WaveData` → 填 `until_time` / `interval` / `mix` |
 
-### 单图怪必须是「宣纸底」
+### 帧动画怪必须是「透明底」
 
-`assets/*.png` 那几张是米白纸底的水墨图，**不是透明底**。
-`main.gd` 把 `key_mat`（`shaders/paper_key.gdshader`）挂给单图怪，按亮度把纸底键控成透明
-（`threshold 0.55`）。所以换单图时：**深墨主体 + 亮纸底**，别给透明底或深色底。
-帧动画怪本身是透明底，不走这个 shader。
+现行 4 只怪全走帧动画分支，素材一律**透明底 PNG**，不挂 shader。
+
+`key_mat`（`shaders/paper_key.gdshader`）只在**单图分支**（填 `tex` 而非 `anim_dir`）才挂，
+按亮度把米白宣纸底键控成透明（`threshold 0.55`）。所以：
+- 填 `anim_dir` → 素材必须自带 alpha，**给纸底会直接显示成白方块**；
+- 填 `tex` → 素材要**深墨主体 + 亮纸底**，别给透明底或深色底。
 
 ---
 
@@ -99,26 +104,42 @@
 | `attack_cd` | 两发之间的间隔（秒） |
 | `attack_windup` | 抬手时间，这段时间播 `anim_attack` 的动画 |
 | `bullet_speed` / `bullet_dmg` / `bullet_radius` / `bullet_life` | 子弹速度 / 伤害 / 半径 / 存活秒数 |
-| `bullet_color` | 子弹颜色。**只有在贴图缺失、退回画圆时才看得见**（见下） |
+| `bullet_color` | 子弹的染色：残影、外发光、描边环、销毁碎屑都用它。贴图缺失时退回画圆也用它 |
 
-#### 子弹长什么样：贴图帧 + 圆形兜底
+#### 子弹长什么样：贴图帧 + 残影 + 圆形兜底
 
-弹体统一用一套 6 帧贴图，与是哪只远程怪无关：
+弹体统一用蝙蝠包那套 7 帧贴图，与是哪只远程怪无关：
 
 | 项 | 值 |
 |---|---|
-| 帧目录 | `assets/art/enemies/crystal_sentinel/vfx/crystal_projectile/crystal_projectile_000..005.png` |
-| 源图尺寸 | 256 × 256（`BULLET_TEX_SIZE`） |
-| 图里弹体半径 | 28 px（`BULLET_TEX_RADIUS`） |
-| 弹体中心偏移 | 沿飞行方向偏离图心 18.5 px（`BULLET_TEX_OFFSET`），左边那截是画好的拖尾 |
-| 播放速度 | 14 fps（`BULLET_ANIM_FPS`），按子弹自身寿命 `b.t` 循环 |
+| 帧目录 | `assets/art/enemies/bat_enemy/effects/projectile_fly/`（7 帧） |
+| 源图尺寸 | 176 × 88（`BULLET_TEX_W` / `BULLET_TEX_H`），弹头朝右、拖尾画在左边 |
+| 图里亮核 | 位于横向 `0.65`（`BULLET_CORE_FRAC`），直径 44 px（`BULLET_CORE_DIA`） |
+| 放大倍率 | 亮核画到判定直径的 `1.8` 倍（`BULLET_VIS_MUL`） |
+| 残影 | 身后 3 节等距递减副本（`BULLET_GHOSTS`），叠一层外发光圆 |
+| 播放速度 | 16 fps（`BULLET_ANIM_FPS`），按子弹自身寿命 `b.t` 循环 |
 
-绘制时按 `bullet_radius ÷ 28` 缩放，所以**改 `bullet_radius` 会同时改贴图大小和判定半径，两者始终一致**；
-图心再沿飞行方向回退 18.5 px，弹体中心才压在真正的判定点上。贴图目录缺失时
-（`bullet_frames` 为空）自动退回旧的「拖尾线 + 实心圆」画法，用的就是 `bullet_color`。
-外面那圈红色描边环任何情况下都照画，它是给玩家的可击落提示。
+亮核对齐到判定点 `b.pos`，所以**改 `bullet_radius` 会同时改贴图大小和判定半径**。
+残影 + 外发光是为了让高速位移的弹体在整条轨迹上都读得出来 —— 单张贴图一帧一跳，
+静止看清楚、动起来就断片。贴图目录缺失时（`bullet_frames` 为空）退回旧的
+「拖尾线 + 实心圆」，外圈描边环任何情况下都照画，它是给玩家的可击落提示。
 
-代码：`main.gd._load_bullet_frames()` 加载，`main.gd._paint_fx()` 绘制。
+#### 开火与受击特效
+
+同一套蝙蝠包里的一次性序列帧，由 `main.gd` 的 `fx_packs` / `fx_sprites` 统一驱动：
+
+| 时机 | 特效 | 位置 |
+|---|---|---|
+| 抬手前摇（`attacking` 置位那一帧） | `power_charge` | 怪身上 |
+| 出弹瞬间 | `projectile_charge` | 枪口，朝飞行方向 |
+| 玩家受伤（中弹与接触伤害共用） | `impact_flash` + `impact_ring` | 玩家身上 |
+| 子弹被技能销毁 / 命中消失 | `vanish` | 消失点 |
+
+特效跟着 `enemy_speed_factor()` 走：子弹时间里一起慢放，冻结时一起停。
+播完最后一帧自动回收，不用手动清。
+
+代码：`main.gd._load_bullet_frames()` / `_load_frame_dir()` 加载，`spawn_fx()` 起特效，
+`_update_fx_sprites()` 推进，`_paint_enemy_bullet()` 与 `_paint_fx()` 绘制。
 
 ### 冲锋（`behavior = 2` CHARGER）
 朝玩家移动，进到 `charge_range` 停步蓄力，**在预警红线出现的那一帧就把冲锋方向钉死**，
@@ -156,22 +177,63 @@
 
 ## 4. 帧动画目录规范
 
-`anim_dir` 指向一个目录，**下面每个子目录 = 一个动画状态**，目录名随美术包，代码不写死。
-子目录内所有 `.png` 按文件名排序即帧序列。名为 `effects` 的子目录会被跳过。
+**所有怪物美术统一放在 `assets/art/enemies/<包名>/frames/` 下**，`anim_dir` 一律指到 `frames/`。
+`frames/` 下**每个子目录 = 一个动画状态**，目录名随美术包，代码不写死。
+子目录内所有 `.png` 按文件名排序即帧序列（要补零，`00/01` 不能写成 `0/1`）。
+名为 `effects` 的子目录会被跳过。特效 / 部件 / 拼图大图放在包根的 `effects/`、`vfx/`、
+`characters/`、`sheets/` 里，不会被当动作读。
 
 ```
-assets/art/enemies/crystal_sentinel/animations/
-├── idle/                    ← 必须有，没有 idle 就不会走帧动画分支
-├── move/
-├── death/                   ← 有这个才会播死亡动画，否则死了直接消失
-├── spawn/
-└── attack_shard_barrage/    ← 在 .tres 里用 anim_attack 指过来
-
-assets/art/enemies/shadow_mite/
-├── idle/  move/  hit/  death/
-├── attack_thrust/           ← 影蚋的攻击动作
-└── effects/                 ← 代码跳过，不当动作读
+assets/art/enemies/
+├── bear/                   影蚋（近战）
+│   ├── frames/  idle/ move/ attack/ death/
+│   └── sheets/  bear_sprite_frames.tres
+├── bat_enemy/              晶哨（远程）
+│   ├── frames/   idle/ move/ hit/ death/ attack_windup/ attack_release/
+│   ├── effects/  projectile_fly/ projectile_charge/ power_charge/
+│   │              impact_flash/ impact_ring/ vanish/ orbit_particle/
+│   └── sheets/ animations.json README_zh.md
+├── small_boar/             疾影（冲锋）
+│   └── frames/  idle/ move/ attack/ death/
+├── horned_blob/            磐妖（分裂）
+│   └── frames/  idle/ move/ attack/ death/
+├── preview/                美术包预览场景（不参与游戏）
+└── _legacy/                弃用素材：shadow_mite/ crystal_sentinel/ 与旧单图
 ```
+
+> `bat_enemy/effects/` 不在 `frames/` 里，所以不会被当动作读；它由 `main.gd` 单独加载，
+> 见第 6 节。
+
+必备与可选：
+
+| 状态目录 | 必要性 |
+|---|---|
+| `idle` | **必须**，没有 idle 就不会走帧动画分支 |
+| `move` | 强烈建议，缺了移动时会回落 idle |
+| `death` | 有才播死亡动画，否则死了直接消失 |
+| `hit` / `spawn` | 可选，名字**写死**为 `hit` / `spawn` |
+| 攻击 / 蓄力 / 收招 | 目录名任意，在 `.tres` 里用 `anim_attack` / `anim_charge` / `anim_release` 指过来 |
+
+> 远程怪一次开火的动作顺序：`anim_attack`（前摇，`attack_windup` 期间播）→ 出弹瞬间切
+> `anim_release`（收招，按帧数自动算时长）→ 回 `move` / `idle`。
+> 现行四包**只有蝙蝠有 `hit`**，其余受击回落 idle；四包都没有 `spawn`。
+> 帧率固定 `anim_fps = 12`（`enemy.gd`），不能按怪单配；同一状态内**所有帧尺寸必须一致**，
+> 缩放只看 `idle[0]` 的最长边。
+
+### 左右朝向
+
+`enemy.gd:_update_facing()` 每帧算一次朝向：**在动**就按 `velocity.x`，**停着**就看向玩家
+（阈值 5px/s，低于阈值不翻，避免原地抖动）。结果写进 `sprite.flip_h`：
+
+```
+flip_h = face_left != cfg.art_faces_left
+```
+
+即代码默认**素材朝右**，往左走时水平镜像；素材本身画的是朝左的包，勾上 `art_faces_left`
+把镜像逻辑反过来。单图怪（填 `tex`）走同一套逻辑。
+
+> 镜像是 `Sprite2D.flip_h`，只翻贴图不动绘制矩形，所以 `pivot_frac.x` 必须是 `0.5`，
+> 否则翻转后主体会左右偏移。
 
 状态切换规则（`scripts/enemy.gd` 的 `_update_anim`）：
 `spawn` → `hit`（受击 0.22s）→ `anim_attack`（远程抬手中）→ `anim_charge`（蓄力中，留空则不切）

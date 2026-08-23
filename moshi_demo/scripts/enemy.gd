@@ -36,6 +36,8 @@ var dying := false
 var death_left := 0.0
 var hit_flash := 0.0
 var _last_hp := 0.0
+var face_left := false    # 当前朝向：素材统一按 cfg.art_faces_left 折算成 sprite.flip_h
+var release_left := 0.0   # 开火后的收招动画剩余时长（cfg.anim_release）
 
 # ── 行为运行时 ──────────────────────────────────────────────────────
 var behavior := 0
@@ -115,12 +117,14 @@ func _load_anim(dir: String) -> void:
 		while f != "":
 			# 导出包里 PNG 登记成 xxx.png.import（.ctex 的侧车），脚本/资源则是 xxx.remap，
 			# 两种尾巴都剥掉再按 .png 过滤——enemy_db / wave_db 剥 .remap 同款处理。
+			# 编辑器里 png 与 png.import 并存，剥完会重名，所以要去重。
 			var name := f
 			if name.ends_with(".remap"):
 				name = name.trim_suffix(".remap")
 			elif name.ends_with(".import"):
 				name = name.trim_suffix(".import")
-			if name.get_extension().to_lower() == "png" and not name.begins_with("."):
+			if name.get_extension().to_lower() == "png" and not name.begins_with(".") \
+					and not files.has(name):
 				files.append(name)
 			f = sd.get_next()
 		sd.list_dir_end()
@@ -174,6 +178,7 @@ func _process(delta: float) -> void:
 		return
 	if not anims.is_empty():
 		_update_anim(delta)
+	_update_facing()
 	if invuln_left > 0.0:
 		# 无敌期照常流逝：不受子弹时间影响，也不被出生渐显期挡住
 		invuln_left -= delta
@@ -202,7 +207,12 @@ func _update_anim(delta: float) -> void:
 		hit_flash = 0.22
 	_last_hp = hp
 	var st := "move" if velocity.length() > 5.0 else "idle"
-	if attacking:
+	if release_left > 0.0:
+		release_left -= delta
+		var rs := String(cfg.get("anim_release", ""))
+		if rs != "":
+			st = rs
+	elif attacking:
 		st = String(cfg.get("anim_attack", "attack"))
 	elif charge_state == "windup":
 		var cs := String(cfg.get("anim_charge", ""))
@@ -214,6 +224,17 @@ func _update_anim(delta: float) -> void:
 	if spawn_left > 0.0 and anims.has("spawn"):
 		st = "spawn"
 	_play(st, delta)
+
+## 左右朝向：在动就按移动方向，停着就看向玩家；素材本身朝左的包用 cfg.art_faces_left 抵消。
+func _update_facing() -> void:
+	if sprite == null:
+		return
+	var fx := velocity.x
+	if absf(fx) < 5.0 and game != null and game.player != null:
+		fx = game.player.position.x - position.x
+	if absf(fx) > 5.0:
+		face_left = fx < 0.0
+	sprite.flip_h = face_left != bool(cfg.get("art_faces_left", false))
 
 # ── 行为：近战（直追，仅触碰伤害）─────────────────────────────────
 func _tick_melee(dt: float) -> void:
@@ -257,6 +278,9 @@ func _tick_ranged(dt: float) -> void:
 	elif atk_cd_left <= 0.0:
 		attacking = true
 		windup_left = float(cfg.get("attack_windup", 0.35))
+		# 前摇聚能：抬手那一刻在身上起一圈蓄力光，玩家好判断「它要开火了」
+		if game != null:
+			game.spawn_fx("power_charge", position, 0.0, 1.1, 12.0)
 
 func _fire_bullet() -> void:
 	if game == null or game.player == null:
@@ -267,6 +291,8 @@ func _fire_bullet() -> void:
 	dir = dir.normalized()
 	var r: float = float(cfg.radius)
 	game.spawn_enemy_bullet(position + dir * r * 0.7, dir, cfg)
+	if anims.has(String(cfg.get("anim_release", ""))):
+		release_left = float(anims[String(cfg.anim_release)].size()) / anim_fps
 
 # ── 行为：冲锋（停步蓄力 → 直线冲刺）─────────────────────────────
 func _tick_charger(dt: float) -> void:

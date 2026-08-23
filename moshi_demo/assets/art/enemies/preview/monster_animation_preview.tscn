@@ -1,0 +1,83 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://assets/art/enemies/preview/preview_controller.gd" id="1_script"]
+[ext_resource type="SpriteFrames" path="res://assets/art/enemies/bear/bear_sprite_frames.tres" id="2_bear"]
+[ext_resource type="SpriteFrames" path="res://assets/art/enemies/small_boar/small_boar_sprite_frames.tres" id="3_boar"]
+[ext_resource type="SpriteFrames" path="res://assets/art/enemies/horned_blob/horned_blob_sprite_frames.tres" id="4_blob"]
+
+[node name="MonsterAnimationPreview" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 2
+color = Color(0.94, 0.95, 0.98, 1)
+
+[node name="Title" type="Label" parent="."]
+offset_left = 36.0
+offset_top = 28.0
+offset_right = 620.0
+offset_bottom = 62.0
+theme_override_font_sizes/font_size = 24
+text = "Game Jam Monster Full Animation Pack v2"
+
+[node name="AnimationName" type="Label" parent="."]
+offset_left = 36.0
+offset_top = 66.0
+offset_right = 620.0
+offset_bottom = 96.0
+theme_override_colors/font_color = Color(0.38, 0.28, 0.55, 1)
+theme_override_font_sizes/font_size = 18
+text = "Animation: IDLE  |  SPACE to switch"
+
+[node name="Bear" type="AnimatedSprite2D" parent="."]
+position = Vector2(230, 560)
+sprite_frames = ExtResource("2_bear")
+animation = &"idle"
+autoplay = "idle"
+offset = Vector2(0, -224)
+
+[node name="SmallBoar" type="AnimatedSprite2D" parent="."]
+position = Vector2(640, 560)
+sprite_frames = ExtResource("3_boar")
+animation = &"idle"
+autoplay = "idle"
+offset = Vector2(0, -224)
+
+[node name="HornedBlob" type="AnimatedSprite2D" parent="."]
+position = Vector2(1050, 560)
+sprite_frames = ExtResource("4_blob")
+animation = &"idle"
+autoplay = "idle"
+offset = Vector2(0, -224)
+
+[node name="BearLabel" type="Label" parent="."]
+offset_left = 180.0
+offset_top = 610.0
+offset_right = 280.0
+offset_bottom = 640.0
+text = "BEAR"
+horizontal_alignment = 1
+
+[node name="BoarLabel" type="Label" parent="."]
+offset_left = 580.0
+offset_top = 610.0
+offset_right = 700.0
+offset_bottom = 640.0
+text = "SMALL BOAR"
+horizontal_alignment = 1
+
+[node name="BlobLabel" type="Label" parent="."]
+offset_left = 980.0
+offset_top = 610.0
+offset_right = 1120.0
+offset_bottom = 640.0
+text = "HORNED BLOB"
+horizontal_alignment = 1
+
+[node name="CycleTimer" type="Timer" parent="."]
+wait_time = 2.0
+autostart = true
+
+[connection signal="timeout" from="CycleTimer" to="." method="_on_cycle_timer_timeout"]

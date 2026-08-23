@@ -1,0 +1,153 @@
+[gd_resource type="SpriteFrames" load_steps=33 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/idle/bear_idle_000.png" id="1_idle_000"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/idle/bear_idle_001.png" id="2_idle_001"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/idle/bear_idle_002.png" id="3_idle_002"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/idle/bear_idle_003.png" id="4_idle_003"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/idle/bear_idle_004.png" id="5_idle_004"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/idle/bear_idle_005.png" id="6_idle_005"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/idle/bear_idle_006.png" id="7_idle_006"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/idle/bear_idle_007.png" id="8_idle_007"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/move/bear_walk_000.png" id="9_walk_000"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/move/bear_walk_001.png" id="10_walk_001"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/move/bear_walk_002.png" id="11_walk_002"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/move/bear_walk_003.png" id="12_walk_003"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/move/bear_walk_004.png" id="13_walk_004"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/move/bear_walk_005.png" id="14_walk_005"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/move/bear_walk_006.png" id="15_walk_006"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/move/bear_walk_007.png" id="16_walk_007"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/attack/bear_attack_000.png" id="17_attack_000"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/attack/bear_attack_001.png" id="18_attack_001"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/attack/bear_attack_002.png" id="19_attack_002"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/attack/bear_attack_003.png" id="20_attack_003"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/attack/bear_attack_004.png" id="21_attack_004"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/attack/bear_attack_005.png" id="22_attack_005"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/attack/bear_attack_006.png" id="23_attack_006"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/attack/bear_attack_007.png" id="24_attack_007"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/death/bear_death_000.png" id="25_death_000"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/death/bear_death_001.png" id="26_death_001"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/death/bear_death_002.png" id="27_death_002"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/death/bear_death_003.png" id="28_death_003"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/death/bear_death_004.png" id="29_death_004"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/death/bear_death_005.png" id="30_death_005"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/death/bear_death_006.png" id="31_death_006"]
+[ext_resource type="Texture2D" path="res://assets/art/enemies/bear/frames/death/bear_death_007.png" id="32_death_007"]
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_idle_000")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_idle_001")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_idle_002")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_idle_003")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_idle_004")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_idle_005")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_idle_006")
+}, {
+"duration": 1.0,
+"texture": ExtResource("8_idle_007")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 6.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("9_walk_000")
+}, {
+"duration": 1.0,
+"texture": ExtResource("10_walk_001")
+}, {
+"duration": 1.0,
+"texture": ExtResource("11_walk_002")
+}, {
+"duration": 1.0,
+"texture": ExtResource("12_walk_003")
+}, {
+"duration": 1.0,
+"texture": ExtResource("13_walk_004")
+}, {
+"duration": 1.0,
+"texture": ExtResource("14_walk_005")
+}, {
+"duration": 1.0,
+"texture": ExtResource("15_walk_006")
+}, {
+"duration": 1.0,
+"texture": ExtResource("16_walk_007")
+}],
+"loop": true,
+"name": &"move",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("17_attack_000")
+}, {
+"duration": 1.0,
+"texture": ExtResource("18_attack_001")
+}, {
+"duration": 1.0,
+"texture": ExtResource("19_attack_002")
+}, {
+"duration": 1.0,
+"texture": ExtResource("20_attack_003")
+}, {
+"duration": 1.0,
+"texture": ExtResource("21_attack_004")
+}, {
+"duration": 1.0,
+"texture": ExtResource("22_attack_005")
+}, {
+"duration": 1.0,
+"texture": ExtResource("23_attack_006")
+}, {
+"duration": 1.0,
+"texture": ExtResource("24_attack_007")
+}],
+"loop": false,
+"name": &"attack",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("25_death_000")
+}, {
+"duration": 1.0,
+"texture": ExtResource("26_death_001")
+}, {
+"duration": 1.0,
+"texture": ExtResource("27_death_002")
+}, {
+"duration": 1.0,
+"texture": ExtResource("28_death_003")
+}, {
+"duration": 1.0,
+"texture": ExtResource("29_death_004")
+}, {
+"duration": 1.0,
+"texture": ExtResource("30_death_005")
+}, {
+"duration": 1.0,
+"texture": ExtResource("31_death_006")
+}, {
+"duration": 1.0,
+"texture": ExtResource("32_death_007")
+}],
+"loop": false,
+"name": &"death",
+"speed": 10.0
+}]

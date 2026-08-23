@@ -39,10 +39,14 @@ enum Behavior {
 @export var pivot_frac: Vector2 = Vector2(0.5, 0.875)
 @export var draw_style: String = "blob"        ## 程序化绘制造型：blob / fast / tank / bomber
 @export var inertia: bool = false              ## 移动是否带惯性过弯（疾影类手感）
+## 素材原图朝向。默认按「朝右」处理，往左走时自动水平镜像；
+## 若这套图本身画的是朝左（如 small_boar），勾上，镜像逻辑会自动反过来。
+@export var art_faces_left: bool = false
 ## 动画状态名映射：美术包的攻击/蓄力目录名各不相同（如 attack_shard_barrage），在这里指过去。
 ## 留空则回落到 idle。
 @export var anim_attack: String = "attack"
 @export var anim_charge: String = ""
+@export var anim_release: String = ""          ## 远程开火后的收招动作目录名，留空则不播
 
 # ── 精英变体 ────────────────────────────────────────────────────────
 @export_group("精英")
@@ -104,8 +108,10 @@ func to_cfg() -> Dictionary:
 		"color": color,
 		"draw_style": draw_style,
 		"inertia": inertia,
+		"art_faces_left": art_faces_left,
 		"anim_attack": anim_attack,
 		"anim_charge": anim_charge,
+		"anim_release": anim_release,
 		"tint": tint,
 		"is_elite": is_elite,
 	}

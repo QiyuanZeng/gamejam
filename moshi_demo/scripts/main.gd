@@ -265,13 +265,20 @@ var ink_editor: CanvasLayer
 var spell_lab: CanvasLayer
 var key_mat: ShaderMaterial
 var paper_tex: Texture2D
-## 敌方远程弹贴图帧。源图 256×256，弹体主体半径 28px、
-## 中心沿飞行方向偏离图心 18.5px（左侧那截是画好的拖尾）。
+## 敌方远程弹与命中特效，全部取自蝙蝠包 assets/art/enemies/bat_enemy/effects/。
+## projectile_fly 源图 176×88，是一束**画布居中**的能量弹（不分头尾，靠旋转贴到飞行轴上），
+## 逐帧只是明灭脉动：第 0 帧缩到 37px 的小光点，循环里会闪断，加载时丢掉。
 var bullet_frames: Array[Texture2D] = []
-const BULLET_TEX_SIZE := 256.0
-const BULLET_TEX_RADIUS := 28.0
-const BULLET_TEX_OFFSET := 18.5
-const BULLET_ANIM_FPS := 14.0
+var fx_packs: Dictionary = {}      # 特效名 → Array[Texture2D]
+var fx_sprites: Array = []         # 一次性序列帧特效：{fr, pos, rot, s, t, fps, mod}
+const BAT_FX_DIR := "res://assets/art/enemies/bat_enemy/effects"
+const BULLET_TEX_W := 176.0
+const BULLET_TEX_H := 88.0
+const BULLET_CORE_FRAC := 0.5      # 亮核在贴图宽度上的位置，用于把亮核对齐到 b.pos
+const BULLET_CORE_DIA := 67.0      # 源图光晕短边直径（实测 bbox 高）
+const BULLET_VIS_MUL := 1.5        # 光晕画到判定直径的几倍：飞行途中要一眼看得见
+const BULLET_GHOSTS := 3           # 残影节数，拉出可读的轨迹
+const BULLET_ANIM_FPS := 16.0
 var surface_phase := 0.0       # 水面底纹流动相位，同编辑器 InkEditor.surface_phase
 var camera: Camera2D
 var dial_pointer: Sprite2D
@@ -1291,11 +1298,56 @@ func _split_on_death(e: Enemy) -> void:
 ## 与技能命中一样走纯距离数学，不引入物理。子弹可被玩家的左键斩与右键神纹销毁。
 
 func _load_bullet_frames() -> void:
-	var dir := "res://assets/art/enemies/crystal_sentinel/vfx/crystal_projectile"
-	for i in 6:
-		var p := "%s/crystal_projectile_%03d.png" % [dir, i]
-		if ResourceLoader.exists(p):
-			bullet_frames.append(load(p))
+	bullet_frames = _load_frame_dir(BAT_FX_DIR.path_join("projectile_fly"))
+	if bullet_frames.size() > 4:
+		bullet_frames.remove_at(0)   # 第 0 帧是个小光点，留着循环会一闪一断
+	for n in ["projectile_charge", "power_charge", "impact_flash", "impact_ring", "vanish"]:
+		var fr := _load_frame_dir(BAT_FX_DIR.path_join(n))
+		if not fr.is_empty():
+			fx_packs[n] = fr
+
+## 读一个序列帧目录：按文件名排序即帧序。编辑器里 png 与 png.import 并存，去重后再排。
+func _load_frame_dir(dir: String) -> Array[Texture2D]:
+	var out: Array[Texture2D] = []
+	var d := DirAccess.open(dir)
+	if d == null:
+		return out
+	var seen := {}
+	d.list_dir_begin()
+	var f := d.get_next()
+	while f != "":
+		var nm := f
+		if nm.ends_with(".remap"):
+			nm = nm.trim_suffix(".remap")
+		elif nm.ends_with(".import"):
+			nm = nm.trim_suffix(".import")
+		if nm.get_extension().to_lower() == "png" and not nm.begins_with("."):
+			seen[nm] = true
+		f = d.get_next()
+	d.list_dir_end()
+	var files: Array = seen.keys()
+	files.sort()
+	for nm in files:
+		out.append(load(dir.path_join(nm)))
+	return out
+
+## 播一发一次性序列帧特效。fps 跑完最后一帧就自动回收。
+func spawn_fx(name: String, pos: Vector2, rot := 0.0, scale := 1.0, fps := 14.0,
+		mod := Color(1, 1, 1, 1)) -> void:
+	var fr: Array = fx_packs.get(name, [])
+	if fr.is_empty():
+		return
+	fx_sprites.append({
+		"fr": fr, "pos": pos, "rot": rot, "s": scale, "t": 0.0, "fps": fps, "mod": mod,
+	})
+
+func _update_fx_sprites(delta: float, f: float) -> void:
+	if fx_sprites.is_empty():
+		return
+	for x in fx_sprites:
+		x.t = float(x.t) + delta * maxf(f, 0.0)
+	fx_sprites = fx_sprites.filter(
+		func(x): return int(float(x.t) * float(x.fps)) < x.fr.size())
 
 func spawn_enemy_bullet(pos: Vector2, dir: Vector2, cfg: Dictionary) -> void:
 	enemy_bullets.append({
@@ -1307,6 +1359,8 @@ func spawn_enemy_bullet(pos: Vector2, dir: Vector2, cfg: Dictionary) -> void:
 		"col": cfg.get("bullet_color", RED),
 		"t": 0.0,
 	})
+	# 枪口：出膛那一下的聚能闪，让「谁开的火、往哪打」在起手就读得出来
+	spawn_fx("projectile_charge", pos, dir.angle(), 1.0, 18.0)
 
 func _update_enemy_bullets(delta: float, f: float) -> void:
 	if enemy_bullets.is_empty():
@@ -1334,6 +1388,10 @@ func _update_enemy_bullets(delta: float, f: float) -> void:
 func _on_player_hurt() -> void:
 	hit_flash = 0.25
 	AudioMgr.play("hit", 0.9, -2.0)
+	# 受击特效：白核闪 + 扩散环，接触伤害与中弹共用
+	if player != null:
+		spawn_fx("impact_flash", player.position, randf() * TAU, 1.0, 16.0)
+		spawn_fx("impact_ring", player.position, 0.0, 1.25, 14.0)
 	# 挨打不再打断 R 的蓄力：HIT_CHARGE_PENALTY 默认 0，要恢复就在 data/player.tres 里填回去
 	if HIT_CHARGE_PENALTY > 0.0:
 		clock_charge = maxf(clock_charge - HIT_CHARGE_PENALTY, 0.0)
@@ -1378,6 +1436,7 @@ func clear_enemy_bullets_seg(org: Vector2, dir: Vector2, from_d: float, to_d: fl
 	return n
 
 func _pop_bullet(pos: Vector2, col: Color) -> void:
+	spawn_fx("vanish", pos, randf() * TAU, 0.8, 16.0)
 	for i in 3:
 		var ang := randf() * TAU
 		particles.append({
@@ -1424,6 +1483,7 @@ func _update_status(delta: float, f: float) -> void:
 			s.cd_left = maxf(float(s.cd_left) - delta, 0.0)
 	_update_blasts(delta)
 	_update_enemy_bullets(delta, enemy_speed_factor())
+	_update_fx_sprites(delta, enemy_speed_factor())
 	_update_quakes(delta)
 	_update_ents(delta, f)
 	_update_floods(delta)
@@ -1843,22 +1903,16 @@ func _paint_fx(l: PaintLayer) -> void:
 		l.draw_arc(r.pos, float(r.r) * (0.4 + 0.6 * (1.0 - ra)), 0.0, TAU, 48,
 			Color(RED.r, RED.g, RED.b, ra * 0.7), 3.0)
 	for b in enemy_bullets:
-		var bc: Color = b.col
-		var br: float = float(b.r)
-		if bullet_frames.is_empty():
-			l.draw_line(b.pos - b.dir * br * 2.4, b.pos, Color(bc.r, bc.g, bc.b, 0.3), br * 0.8)
-			l.draw_circle(b.pos, br, Color(bc.r, bc.g, bc.b, 0.9))
-		else:
-			# 贴图弹体：按 r / 源图弹体半径 缩放，保证直径与原来画的圆一致；
-			# 图心要沿飞行方向回退 BULLET_TEX_OFFSET，弹体中心才落在 b.pos 上。
-			var s: float = br / BULLET_TEX_RADIUS
-			var idx: int = int(float(b.t) * BULLET_ANIM_FPS) % bullet_frames.size()
-			l.draw_set_transform(b.pos, b.dir.angle(), Vector2(s, s))
-			l.draw_texture_rect(bullet_frames[idx], Rect2(
-				-Vector2(BULLET_TEX_SIZE * 0.5 + BULLET_TEX_OFFSET, BULLET_TEX_SIZE * 0.5),
-				Vector2(BULLET_TEX_SIZE, BULLET_TEX_SIZE)), false)
-			l.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		l.draw_arc(b.pos, br + 2.0, 0.0, TAU, 12, Color(RED.r, RED.g, RED.b, 0.55), 1.5)
+		_paint_enemy_bullet(l, b)
+	for x in fx_sprites:
+		var fr: Array = x.fr
+		var fi: int = clampi(int(float(x.t) * float(x.fps)), 0, fr.size() - 1)
+		var ft: Texture2D = fr[fi]
+		var fs: float = float(x.s)
+		var fsz := Vector2(ft.get_width(), ft.get_height())
+		l.draw_set_transform(x.pos, float(x.rot), Vector2(fs, fs))
+		l.draw_texture_rect(ft, Rect2(-fsz * 0.5, fsz), false, x.mod)
+		l.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	_paint_spells(l)
 	# 被标记怪：红痕 + 红环
 	for e in enemies:
@@ -1872,6 +1926,35 @@ func _paint_fx(l: PaintLayer) -> void:
 			l.draw_arc(e.position, r2 + 5.0, 0.0, TAU, 24,
 				Color(RED.r, RED.g, RED.b, 0.35), 1.5)
 	_paint_dial(l)
+
+## 敌弹：亮核对齐 b.pos，身后补几节等距残影再套一层外发光 —— 单张贴图在高速位移下
+## 是「跳着走」的，补上残影与光晕，整条轨迹才读得出来。
+func _paint_enemy_bullet(l: PaintLayer, b: Dictionary) -> void:
+	var bc: Color = b.col
+	var br: float = float(b.r)
+	if bullet_frames.is_empty():
+		l.draw_line(b.pos - b.dir * br * 2.4, b.pos, Color(bc.r, bc.g, bc.b, 0.3), br * 0.8)
+		l.draw_circle(b.pos, br, Color(bc.r, bc.g, bc.b, 0.9))
+		l.draw_arc(b.pos, br + 2.0, 0.0, TAU, 12, Color(bc.r, bc.g, bc.b, 0.55), 1.5)
+		return
+	var s: float = br * 2.0 * BULLET_VIS_MUL / BULLET_CORE_DIA
+	var ang: float = b.dir.angle()
+	var idx: int = int(float(b.t) * BULLET_ANIM_FPS) % bullet_frames.size()
+	var tex: Texture2D = bullet_frames[idx]
+	var rect := Rect2(-Vector2(BULLET_TEX_W * BULLET_CORE_FRAC, BULLET_TEX_H * 0.5),
+		Vector2(BULLET_TEX_W, BULLET_TEX_H))
+	var step: float = br * BULLET_VIS_MUL * 1.5
+	for i in range(BULLET_GHOSTS, 0, -1):
+		var k: float = 1.0 - float(i) / float(BULLET_GHOSTS + 1)
+		var gs: float = s * (0.55 + 0.45 * k)
+		l.draw_set_transform(b.pos - b.dir * step * float(i), ang, Vector2(gs, gs))
+		l.draw_texture_rect(tex, rect, false, Color(bc.r, bc.g, bc.b, 0.32 * k))
+		l.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	l.draw_circle(b.pos, br * BULLET_VIS_MUL * 1.15, Color(bc.r, bc.g, bc.b, 0.22))
+	l.draw_set_transform(b.pos, ang, Vector2(s, s))
+	l.draw_texture_rect(tex, rect, false)
+	l.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	l.draw_arc(b.pos, br + 2.0, 0.0, TAU, 12, Color(bc.r, bc.g, bc.b, 0.75), 2.0)
 
 ## 落雷电弧：辉光 / 弧体 / 亮芯三层叠着画，收尾带高频闪烁 ——
 ## 单薄的一根直线在静止帧上根本读不出「劈」，锯齿主干 + 支叉 + 落点光晕才看得清。

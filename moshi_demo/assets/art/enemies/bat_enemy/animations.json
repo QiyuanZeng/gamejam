@@ -1,0 +1,351 @@
+{
+  "format_version": 1,
+  "godot_version": "4.x",
+  "source_image": "sprite_overview.png",
+  "animations": {
+    "idle": {
+      "frame_count": 8,
+      "fps": 8.0,
+      "loop": true,
+      "canvas_size": [
+        136,
+        120
+      ],
+      "pivot": [
+        68,
+        60
+      ],
+      "frame_files": [
+        "frames/idle/idle_00.png",
+        "frames/idle/idle_01.png",
+        "frames/idle/idle_02.png",
+        "frames/idle/idle_03.png",
+        "frames/idle/idle_04.png",
+        "frames/idle/idle_05.png",
+        "frames/idle/idle_06.png",
+        "frames/idle/idle_07.png"
+      ],
+      "sheet_file": "sheets/idle.png",
+      "sprite_frames_file": "sprite_frames/idle.tres"
+    },
+    "move": {
+      "frame_count": 8,
+      "fps": 10.0,
+      "loop": true,
+      "canvas_size": [
+        136,
+        120
+      ],
+      "pivot": [
+        68,
+        60
+      ],
+      "frame_files": [
+        "frames/move/move_00.png",
+        "frames/move/move_01.png",
+        "frames/move/move_02.png",
+        "frames/move/move_03.png",
+        "frames/move/move_04.png",
+        "frames/move/move_05.png",
+        "frames/move/move_06.png",
+        "frames/move/move_07.png"
+      ],
+      "sheet_file": "sheets/move.png",
+      "sprite_frames_file": "sprite_frames/move.tres"
+    },
+    "attack_windup": {
+      "frame_count": 7,
+      "fps": 12.0,
+      "loop": false,
+      "canvas_size": [
+        136,
+        120
+      ],
+      "pivot": [
+        68,
+        60
+      ],
+      "frame_files": [
+        "frames/attack_windup/attack_windup_00.png",
+        "frames/attack_windup/attack_windup_01.png",
+        "frames/attack_windup/attack_windup_02.png",
+        "frames/attack_windup/attack_windup_03.png",
+        "frames/attack_windup/attack_windup_04.png",
+        "frames/attack_windup/attack_windup_05.png",
+        "frames/attack_windup/attack_windup_06.png"
+      ],
+      "sheet_file": "sheets/attack_windup.png",
+      "sprite_frames_file": "sprite_frames/attack_windup.tres"
+    },
+    "attack_release": {
+      "frame_count": 8,
+      "fps": 12.0,
+      "loop": false,
+      "canvas_size": [
+        136,
+        120
+      ],
+      "pivot": [
+        68,
+        60
+      ],
+      "frame_files": [
+        "frames/attack_release/attack_release_00.png",
+        "frames/attack_release/attack_release_01.png",
+        "frames/attack_release/attack_release_02.png",
+        "frames/attack_release/attack_release_03.png",
+        "frames/attack_release/attack_release_04.png",
+        "frames/attack_release/attack_release_05.png",
+        "frames/attack_release/attack_release_06.png",
+        "frames/attack_release/attack_release_07.png"
+      ],
+      "sheet_file": "sheets/attack_release.png",
+      "sprite_frames_file": "sprite_frames/attack_release.tres"
+    },
+    "hurt": {
+      "frame_count": 7,
+      "fps": 12.0,
+      "loop": false,
+      "canvas_size": [
+        136,
+        120
+      ],
+      "pivot": [
+        68,
+        60
+      ],
+      "frame_files": [
+        "frames/hurt/hurt_00.png",
+        "frames/hurt/hurt_01.png",
+        "frames/hurt/hurt_02.png",
+        "frames/hurt/hurt_03.png",
+        "frames/hurt/hurt_04.png",
+        "frames/hurt/hurt_05.png",
+        "frames/hurt/hurt_06.png"
+      ],
+      "sheet_file": "sheets/hurt.png",
+      "sprite_frames_file": "sprite_frames/hurt.tres"
+    },
+    "death": {
+      "frame_count": 9,
+      "fps": 10.0,
+      "loop": false,
+      "canvas_size": [
+        136,
+        120
+      ],
+      "pivot": [
+        68,
+        60
+      ],
+      "frame_files": [
+        "frames/death/death_00.png",
+        "frames/death/death_01.png",
+        "frames/death/death_02.png",
+        "frames/death/death_03.png",
+        "frames/death/death_04.png",
+        "frames/death/death_05.png",
+        "frames/death/death_06.png",
+        "frames/death/death_07.png",
+        "frames/death/death_08.png"
+      ],
+      "sheet_file": "sheets/death.png",
+      "sprite_frames_file": "sprite_frames/death.tres"
+    },
+    "projectile_charge": {
+      "frame_count": 5,
+      "fps": 12.0,
+      "loop": false,
+      "canvas_size": [
+        88,
+        80
+      ],
+      "pivot": [
+        44,
+        40
+      ],
+      "frame_files": [
+        "frames/projectile_charge/projectile_charge_00.png",
+        "frames/projectile_charge/projectile_charge_01.png",
+        "frames/projectile_charge/projectile_charge_02.png",
+        "frames/projectile_charge/projectile_charge_03.png",
+        "frames/projectile_charge/projectile_charge_04.png"
+      ],
+      "sheet_file": "sheets/projectile_charge.png",
+      "sprite_frames_file": "sprite_frames/projectile_charge.tres"
+    },
+    "projectile_fly": {
+      "frame_count": 7,
+      "fps": 16.0,
+      "loop": true,
+      "canvas_size": [
+        176,
+        88
+      ],
+      "pivot": [
+        88,
+        44
+      ],
+      "frame_files": [
+        "frames/projectile_fly/projectile_fly_00.png",
+        "frames/projectile_fly/projectile_fly_01.png",
+        "frames/projectile_fly/projectile_fly_02.png",
+        "frames/projectile_fly/projectile_fly_03.png",
+        "frames/projectile_fly/projectile_fly_04.png",
+        "frames/projectile_fly/projectile_fly_05.png",
+        "frames/projectile_fly/projectile_fly_06.png"
+      ],
+      "sheet_file": "sheets/projectile_fly.png",
+      "sprite_frames_file": "sprite_frames/projectile_fly.tres"
+    },
+    "impact_flash": {
+      "frame_count": 5,
+      "fps": 14.0,
+      "loop": false,
+      "canvas_size": [
+        112,
+        120
+      ],
+      "pivot": [
+        56,
+        60
+      ],
+      "frame_files": [
+        "frames/impact_flash/impact_flash_00.png",
+        "frames/impact_flash/impact_flash_01.png",
+        "frames/impact_flash/impact_flash_02.png",
+        "frames/impact_flash/impact_flash_03.png",
+        "frames/impact_flash/impact_flash_04.png"
+      ],
+      "sheet_file": "sheets/impact_flash.png",
+      "sprite_frames_file": "sprite_frames/impact_flash.tres"
+    },
+    "impact_ring": {
+      "frame_count": 5,
+      "fps": 14.0,
+      "loop": false,
+      "canvas_size": [
+        112,
+        120
+      ],
+      "pivot": [
+        56,
+        60
+      ],
+      "frame_files": [
+        "frames/impact_ring/impact_ring_00.png",
+        "frames/impact_ring/impact_ring_01.png",
+        "frames/impact_ring/impact_ring_02.png",
+        "frames/impact_ring/impact_ring_03.png",
+        "frames/impact_ring/impact_ring_04.png"
+      ],
+      "sheet_file": "sheets/impact_ring.png",
+      "sprite_frames_file": "sprite_frames/impact_ring.tres"
+    },
+    "power_charge": {
+      "frame_count": 5,
+      "fps": 12.0,
+      "loop": false,
+      "canvas_size": [
+        112,
+        104
+      ],
+      "pivot": [
+        56,
+        52
+      ],
+      "frame_files": [
+        "frames/power_charge/power_charge_00.png",
+        "frames/power_charge/power_charge_01.png",
+        "frames/power_charge/power_charge_02.png",
+        "frames/power_charge/power_charge_03.png",
+        "frames/power_charge/power_charge_04.png"
+      ],
+      "sheet_file": "sheets/power_charge.png",
+      "sprite_frames_file": "sprite_frames/power_charge.tres"
+    },
+    "vanish": {
+      "frame_count": 5,
+      "fps": 10.0,
+      "loop": false,
+      "canvas_size": [
+        112,
+        120
+      ],
+      "pivot": [
+        56,
+        60
+      ],
+      "frame_files": [
+        "frames/vanish/vanish_00.png",
+        "frames/vanish/vanish_01.png",
+        "frames/vanish/vanish_02.png",
+        "frames/vanish/vanish_03.png",
+        "frames/vanish/vanish_04.png"
+      ],
+      "sheet_file": "sheets/vanish.png",
+      "sprite_frames_file": "sprite_frames/vanish.tres"
+    },
+    "orbit_particle": {
+      "frame_count": 19,
+      "fps": 16.0,
+      "loop": true,
+      "canvas_size": [
+        80,
+        128
+      ],
+      "pivot": [
+        40,
+        64
+      ],
+      "frame_files": [
+        "frames/orbit_particle/orbit_particle_00.png",
+        "frames/orbit_particle/orbit_particle_01.png",
+        "frames/orbit_particle/orbit_particle_02.png",
+        "frames/orbit_particle/orbit_particle_03.png",
+        "frames/orbit_particle/orbit_particle_04.png",
+        "frames/orbit_particle/orbit_particle_05.png",
+        "frames/orbit_particle/orbit_particle_06.png",
+        "frames/orbit_particle/orbit_particle_07.png",
+        "frames/orbit_particle/orbit_particle_08.png",
+        "frames/orbit_particle/orbit_particle_09.png",
+        "frames/orbit_particle/orbit_particle_10.png",
+        "frames/orbit_particle/orbit_particle_11.png",
+        "frames/orbit_particle/orbit_particle_12.png",
+        "frames/orbit_particle/orbit_particle_13.png",
+        "frames/orbit_particle/orbit_particle_14.png",
+        "frames/orbit_particle/orbit_particle_15.png",
+        "frames/orbit_particle/orbit_particle_16.png",
+        "frames/orbit_particle/orbit_particle_17.png",
+        "frames/orbit_particle/orbit_particle_18.png"
+      ],
+      "sheet_file": "sheets/orbit_particle.png",
+      "sprite_frames_file": "sprite_frames/orbit_particle.tres"
+    }
+  },
+  "bundles": {
+    "bat_enemy_all": {
+      "animations": [
+        "idle",
+        "move",
+        "attack_windup",
+        "attack_release",
+        "hurt",
+        "death"
+      ],
+      "sprite_frames_file": "sprite_frames/bat_enemy_all.tres"
+    },
+    "effects_all": {
+      "animations": [
+        "projectile_charge",
+        "projectile_fly",
+        "impact_flash",
+        "impact_ring",
+        "power_charge",
+        "vanish",
+        "orbit_particle"
+      ],
+      "sprite_frames_file": "sprite_frames/effects_all.tres"
+    }
+  }
+}

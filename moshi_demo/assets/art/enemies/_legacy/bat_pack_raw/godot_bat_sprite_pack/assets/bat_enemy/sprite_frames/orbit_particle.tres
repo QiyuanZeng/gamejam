@@ -1,0 +1,107 @@
+[gd_resource type="SpriteFrames" load_steps=21 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/bat_enemy/sheets/orbit_particle.png" id="1_sheet"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_00"]
+atlas = ExtResource("1_sheet")
+region = Rect2(0, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_01"]
+atlas = ExtResource("1_sheet")
+region = Rect2(80, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_02"]
+atlas = ExtResource("1_sheet")
+region = Rect2(160, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_03"]
+atlas = ExtResource("1_sheet")
+region = Rect2(240, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_04"]
+atlas = ExtResource("1_sheet")
+region = Rect2(320, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_05"]
+atlas = ExtResource("1_sheet")
+region = Rect2(400, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_06"]
+atlas = ExtResource("1_sheet")
+region = Rect2(480, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_07"]
+atlas = ExtResource("1_sheet")
+region = Rect2(560, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_08"]
+atlas = ExtResource("1_sheet")
+region = Rect2(640, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_09"]
+atlas = ExtResource("1_sheet")
+region = Rect2(720, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_10"]
+atlas = ExtResource("1_sheet")
+region = Rect2(800, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_11"]
+atlas = ExtResource("1_sheet")
+region = Rect2(880, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_12"]
+atlas = ExtResource("1_sheet")
+region = Rect2(960, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_13"]
+atlas = ExtResource("1_sheet")
+region = Rect2(1040, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_14"]
+atlas = ExtResource("1_sheet")
+region = Rect2(1120, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_15"]
+atlas = ExtResource("1_sheet")
+region = Rect2(1200, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_16"]
+atlas = ExtResource("1_sheet")
+region = Rect2(1280, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_17"]
+atlas = ExtResource("1_sheet")
+region = Rect2(1360, 0, 80, 128)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_18"]
+atlas = ExtResource("1_sheet")
+region = Rect2(1440, 0, 80, 128)
+
+[resource]
+animations = [{
+"frames": [
+{"duration": 1.0, "texture": SubResource("AtlasTexture_00")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_01")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_02")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_03")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_04")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_05")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_06")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_07")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_08")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_09")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_10")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_11")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_12")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_13")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_14")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_15")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_16")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_17")},
+{"duration": 1.0, "texture": SubResource("AtlasTexture_18")}
+],
+"loop": true,
+"name": &"orbit_particle",
+"speed": 16.0
+}]
