@@ -316,7 +316,7 @@ func _ready() -> void:
 	add_child(player)
 	camera = Camera2D.new()
 	camera.position = player.position + Vector2(0, -90)
-	camera.zoom = Vector2(0.82, 0.82)
+	camera.zoom = Vector2(0.72, 0.72)
 	camera.limit_left = 0
 	camera.limit_top = 0
 	camera.limit_right = int(ARENA.x)
@@ -327,7 +327,7 @@ func _ready() -> void:
 	if dial_clock_tex != null:
 		dial_clock = Sprite2D.new()
 		dial_clock.texture = dial_clock_tex
-		var clock_scale := (DIAL_RADIUS * 4.55) / float(maxi(dial_clock_tex.get_width(), dial_clock_tex.get_height()))
+		var clock_scale := (DIAL_RADIUS * 5.5) / float(maxi(dial_clock_tex.get_width(), dial_clock_tex.get_height()))
 		dial_clock.scale = Vector2(clock_scale, clock_scale)
 		dial_clock.modulate.a = 0.8
 		dial_clock.z_index = -1
@@ -345,6 +345,7 @@ func _ready() -> void:
 	hud = HUD.new()
 	hud.game = self
 	add_child(hud)
+	AudioMgr.play_bgm("dial")
 
 func _make_layer(z: int) -> PaintLayer:
 	var l := PaintLayer.new()
@@ -887,18 +888,14 @@ func _end_draw() -> void:
 func _fire(s: Dictionary) -> int:
 	s.cd_left = float(s.cd)
 	_show_skill_art(String(s.id))
-	zan_t = 0.5
-	zan_red = true
-	zan_text = String(s.name).split("·")[0]
 	AudioMgr.play("burst", 1.1, -6.0)
 	return CAST_TAKEOVER if _cast(String(s.id)) else CAST_DONE
 
 ## 神纹录里还空着的碑位下标，按表内顺序。面板的 1~N 就是照这个列表点名的。
 func _show_skill_art(id: String) -> void:
-	if id == "time":
-		return
 	if skill_art_t > 0.0:
-		skill_art_queue.append(id)
+		if skill_art_id != id:
+			skill_art_queue.append(id)
 		return
 	skill_art_id = id
 	skill_art_t = SKILL_ART_DURATION
@@ -1197,6 +1194,8 @@ func _kill_enemy(e: Enemy, source := "normal") -> void:
 		return
 	e.dead = true
 	kills += 1
+	_popup(e.position + Vector2(0, -float(e.cfg.radius) - 20.0),
+		str(int(e.cfg.score)), Color("#C0392B"))
 	kill_streak += 1
 	if kill_streak % MULT_STEP_KILLS == 0:
 		score_mult = minf(score_mult + MULT_STEP, MULT_CAP)
@@ -1233,6 +1232,22 @@ func _kill_enemy(e: Enemy, source := "normal") -> void:
 		e.queue_free()
 	if state != State.BURST:
 		hit_stop = maxf(hit_stop, KILL_FREEZE)
+
+## 击杀跳字（参考 demo_game 的 _popup）：Label 挂世界层，相机自动变换，tween 上浮淡出。
+func _popup(pos: Vector2, text: String, color: Color) -> void:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 30)
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.5))
+	l.add_theme_constant_override("outline_size", 4)
+	l.position = pos + Vector2(-20.0, -40.0)
+	add_child(l)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(l, "position:y", l.position.y - 60.0, 0.7)
+	tw.tween_property(l, "modulate:a", 0.0, 0.7)
+	tw.chain().tween_callback(l.queue_free)
 
 ## 分裂怪死亡：按总表里该怪的 split_count / split_child_id 生成子体。
 ## 子体配置里 split_child_id 为空，所以不会二次分裂。
@@ -1548,9 +1563,7 @@ func _begin_rewind() -> void:
 	trail.clear()
 	trail_acc = TRAIL_INTERVAL
 	player.invuln = 999.0
-	zan_t = 0.5
-	zan_red = true
-	zan_text = "回溯"
+	_show_skill_art("time")
 	AudioMgr.play("rewind", 1.0, -2.0)
 
 func _update_rewind(delta: float) -> void:
@@ -1801,8 +1814,8 @@ func _paint_rewind_guide(l: PaintLayer) -> void:
 	if rewind_hist.is_empty():
 		return
 	WaterRenderer.ensure_loaded()
-	# 底色是浅蓝水面，泡沫白压根看不见 —— 取水色压深当墨线
-	var base := WaterRenderer.getc(WaterRenderer.current, "water_color").darkened(0.5)
+	# 留下的字迹用暖米白，和浅蓝水面拉开对比。
+	var base := Color("#FFFED0")
 	var ready := clock_charge >= CLOCK_TIME or state == State.REWIND
 	var a := 0.85 if ready else 0.40
 	var w := 3.5 if ready else 2.2
@@ -1853,15 +1866,16 @@ func _paint_ink(l: PaintLayer) -> void:
 	if state == State.DASH or state == State.BURST:
 		if dash_done.size() >= 2 and dash_ages.size() == dash_done.size():
 			WaterRenderer.draw_water_path(l, dash_done, dash_ages, 1.0)
-	if state == State.REWIND:
-		# 只给「正在倒着走的那一段」上水痕：整条链子逐段全量重绘要 1.4 万个三角形/帧，
-		# 其余段由常驻航道线交代，视觉信息一点不少。
-		var span := WaterRenderer.getf(WaterRenderer.current, "life_time") * 0.5
-		if rewind_i >= 0 and rewind_i < rewind_hist.size():
-			var cur: PackedVector2Array = rewind_hist[rewind_i]
-			if cur.size() >= 2:
-				WaterRenderer.draw_water_path(l, cur,
-					WaterRenderer.synth_ages(cur.size(), 0.0, span), 1.0)
+		if state == State.REWIND:
+			# 只给「正在倒着走的那一段」上水痕：整条链子逐段全量重绘要 1.4 万个三角形/帧，
+			# 其余段由常驻航道线交代，视觉信息一点不少。
+			var span := WaterRenderer.getf(WaterRenderer.current, "life_time") * 0.5
+			if rewind_i >= 0 and rewind_i < rewind_hist.size():
+				var cur: PackedVector2Array = rewind_hist[rewind_i]
+				if cur.size() >= 2:
+					WaterRenderer.draw_water_path(l, cur,
+						WaterRenderer.synth_ages(cur.size(), 0.0, span), 1.0)
+	_paint_dial_ground(l)
 
 func _paint_fx(l: PaintLayer) -> void:
 	for t in trail:
@@ -1945,11 +1959,28 @@ func _paint_spells(l: PaintLayer) -> void:
 
 ## §11 地面表盘 + 头顶 AP 点（世界内 UI，不进 HUD）
 func _paint_dial(l: PaintLayer) -> void:
+	# fx 层只画头顶 AP 星（怪物之上）；地面表盘/环/血条在 ink 层 _paint_dial_ground
+	# 钟盘/指针 sprite 定位在 _paint_dial_ground 用 local position，跟随抖动
+	if state == State.GAMEOVER or player == null:
+		return
+	var c := player.position
+	var n := ap_max()
+	var full := int(floor(ap))
+	var w := 36.0 * float(n - 1)
+	for i in n:
+		var p := c + Vector2(-w * 0.5 + 36.0 * float(i), -92.0)
+		var tex := STAR_GOLD if i < full else STAR_BLUE
+		var a := 0.95 if i < full else 0.55
+		l.draw_texture_rect(tex, Rect2(p - Vector2(12.75, 12.75), Vector2(25.5, 25.5)),
+			false, Color(1, 1, 1, a))
+
+## 地面表盘 + 环 + 血条：画在 ink 层（怪物之下），不遮挡怪。
+func _paint_dial_ground(l: PaintLayer) -> void:
 	if state == State.GAMEOVER or player == null:
 		return
 	var c := player.position
 	if dial_clock != null:
-		dial_clock.global_position = c
+		dial_clock.position = c
 	else:
 		l.draw_arc(c, DIAL_RADIUS, 0.0, TAU, 48, Color(GREY.r, GREY.g, GREY.b, 0.30), 1.5)
 		for i in 12:
@@ -1965,10 +1996,9 @@ func _paint_dial(l: PaintLayer) -> void:
 		var ma := -PI * 0.5 + TAU * fmod(dial_t, MIN_PERIOD) / MIN_PERIOD
 		l.draw_line(c, c + Vector2(cos(ma), sin(ma)) * (DIAL_RADIUS - 8.0),
 			Color(GREY.r, GREY.g, GREY.b, 0.5), 2.0)
-	# 时针（唯一锚定斩击方向）：蓝色水晶指针素材，未就位时代码线兜底
 	var ready := ap >= 1.0
 	if dial_pointer != null:
-		dial_pointer.global_position = c
+		dial_pointer.position = c
 		dial_pointer.rotation = hour_dir().angle()
 		dial_pointer.modulate = Color(1, 1, 1, 1.0) if ready else Color(0.6, 0.6, 0.65, 0.4)
 	else:
@@ -1978,29 +2008,19 @@ func _paint_dial(l: PaintLayer) -> void:
 			l.draw_line(c + hour_dir() * DIAL_RADIUS, c + hour_dir() * (DIAL_RADIUS + 12.0),
 				Color(RED.r, RED.g, RED.b, 0.55), 2.0)
 		l.draw_circle(c, 3.0, hcol)
-	# 头顶 AP：星星图标，有次数=金色，用完=蓝色，最新一格最亮。
-	var n := ap_max()
-	var full := int(floor(ap))
-	var w := 36.0 * float(n - 1)
-	for i in n:
-		var p := c + Vector2(-w * 0.5 + 36.0 * float(i), -92.0)
-		var tex := STAR_GOLD if i < full else STAR_BLUE
-		var a := 0.95 if i < full else 0.55
-		l.draw_texture_rect(tex, Rect2(p - Vector2(12.75, 12.75), Vector2(25.5, 25.5)),
-			false, Color(1, 1, 1, a))
-	# 时间值环形条：放在表盘外缘，饱和蓝色
+	# 时间值环形条：常驻亮蓝（不随 dry_pen 变灰），饱和度适中；用掉的部分画白色
 	var tv_f: float = clampf(tv / tv_max(), 0.0, 1.0)
-	var tv_ring_r := 162.0
-	var tv_col := Color("#F3FAFF") if not dry_pen else Color("#6D8498")
-	l.draw_arc(c, tv_ring_r, 0.0, TAU, 64, Color(1, 1, 1, 0.12), 2.0)
+	var tv_ring_r := 120.0
+	var tv_col := Color(0.30, 0.70, 1.0)
+	l.draw_arc(c, tv_ring_r, 0.0, TAU, 64, Color(1, 1, 1, 0.9), 5.0)
 	if tv_f > 0.0:
 		l.draw_arc(c, tv_ring_r, -PI * 0.5, -PI * 0.5 + TAU * tv_f, 48,
-			Color(tv_col.r, tv_col.g, tv_col.b, 0.9), 3.0)
-	# 血条：人物正下方，同层级绘制
+			Color(tv_col.r, tv_col.g, tv_col.b, 1.0), 8.0)
+	# 血条：人物正下方
 	var hp_f: float = clampf(player.hp / player.max_hp, 0.0, 1.0)
-	var hp_pos := c + Vector2(-68.0, 46.0)
+	var hp_pos := c + Vector2(-68.0, 78.0)
 	var hp_size := Vector2(136.0, 6.0)
-	var hp_col := Color("#B67D86")
+	var hp_col := Color("#D4526A")
 	l.draw_rect(Rect2(hp_pos, hp_size), Color(0, 0, 0, 0.10))
 	l.draw_rect(Rect2(hp_pos, Vector2(hp_size.x * hp_f, hp_size.y)),
 		Color(hp_col.r, hp_col.g, hp_col.b, 0.8))

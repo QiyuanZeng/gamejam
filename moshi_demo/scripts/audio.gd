@@ -4,12 +4,21 @@ extends Node
 
 var _players: Array[AudioStreamPlayer] = []
 var _sfx: Dictionary = {}
+var _bgm_player: AudioStreamPlayer
+
+## BGM 键 → 文件（assets/audio/）。主音频为 BGM_04_FinalClock_B。
+const BGM_PATHS := {
+	"main": "res://assets/audio/BGM_04_FinalClock_B_SOURCE.mp3",
+	"dial": "res://assets/audio/BGM_04_FinalClock_B_SOURCE.mp3",
+}
 
 func _ready() -> void:
 	for i in 12:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		_players.append(p)
+	_bgm_player = AudioStreamPlayer.new()
+	add_child(_bgm_player)
 	_sfx["kill"] = _tone(540.0, 0.16, 22.0, 0)
 	_sfx["dash"] = _noise(0.28, 9.0, 0.5)
 	_sfx["burst"] = _tone(85.0, 0.4, 7.0, 2)
@@ -35,6 +44,22 @@ func play(sfx_name: String, pitch: float = 1.0, volume_db: float = 0.0) -> void:
 func play_later(sfx_name: String, delay: float, pitch: float = 1.0, volume_db: float = 0.0) -> void:
 	get_tree().create_timer(delay).timeout.connect(
 		func() -> void: play(sfx_name, pitch, volume_db))
+
+func play_bgm(key: String, volume_db: float = -10.0) -> void:
+	var path: String = BGM_PATHS.get(key, "")
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return
+	var stream = load(path)
+	if stream == null:
+		return
+	if _bgm_player.stream == stream and _bgm_player.playing:
+		return
+	_bgm_player.stream = stream
+	_bgm_player.volume_db = volume_db
+	_bgm_player.play()
+
+func stop_bgm() -> void:
+	_bgm_player.stop()
 
 func _assign(p: AudioStreamPlayer, sfx_name: String, pitch: float, volume_db: float) -> void:
 	p.stream = _sfx[sfx_name]

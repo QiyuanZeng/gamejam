@@ -15,6 +15,7 @@ const CLOCK_IDLE := Color("#6D8498")
 const SKILL_BLUE_BLACK := Color("#243744")
 
 const SKILL_ART := {
+	"time": preload("res://assets/ui/skill_time.png"),
 	"thunder": preload("res://assets/ui/skill_thunder.png"),
 	"quake": preload("res://assets/ui/skill_quake.png"),
 	"ent": preload("res://assets/ui/skill_ent.png"),
@@ -23,6 +24,11 @@ const SKILL_ART := {
 	"swords": preload("res://assets/ui/skill_swords.png"),
 	"alpha": preload("res://assets/ui/skill_alpha.png"),
 }
+
+const ZAN_TEX := preload("res://assets/ui/斩.png")
+const SETTLE_BG := preload("res://assets/ui/Settlement/background.png")
+const SETTLE_TITLE := preload("res://assets/ui/Settlement/title.png")
+const SETTLE_BUTTON := preload("res://assets/ui/Settlement/button.png")
 
 var game
 var font: Font
@@ -50,6 +56,13 @@ func _ready() -> void:
 func request_redraw() -> void:
 	if board != null:
 		board.queue_redraw()
+
+## 世界坐标 → HUD 屏幕坐标（相机跟随+zoom 后伤害数字才能对上怪）
+func _world_to_screen(p: Vector2) -> Vector2:
+	var cam = game.camera
+	if cam == null:
+		return p
+	return (p - cam.position) * cam.zoom + Vector2(576.0, 324.0)
 
 func _paint(r: Control) -> void:
 	if game == null:
@@ -124,20 +137,21 @@ func _paint(r: Control) -> void:
 		var a: float = clampf(1.0 - k, 0.0, 1.0)
 		var size: int = 42 if n.red else 30
 		var pop := 1.0 + 0.6 * clampf((0.12 - n.t) / 0.12, 0.0, 1.0)
-		var col := Color(RED.r, RED.g, RED.b, a) if n.red else Color(INK.r, INK.g, INK.b, a)
-		var pos: Vector2 = n.pos + Vector2(0, -60.0 * k) + Vector2(0, -float(size))
+		var col := Color(RED.r, RED.g, RED.b, a) if n.red else Color(0.35, 0.75, 1.0, a)
+		var pos: Vector2 = _world_to_screen(n.pos) + Vector2(0, -60.0 * k) + Vector2(0, -float(size))
 		_text_center(r, pos.x, pos.y, str(n.val), int(float(size) * pop), col)
 	# —— 「斬」/「回溯」/技能大字 ——
 	if game.zan_t > 0.0:
 		var za: float = clampf(game.zan_t / 0.5, 0.0, 1.0)
-		var zcol := Color(RED.r, RED.g, RED.b, za) if game.zan_red else Color(INK.r, INK.g, INK.b, za)
-		_text_center(r, w * 0.5, h * 0.42, game.zan_text, 150, zcol)
-	# —— 新手提示 ——
-	if game.kills == 0 and game.help_t > 0.0:
-		var ha: float = clampf(game.help_t, 0.0, 1.0)
-		_text_center(r, w * 0.5, h - 96.0,
-			"左键 表盘定向斩 · 空格 表盘倒转 · 按住右键 子弹时间书写（松开斩击，笔形对上即施咒）· R 回溯",
-			15, Color(GREY.r, GREY.g, GREY.b, ha * 0.85))
+		if game.zan_text == "斬":
+			var tex: Texture2D = ZAN_TEX
+			var max_size := Vector2(430.0, 242.0)
+			var size := max_size * (0.65 + 0.35 * clampf((0.5 - game.zan_t) / 0.35, 0.0, 1.0))
+			var rect := Rect2(Vector2(w, h) * 0.5 - size * 0.5, size)
+			r.draw_texture_rect(tex, rect, false, Color(1, 1, 1, za))
+		else:
+			var zcol := Color(RED.r, RED.g, RED.b, za) if game.zan_red else Color(INK.r, INK.g, INK.b, za)
+			_text_center(r, w * 0.5, h * 0.42, game.zan_text, 150, zcol)
 	# —— 时滞 ——
 	if game.state == game.State.LAG:
 		_text_center(r, w * 0.5, h * 0.60, "时滞 %.1f" % maxf(game.lag_timer, 0.0),
@@ -213,18 +227,45 @@ func _paint_skills(r: Control, w: float, h: float) -> void:
 			Color(UI_TEXT_WHITE.r, UI_TEXT_WHITE.g, UI_TEXT_WHITE.b, 0.75))
 
 func _paint_settle(r: Control, w: float, h: float) -> void:
-	r.draw_rect(Rect2(0, 0, w, h), Color(0.05, 0.045, 0.04, 0.85))
-	_text_center(r, w * 0.5, h * 0.16, "时 尽", 64, PAPER)
-	_text_center(r, w * 0.5, h * 0.16 + 76.0, game.rating, 130,
-		Color(RED.r, RED.g, RED.b, 0.95))
-	var y := h * 0.16 + 218.0
-	_text_center(r, w * 0.5, y, "总分 %d   ×%.1f 倍率   斩杀 %d" % [
-		int(round(game.score)), game.score_mult, game.kills], 24, Color(0.82, 0.80, 0.75))
-	_text_center(r, w * 0.5, y + 34.0, "金币 %d   时砂 %d   时滞 %d 次" % [
-		game.payout_coins, game.payout_sand, game.lag_count], 20, Color(0.78, 0.76, 0.71))
-	var blink := 0.55 + 0.45 * sin(game.sim_time * 5.0)
-	_text_center(r, w * 0.5, y + 76.0, "点击 / 回车 · 重开一局",
-		18, Color(RED.r, RED.g, RED.b, blink))
+	r.draw_texture_rect(SETTLE_BG, Rect2(0, 0, w, h), false)
+	r.draw_rect(Rect2(0, 0, w, h), Color(0.03, 0.08, 0.17, 0.10))
+
+	# 美术原图是透明大画布；region 只取有效区域，避免空白把版面挤散。
+	r.draw_texture_rect_region(SETTLE_TITLE, Rect2(36, 28, 270, 150),
+		Rect2(62, 196, 1322, 710))
+	_text(r, Vector2(66, 166), "命运未尽，时之回环", 18, Color("#DCE9F7"))
+	_text(r, Vector2(66, 202), "击 杀 积 分", 16, Color("#B8D3ED"))
+	_text(r, Vector2(62, 220), "%s" % _fmt_score(game.score), 76, Color.WHITE)
+
+	var stats := [
+		["斩杀数", "%d" % game.kills],
+		["连斩倍率", "×%.1f" % game.score_mult],
+		["时砂收集", "%d" % game.payout_sand],
+		["轮回评级", game.rating],
+		["本局时长", _fmt(game.run_time)],
+	]
+	var y := 322.0
+	for stat in stats:
+		_text(r, Vector2(66, y), String(stat[0]), 18, Color("#DCE9F7"))
+		_text(r, Vector2(342, y - 2.0), String(stat[1]), 26, Color.WHITE,
+			HORIZONTAL_ALIGNMENT_RIGHT, 160.0)
+		r.draw_line(Vector2(66, y + 29.0), Vector2(502, y + 29.0), Color(0.68, 0.82, 0.96, 0.24), 1.0)
+		y += 42.0
+
+	var pulse := 0.88 + 0.12 * sin(game.sim_time * 4.0)
+	# 等比绘制（区域 1391×418 ≈ 3.33:1），0.8x 尺寸：312×94，不再竖向压扁。
+	r.draw_texture_rect_region(SETTLE_BUTTON, Rect2(47, 526, 312, 94),
+		Rect2(33, 318, 1391, 418), Color(1.0, 1.0, 1.0, pulse))
+	_text_center(r, 242.0, 622.0, "点击 / 回车", 14, Color("#DCE9F7"))
+
+func _fmt_score(v: float) -> String:
+	var raw := str(int(round(v)))
+	var out := ""
+	for i in raw.length():
+		if i > 0 and (raw.length() - i) % 3 == 0:
+			out += ","
+		out += raw[i]
+	return out
 
 func _text(r: Control, pos: Vector2, s: String, size: int, col: Color,
 		align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0) -> void:
