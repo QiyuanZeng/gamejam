@@ -115,9 +115,9 @@ func _process(delta: float) -> void:
 			g.bind_pick_panel = false
 			var probe := SpellMatch.feature(_densify(_awaken_shape(), 0.0))
 			var top := float(SpellMatch.best_match(probe, g.skills).top)
-			_chk(float(probe.px) >= g.tv_max() * g.BIND_ENERGY_RATIO,
-				"E 笔长 %.0fpx 过觉醒线 %.0fpx（上限的 %.0f%%）" % [
-					float(probe.px), g.tv_max() * g.BIND_ENERGY_RATIO,
+			_chk(float(probe.px) >= _awaken_px(g.tv_max()),
+				"E 笔长 %.0fpx 过觉醒线 %.0fpx（烧掉满墨的 %.0f%%）" % [
+					float(probe.px), _awaken_px(g.tv_max()),
 					g.BIND_ENERGY_RATIO * 100.0])
 			_chk(top < SpellMatch.BIND_MAX_SIM,
 				"E 与已有神纹最高才 %.0f%%，过得了撞形闸 %.0f%%" % [
@@ -187,13 +187,13 @@ func _process(delta: float) -> void:
 			if _wait_play(16):
 				pass
 		16:
-			# 门槛负例：陌生但太短的笔（不到上限 70%）→ 概率拉满也不该觉醒
+			# 门槛负例：陌生但太短的笔（烧不掉起笔余额的 70%）→ 概率拉满也不该觉醒
 			_reset()
 			g.bind_chance = 1.0
 			var short_probe := SpellMatch.feature(_densify(_short_shape(), 0.0))
-			_chk(float(short_probe.px) < g.tv_max() * g.BIND_ENERGY_RATIO,
+			_chk(float(short_probe.px) < _awaken_px(g.tv_max()),
 				"H 短笔 %.0fpx 不到觉醒线 %.0fpx" % [
-					float(short_probe.px), g.tv_max() * g.BIND_ENERGY_RATIO])
+					float(short_probe.px), _awaken_px(g.tv_max())])
 			var before4 := _bound_count()
 			_write(_densify(_short_shape(), 0.0), 0.0)
 			_chk(not g.bind_panel, "H 墨耗不够 70% 不弹盘")
@@ -250,16 +250,21 @@ func _last_awakened() -> Dictionary:
 
 ## 一个够长的陌生形：闭合三角。
 ## 圆不行 —— 太容易跟别的形贴上撞形闸；折线也不行 —— 「雷」本身就是折线。
-## 边长按**当前墨上限**推算，保证周长压过觉醒线一成有余；$Q 是尺度无关的，放大不影响相似度。
+## 觉醒闸卡的是**烧掉的墨**，不是像素，所以边长要按 tv_cost_per_px 折算回 px，
+## 再压过觉醒线一成有余；$Q 是尺度无关的，放大不影响相似度。
 func _awaken_shape() -> PackedVector2Array:
 	# 正三角周长 = 3√3 × 外接圆半径 ≈ 5.196 R
-	var want: float = g.tv_max() * g.BIND_ENERGY_RATIO * 1.12
+	var want: float = _awaken_px(g.tv_max()) * 1.12
 	var r: float = maxf(want / 5.196, 88.0)
 	var out := PackedVector2Array()
 	for i in 4:
 		var a := -PI * 0.5 + TAU * float(i) / 3.0
 		out.append(Vector2(560, 320) + Vector2(cos(a), sin(a)) * r)
 	return out
+
+## 起笔余额为 tv0 时，够得着觉醒线所需的最短笔长（px）。
+func _awaken_px(tv0: float) -> float:
+	return tv0 * g.BIND_ENERGY_RATIO / g.TV_COST_PER_PX
 
 ## 同样陌生但笔太短的形：半径 30 的圆约 188px，够得着识别门槛却够不着觉醒线。
 func _short_shape() -> PackedVector2Array:
