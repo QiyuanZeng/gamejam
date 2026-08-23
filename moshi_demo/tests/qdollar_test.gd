@@ -7,10 +7,11 @@ var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	rng.seed = 20260822
+	SpellMatch.load_config()          # 门槛按 data/spell.tres 走，别用代码兜底值
 	var skills := SpellMatch.build_skills()
 	# 不写死下标：神纹录顺序调过一次了，改用 id 查，省得下回再全篇返工
 	var lei := _find(skills, "thunder")
-	var shi := _find(skills, "time")
+	var mu := _find(skills, "ent")
 	var base := SpellMatch.ancient_stroke("thunder")
 
 	print("— 不变性（应命中，门槛 %.0f%%）—" % (SpellMatch.SCORE_MIN * 100.0))
@@ -26,9 +27,9 @@ func _ready() -> void:
 		"反向 + 手抖 ±6px")
 
 	print("— 拒识（不应命中）—")
-	_expect(false, lei, _xform(SpellMatch.ancient_stroke("time"), 3.0, 0.0, Vector2.ZERO),
-		"「时」错认成「雷」")
-	_expect(false, shi, _xform(base, 3.0, 0.0, Vector2.ZERO), "「雷」错认成「时」")
+	_expect(false, lei, _xform(SpellMatch.ancient_stroke("ent"), 3.0, 0.0, Vector2.ZERO),
+		"「木」错认成「雷」")
+	_expect(false, mu, _xform(base, 3.0, 0.0, Vector2.ZERO), "「雷」错认成「木」")
 	_expect(false, lei, _circle(Vector2(400, 300), 120.0), "乱涂圆圈")
 	_expect(false, lei, _line(Vector2(100, 300), Vector2(560, 300)), "一条直线")
 
@@ -37,10 +38,10 @@ func _ready() -> void:
 
 	print("— 分辨力 —")
 	var s_self := _score(lei, _xform(base, 3.0, 0.0, Vector2.ZERO))
-	var s_time := _score(lei, _xform(SpellMatch.ancient_stroke("time"), 3.0, 0.0, Vector2.ZERO))
-	_chk(s_self - s_time > 0.2,
+	var s_mu := _score(lei, _xform(SpellMatch.ancient_stroke("ent"), 3.0, 0.0, Vector2.ZERO))
+	_chk(s_self - s_mu > 0.2,
 		"自匹配 %.0f%% 与异形 %.0f%% 拉开 %.0f 个百分点" % [
-			s_self * 100.0, s_time * 100.0, (s_self - s_time) * 100.0])
+			s_self * 100.0, s_mu * 100.0, (s_self - s_mu) * 100.0])
 
 	print("— 多候选取最高分 —")
 	var probe2 := SpellMatch.feature(_xform(base, 3.0, 0.0, Vector2.ZERO))
@@ -59,7 +60,7 @@ func _ready() -> void:
 		for s in skills:
 			SpellMatch.similarity(probe, s)
 	var us := float(Time.get_ticks_usec() - t0) / 20.0
-	_chk(us < 40000.0, "单笔比对 8 技能耗时 %.1f ms" % (us / 1000.0))
+	_chk(us < 40000.0, "单笔比对 5 神纹耗时 %.1f ms" % (us / 1000.0))
 
 	for f in fails:
 		print("FAIL: ", f)

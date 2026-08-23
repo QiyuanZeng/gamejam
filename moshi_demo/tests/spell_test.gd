@@ -1,6 +1,6 @@
 extends Node
 ## 神纹释放全链路模拟：右键起笔 → 按 6px 采样喂点（含 TV 扣费）→ 松笔 → 判定 → 释放。
-## 覆盖：精确笔形 / 手写放大抖动 / 乱涂不误触 / 「时」接管状态 / 释放不再收墨钱 /
+## 覆盖：精确笔形 / 手写放大抖动 / 乱涂不误触 / 「木」召树人 / 释放不再收墨钱 /
 ##       空碑觉醒（够长 + 不撞已有纹 + 掷骰）/ 觉醒当场即释放。
 
 var g: Game
@@ -96,14 +96,14 @@ func _process(delta: float) -> void:
 			if _wait_play(6):
 				pass
 		6:
-			# 「时」：应接管状态直接进回溯，且不再斩击
-			_chk(not g.rewind_hist.is_empty(), "D 已有回溯路径 %d 段" % g.rewind_hist.size())
-			_place_at(g._point_along(g.rewind_hist[g.rewind_hist.size() - 1], 0.5), "melee_mite")
+			# 「木」：第二道古纹，画出来该召树人，斩击照常
 			_reset()
-			_write(_stroke(SpellMatch.ancient_stroke("time"), 1.4, Vector2(300, 220), 1.5), 0.0)
-			var s3: Dictionary = _skill("time")
-			_chk(float(s3.cd_left) > 0.0, "D 「时」命中")
-			_chk(g.state == g.State.REWIND, "D 「时」接管状态 → REWIND，state=%d" % g.state)
+			g.ents.clear()
+			_write(_stroke(SpellMatch.ancient_stroke("ent"), 1.4, Vector2(300, 220), 1.5), 0.0)
+			var s3: Dictionary = _skill("ent")
+			_chk(float(s3.cd_left) > 0.0, "D 精确「木」命中妖木精灵")
+			_chk(g.ents.size() == g.ENT_COUNT, "D 召出 %d 个树人" % g.ents.size())
+			_chk(g.state == g.State.DASH, "D 释放后仍照常斩击 state=%d" % g.state)
 			_next(7)
 		7:
 			if _wait_play(8):
@@ -249,7 +249,7 @@ func _last_awakened() -> Dictionary:
 	return {}
 
 ## 一个够长的陌生形：闭合三角。
-## 圆不行 —— 跟「时」的方框有 64% 相似，太贴撞形闸；折线也不行 —— 「雷」本身就是折线。
+## 圆不行 —— 太容易跟别的形贴上撞形闸；折线也不行 —— 「雷」本身就是折线。
 ## 边长按**当前墨上限**推算，保证周长压过觉醒线一成有余；$Q 是尺度无关的，放大不影响相似度。
 func _awaken_shape() -> PackedVector2Array:
 	# 正三角周长 = 3√3 × 外接圆半径 ≈ 5.196 R

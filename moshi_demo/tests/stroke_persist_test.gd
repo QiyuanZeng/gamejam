@@ -2,12 +2,12 @@ extends Node
 ## 自定义笔形持久化：跨进程验证「这次改的形，下次开局还在」。
 ##
 ## 单进程内 static 的 custom 字典会一直留着，测不出真读盘。所以分两趟跑：
-##   第 1 趟（write）：改「时」的笔形并落盘，记下形状指纹。
+##   第 1 趟（write）：改「木」的笔形并落盘，记下形状指纹。
 ##   第 2 趟（read） ：全新进程，只调 build_skills，断言拿到的是上一趟存的形。
 ## 趟次靠 user://stroke_persist_stage.txt 传递，跑完自动清理，不污染下次。
 
 const STAGE_PATH := "user://stroke_persist_stage.txt"
-const FIXED_ID := "time"
+const FIXED_ID := "ent"
 
 var fails: Array[String] = []
 

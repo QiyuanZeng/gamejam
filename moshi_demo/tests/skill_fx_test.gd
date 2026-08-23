@@ -1,5 +1,5 @@
 extends Node
-## 七道神纹的效果专项：逐个直调 _cast，验落雷/地震/树人/水浪/领域/剑阵/突袭确实打到人。
+## 五道神纹的效果专项：逐个直调 _cast，验落雷/地震/树人/水浪/剑阵确实打到人。
 ## 只管效果层，不走笔形识别 —— 识别那条链路由 spell_test 与 qdollar_test 覆盖。
 
 var g: Game
@@ -15,7 +15,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	g = Game.new()
 	add_child(g)
-	print("[skill_fx_test] 开跑：雷霆万钧/山崩地裂/妖木精灵/水漫金山/时间领域/无限剑阵/阿尔法突袭")
+	print("[skill_fx_test] 开跑：雷霆万钧/山崩地裂/妖木精灵/水漫金山/无限剑阵")
 
 func _process(delta: float) -> void:
 	t += delta
@@ -98,19 +98,6 @@ func _process(delta: float) -> void:
 			if t > g.FLOOD_RANGE / g.FLOOD_SPEED + 0.5:
 				_chk(g.floods.is_empty(), "水浪走完射程自动消散")
 				_chk(_total_hp() < 8.0 * 10.0, "八向水浪打到环阵（余血 %.0f）" % _total_hp())
-				_next(8)
-		8:
-			# 时间领域：领域内持续掉血，玩家站里面钟表充能更快
-			_clear()
-			_place_at(g.player.position + Vector2(60, 0))
-			g.clock_charge = 0.0
-			g._cast("domain")
-			_chk(g.domains.size() == 1, "生成 1 个时之领域")
-			_next(9)
-		9:
-			if t > 1.0:
-				_chk(_total_hp() < 10.0, "领域内持续掉血（余血 %.1f）" % _total_hp())
-				_chk(g.clock_charge > t, "领域加速充能：%.2f > 自然流逝 %.2f" % [g.clock_charge, t])
 				_next(10)
 		10:
 			# 无限剑阵：内外两圈同时挂上
@@ -128,26 +115,6 @@ func _process(delta: float) -> void:
 			if t > g.SWORD_FALL + 0.5:
 				_chk(g.swords.is_empty(), "落剑结算完自动清空")
 				_chk(_total_hp() < 12.0 * 10.0, "外圈落剑砸中环阵（余血 %.0f）" % _total_hp())
-				_next(12)
-		12:
-			# 阿尔法突袭：消失、多段斩、期间无敌
-			_clear()
-			for i in 5:
-				_place_at(g.player.position + Vector2(0, -60.0 - 20.0 * float(i)))
-			var hp2 := _total_hp()
-			g._cast("alpha")
-			_chk(g.alpha_left == g.ALPHA_HITS, "突袭挂上 %d 段斩" % g.alpha_left)
-			_chk(not g.player.visible, "突袭中自身隐去（无法选中）")
-			_chk(g.player.invuln > 0.0, "突袭中无敌")
-			_next(13)
-			t = 0.0
-			g.set_meta("hp_before_alpha", hp2)
-		13:
-			if t > float(g.ALPHA_HITS) * g.ALPHA_GAP + 0.4:
-				var hp2: float = float(g.get_meta("hp_before_alpha"))
-				_chk(g.alpha_left <= 0, "多段斩放完")
-				_chk(g.player.visible, "突袭结束后现身")
-				_chk(_total_hp() < hp2, "突袭造成伤害 %.0f" % (hp2 - _total_hp()))
 				_next(99)
 		99:
 			for f in fails:
@@ -171,10 +138,8 @@ func _clear() -> void:
 	g.quakes.clear()
 	g.ents.clear()
 	g.floods.clear()
-	g.domains.clear()
 	g.swords.clear()
 	g.bolts.clear()
-	g.alpha_left = 0
 	g.player.visible = true
 
 ## 在玩家周围摆一圈血厚不掉的靶子（用 blob 的 10 血，方便按总血量断言）

@@ -75,12 +75,12 @@ var BIND_CHANCE := 0.50           # 达标后的触发概率（策划案原定 2
 ## 笔形识别（算法、阈值、神纹录）全部收在 SpellMatch，本文件直调，不做别名转发。
 ## 释放不再另收墨钱 —— 时间之力只花在「描绘路径」上，画出来即生效。
 
-## _try_cast 结果：未命中 / 已释放（斩击照常）/ 已释放且接管状态（如「时」直接进回溯）
+## _try_cast 结果：未命中 / 已释放（斩击照常）/ 已释放且接管状态（留给会顶掉斩击的神纹）
 const CAST_NONE := 0
 const CAST_DONE := 1
 const CAST_TAKEOVER := 2
 
-# —— 七道神纹的效果参数（同样来自 data/player.tres 的「神纹」组）——
+# —— 五道神纹的效果参数（同样来自 data/player.tres 的「神纹」组）——
 var THUNDER_BOLTS := 6            # 雷霆万钧：随机选中的落雷目标数
 var THUNDER_DMG := 20.0
 var THUNDER_RADIUS := 82.0        # 每道雷的溅射半径
@@ -99,10 +99,6 @@ var FLOOD_SPEED := 540.0
 var FLOOD_RANGE := 640.0
 var FLOOD_WIDTH := 34.0
 var FLOOD_DMG := 16.0
-var DOMAIN_TIME := 6.0            # 时间领域：原地驻留，持续伤害 + 回溯加速充能
-var DOMAIN_RADIUS := 195.0
-var DOMAIN_DPS := 14.0
-var DOMAIN_CHARGE := 2.0          # 站在领域内时钟表额外充能的倍率
 var SWORD_INNER := 6              # 无限剑阵：内外两圈落剑
 var SWORD_OUTER := 12
 var SWORD_R_IN := 115.0
@@ -110,10 +106,18 @@ var SWORD_R_OUT := 245.0
 var SWORD_FALL := 0.4             # 单剑下落时间
 var SWORD_RADIUS := 58.0
 var SWORD_DMG := 22.0
-var ALPHA_HITS := 8               # 阿尔法突袭：消失期间的多段斩次数
-var ALPHA_GAP := 0.1
-var ALPHA_RADIUS := 265.0
-var ALPHA_DMG := 12.0
+
+# —— 雷霆万钧的演出参数（纯表现，不影响伤害判定）——
+const THUNDER_LIFE := 0.45        # 电弧留在屏上的时长（秒）
+const THUNDER_DROP := 320.0       # 起电点比目标高多少
+const THUNDER_JITTER := 26.0      # 主干每一折的横向抖动幅度
+const THUNDER_SEGS := 9           # 主干折段数：越多越细碎
+const THUNDER_BRANCH := 2         # 每道雷分几条支叉
+const THUNDER_CORE_W := 3.0       # 暗芯线宽
+const THUNDER_GLOW_W := 11.0      # 外层辉光线宽
+## 底子是宣纸白，**亮色的芯等于隐形** —— 芯必须比纸暗，辉光才靠淡紫托出来。
+const THUNDER_CORE := Color("#2B2140")   # 暗芯：墨紫
+const THUNDER_ARC := Color("#7B57C0")    # 辉光：淡紫电色
 
 # ============================== §6 怪物 ==============================
 
@@ -228,10 +232,7 @@ var rings: Array = []             # 圆形冲击波（爆炸 / 落雷 / 地震 /
 var quakes: Array = []            # 山崩地裂：{left, next} 跟随玩家
 var ents: Array = []              # 妖木精灵：{pos, life, cd, pw}
 var floods: Array = []            # 水漫金山：{org, dir, d, hit, pw}
-var domains: Array = []           # 时间领域：{pos, left, pw}
 var swords: Array = []            # 无限剑阵：{pos, t, pw}
-var alpha_left := 0               # 阿尔法突袭：剩余斩击段数
-var alpha_gap := 0.0
 var enemy_bullets: Array = []     # 远程小兵普攻弹：{pos, dir, spd, dmg, r, life, col}
 
 var flash_t := 0.0
@@ -289,6 +290,7 @@ func _ready() -> void:
 	max_enemies = bal.max_enemies
 	spawn_margin = bal.spawn_margin
 	_load_player_config()
+	SpellMatch.load_config()      # 施法门槛（笔多长算数、画多像才认）来自 data/spell.tres
 	_build_skills()
 	_load_bullet_frames()
 	var shader: Shader = load("res://shaders/paper_key.gdshader")
@@ -470,10 +472,6 @@ func _load_player_config() -> void:
 	FLOOD_RANGE = pc.flood_range
 	FLOOD_WIDTH = pc.flood_width
 	FLOOD_DMG = pc.flood_dmg
-	DOMAIN_TIME = pc.domain_time
-	DOMAIN_RADIUS = pc.domain_radius
-	DOMAIN_DPS = pc.domain_dps
-	DOMAIN_CHARGE = pc.domain_charge
 	SWORD_INNER = pc.sword_inner
 	SWORD_OUTER = pc.sword_outer
 	SWORD_R_IN = pc.sword_r_in
@@ -481,10 +479,6 @@ func _load_player_config() -> void:
 	SWORD_FALL = pc.sword_fall
 	SWORD_RADIUS = pc.sword_radius
 	SWORD_DMG = pc.sword_dmg
-	ALPHA_HITS = pc.alpha_hits
-	ALPHA_GAP = pc.alpha_gap
-	ALPHA_RADIUS = pc.alpha_radius
-	ALPHA_DMG = pc.alpha_dmg
 
 	# 起始值跟着总表走：行动点满格、墨满管
 	ap = float(ap_max())
@@ -883,7 +877,7 @@ func _end_draw() -> void:
 # ============================== §5.3 神纹判定与激活 ==============================
 
 ## 命中已激活的神纹 → 直接释放。释放本身不收墨钱，只走冷却。
-## 返回 CAST_DONE（斩击照常）/ CAST_TAKEOVER（如「时」直接接管进回溯）。
+## 返回 CAST_DONE（斩击照常）/ CAST_TAKEOVER（该神纹自己接管了状态，斩击就免了）。
 func _fire(s: Dictionary) -> int:
 	s.cd_left = float(s.cd)
 	_show_skill_art(String(s.id))
@@ -895,8 +889,6 @@ func _fire(s: Dictionary) -> int:
 
 ## 神纹录里还空着的碑位下标，按表内顺序。面板的 1~N 就是照这个列表点名的。
 func _show_skill_art(id: String) -> void:
-	if id == "time":
-		return
 	if skill_art_t > 0.0:
 		skill_art_queue.append(id)
 		return
@@ -959,7 +951,7 @@ func _bind_slot(i: int) -> void:
 	announce_t = 1.8
 	_close_bind(_fire(s) == CAST_TAKEOVER)
 
-## 关盘并把欠着的那次斩击补上（除非刚才的技能已经接管了状态，比如「时」进回溯）。
+## 关盘并把欠着的那次斩击补上（除非刚才的技能已经接管了状态）。
 func _close_bind(takeover := false) -> void:
 	bind_panel = false
 	var path := bind_path
@@ -972,11 +964,6 @@ func _close_bind(takeover := false) -> void:
 func _cast(id: String) -> bool:
 	var pw := skill_power()
 	match id:
-		"time":
-			if rewind_hist.is_empty():
-				return false
-			_begin_rewind()
-			return true
 		"thunder":
 			_cast_thunder(pw)
 		"quake":
@@ -995,15 +982,8 @@ func _cast(id: String) -> bool:
 					"org": player.position, "dir": Vector2(cos(a), sin(a)),
 					"d": 0.0, "hit": {}, "pw": pw,
 				})
-		"domain":
-			domains.append({"pos": player.position, "left": DOMAIN_TIME, "pw": pw})
 		"swords":
 			_cast_swords(pw)
-		"alpha":
-			alpha_left = ALPHA_HITS
-			alpha_gap = 0.0
-			player.visible = false   # 施法瞬间就该消失，别等下一帧 _update_alpha 才隐身
-			player.invuln = maxf(player.invuln, float(ALPHA_HITS) * ALPHA_GAP + 0.1)
 	return false
 
 ## 雷霆万钧：随机挑几个倒霉蛋劈下去，每道雷连带炸伤它周围一小片。
@@ -1013,14 +993,54 @@ func _cast_thunder(pw: float) -> void:
 	for i in mini(THUNDER_BOLTS, pool.size()):
 		var target: Enemy = pool[i]
 		var pos: Vector2 = target.position
-		bolts.append({"a": pos + Vector2(randf_range(-30.0, 30.0), -260.0), "b": pos, "t": 0.0})
+		var top := pos + Vector2(randf_range(-60.0, 60.0), -THUNDER_DROP)
+		bolts.append({
+			"a": top, "b": pos, "t": 0.0,
+			"main": _bolt_path(top, pos, THUNDER_JITTER, THUNDER_SEGS),
+			"forks": _bolt_forks(top, pos),
+			"seed": randf() * 100.0,
+		})
 		rings.append({"pos": pos, "r": THUNDER_RADIUS, "t": 0.0})
 		clear_enemy_bullets_in(pos, THUNDER_RADIUS)
 		for e in enemies.duplicate():
 			if not e.dead and e.position.distance_to(pos) <= THUNDER_RADIUS + float(e.cfg.radius):
 				_damage(e, THUNDER_DMG * pw, true, "normal")
+		# 落点炸一圈火星，让「劈中了」这件事在静止帧上也读得出来
+		for k in 10:
+			var a := TAU * float(k) / 10.0 + randf() * 0.5
+			particles.append({
+				"pos": pos, "vel": Vector2(cos(a), sin(a)) * randf_range(120.0, 320.0),
+				"life": 0.0, "max": randf_range(0.18, 0.36), "r": randf_range(1.5, 3.2),
+				"col": THUNDER_CORE if k % 2 == 0 else THUNDER_ARC,
+			})
 	if not pool.is_empty():
 		_shake(SHAKE_BURST, SHAKE_BURST_TIME)
+
+## 生成一条锯齿电弧：沿 a→b 均分，每个内点垂直方向随机甩开，越靠中段甩得越狠。
+func _bolt_path(a: Vector2, b: Vector2, jitter: float, segs: int) -> PackedVector2Array:
+	var out := PackedVector2Array([a])
+	var dir := (b - a).normalized()
+	var perp := Vector2(-dir.y, dir.x)
+	for i in range(1, segs):
+		var t := float(i) / float(segs)
+		var swell := sin(t * PI)          # 两端钉死在起讫点，中段自由摆
+		out.append(a.lerp(b, t) + perp * randf_range(-jitter, jitter) * swell)
+	out.append(b)
+	return out
+
+## 支叉：从主干中段岔出去的短弧，落不到地上，纯粹撑视觉密度。
+func _bolt_forks(a: Vector2, b: Vector2) -> Array:
+	var out: Array = []
+	var dir := (b - a).normalized()
+	var perp := Vector2(-dir.y, dir.x)
+	for i in THUNDER_BRANCH:
+		var t := randf_range(0.25, 0.75)
+		var org := a.lerp(b, t)
+		var side := 1.0 if randf() < 0.5 else -1.0
+		var tip := org + (dir * randf_range(0.15, 0.3) + perp * side * randf_range(0.18, 0.34)) \
+			* a.distance_to(b)
+		out.append(_bolt_path(org, tip, THUNDER_JITTER * 0.6, 4))
+	return out
 
 ## 无限剑阵：内外两圈剑位，外圈起手晚半拍，落下时各自砸一个圆。
 func _cast_swords(pw: float) -> void:
@@ -1401,9 +1421,7 @@ func _update_status(delta: float, f: float) -> void:
 	_update_quakes(delta)
 	_update_ents(delta, f)
 	_update_floods(delta)
-	_update_domains(delta)
 	_update_swords(delta)
-	_update_alpha(delta)
 
 ## 山崩地裂：6 轮，每 0.5s 一轮，震源始终在玩家脚下。
 func _update_quakes(delta: float) -> void:
@@ -1464,24 +1482,6 @@ func _update_floods(delta: float) -> void:
 			_damage(e, FLOOD_DMG * float(w.pw), true, "normal")
 	floods = floods.filter(func(x): return float(x.d) < FLOOD_RANGE)
 
-## 时间领域：领域内持续掉血；玩家站在里面时钟表额外充能（回溯来得更快）。
-func _update_domains(delta: float) -> void:
-	if domains.is_empty():
-		return
-	for d in domains:
-		d.left = float(d.left) - delta
-		clear_enemy_bullets_in(d.pos, DOMAIN_RADIUS)
-		for e in enemies.duplicate():
-			if e.dead:
-				continue
-			if e.position.distance_to(d.pos) <= DOMAIN_RADIUS + float(e.cfg.radius):
-				e.hp -= DOMAIN_DPS * float(d.pw) * delta
-				if e.hp <= 0.0:
-					_kill_enemy(e, "normal")
-		if player.position.distance_to(d.pos) <= DOMAIN_RADIUS and clock_charge < CLOCK_TIME:
-			clock_charge = minf(clock_charge + delta * (DOMAIN_CHARGE - 1.0), CLOCK_TIME)
-	domains = domains.filter(func(x): return float(x.left) > 0.0)
-
 ## 无限剑阵：内圈先落外圈后落，剑尖着地砸一个圆。
 func _update_swords(delta: float) -> void:
 	if swords.is_empty():
@@ -1497,30 +1497,6 @@ func _update_swords(delta: float) -> void:
 			if not e.dead and e.position.distance_to(s.pos) <= SWORD_RADIUS + float(e.cfg.radius):
 				_damage(e, SWORD_DMG * float(s.pw), true, "normal")
 	swords = swords.filter(func(x): return float(x.t) < SWORD_FALL + 0.2)
-
-## 阿尔法突袭：玩家隐去无法被选中，每 ALPHA_GAP 秒对范围内随机一人补一刀。
-func _update_alpha(delta: float) -> void:
-	if alpha_left <= 0:
-		if not player.visible:
-			player.visible = true
-		return
-	player.visible = false
-	player.invuln = maxf(player.invuln, 0.2)
-	alpha_gap -= delta
-	if alpha_gap > 0.0:
-		return
-	alpha_gap = ALPHA_GAP
-	alpha_left -= 1
-	var prey := _nearest_enemy(player.position + Vector2(
-		randf_range(-ALPHA_RADIUS, ALPHA_RADIUS),
-		randf_range(-ALPHA_RADIUS, ALPHA_RADIUS)), ALPHA_RADIUS)
-	if prey == null:
-		return
-	ghost_trail.append({"pos": prey.position, "t": 0.0})
-	_damage(prey, ALPHA_DMG * skill_power(), true, "normal")
-	if alpha_left <= 0:
-		player.visible = true
-		_shake(SHAKE_BURST, SHAKE_BURST_TIME)
 
 func _nearest_enemy(from: Vector2, limit: float) -> Enemy:
 	var best: Enemy = null
@@ -1730,7 +1706,7 @@ func _update_fx(delta: float) -> void:
 	numbers = numbers.filter(func(x): return x.t < 0.8)
 	for b in bolts:
 		b.t += delta
-	bolts = bolts.filter(func(x): return x.t < 0.25)
+	bolts = bolts.filter(func(x): return x.t < THUNDER_LIFE)
 	for r in rings:
 		r.t += delta
 	rings = rings.filter(func(x): return x.t < 0.35)
@@ -1876,8 +1852,7 @@ func _paint_fx(l: PaintLayer) -> void:
 		l.draw_circle(p.pos, float(p.r) * (0.5 + 0.5 * k3),
 			Color(c2.r, c2.g, c2.b, clampf(k3, 0.0, 1.0)))
 	for b in bolts:
-		var ba: float = clampf(1.0 - b.t / 0.25, 0.0, 1.0)
-		l.draw_line(b.a, b.b, Color(RED.r, RED.g, RED.b, ba), 3.0)
+		_paint_bolt(l, b)
 	for r in rings:
 		var ra: float = clampf(1.0 - r.t / 0.35, 0.0, 1.0)
 		l.draw_arc(r.pos, float(r.r) * (0.4 + 0.6 * (1.0 - ra)), 0.0, TAU, 48,
@@ -1913,7 +1888,32 @@ func _paint_fx(l: PaintLayer) -> void:
 				Color(RED.r, RED.g, RED.b, 0.35), 1.5)
 	_paint_dial(l)
 
-## 神纹驻场物：树人、水浪、时之领域、悬空待落的剑。
+## 落雷电弧：辉光 / 弧体 / 亮芯三层叠着画，收尾带高频闪烁 ——
+## 单薄的一根直线在静止帧上根本读不出「劈」，锯齿主干 + 支叉 + 落点光晕才看得清。
+func _paint_bolt(l: PaintLayer, b: Dictionary) -> void:
+	var main: PackedVector2Array = b.get("main", PackedVector2Array())
+	if main.size() < 2:
+		return
+	var k: float = clampf(1.0 - float(b.t) / THUNDER_LIFE, 0.0, 1.0)
+	# 前三分之一满亮，之后一边衰减一边跳 —— 电弧余辉本来就是闪的
+	var flick: float = 0.6 + 0.4 * sin((sim_time + float(b.get("seed", 0.0))) * 55.0)
+	var a: float = k * k * (1.0 if k > 0.66 else flick)
+	var arc_c := THUNDER_ARC
+	var core_c := THUNDER_CORE
+	l.draw_polyline(main, Color(arc_c.r, arc_c.g, arc_c.b, a * 0.22), THUNDER_GLOW_W)
+	l.draw_polyline(main, Color(arc_c.r, arc_c.g, arc_c.b, a * 0.6), THUNDER_GLOW_W * 0.45)
+	l.draw_polyline(main, Color(core_c.r, core_c.g, core_c.b, a), THUNDER_CORE_W)
+	for f in b.get("forks", []):
+		var fp: PackedVector2Array = f
+		if fp.size() < 2:
+			continue
+		l.draw_polyline(fp, Color(arc_c.r, arc_c.g, arc_c.b, a * 0.45), THUNDER_GLOW_W * 0.3)
+		l.draw_polyline(fp, Color(core_c.r, core_c.g, core_c.b, a * 0.75), THUNDER_CORE_W * 0.6)
+	var hit: Vector2 = b.b
+	l.draw_circle(hit, 34.0 * (1.5 - k), Color(arc_c.r, arc_c.g, arc_c.b, a * 0.22))
+	l.draw_circle(hit, 11.0 * k, Color(core_c.r, core_c.g, core_c.b, a * 0.85))
+
+## 神纹驻场物：树人、水浪、悬空待落的剑。
 func _paint_spells(l: PaintLayer) -> void:
 	for t in ents:
 		var a: float = clampf(float(t.life) / 1.5, 0.0, 1.0)
@@ -1926,13 +1926,6 @@ func _paint_spells(l: PaintLayer) -> void:
 		l.draw_line(head - perp, head + perp, Color(0.28, 0.42, 0.55, wa * 0.85), 5.0)
 		l.draw_line(head - perp * 0.5 - w.dir * 26.0, head + perp * 0.5 - w.dir * 26.0,
 			Color(0.28, 0.42, 0.55, wa * 0.4), 3.0)
-	for d in domains:
-		var da: float = clampf(float(d.left) / DOMAIN_TIME, 0.0, 1.0)
-		l.draw_circle(d.pos, DOMAIN_RADIUS, Color(RED.r, RED.g, RED.b, 0.05 * da))
-		l.draw_arc(d.pos, DOMAIN_RADIUS, 0.0, TAU, 64,
-			Color(RED.r, RED.g, RED.b, 0.3 + 0.25 * da), 2.5)
-		l.draw_arc(d.pos, DOMAIN_RADIUS * (0.3 + 0.7 * fmod(sim_time, 1.0)), 0.0, TAU, 48,
-			Color(RED.r, RED.g, RED.b, 0.18 * da), 1.5)
 	for s in swords:
 		var t2: float = float(s.t)
 		if t2 >= SWORD_FALL:

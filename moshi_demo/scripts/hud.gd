@@ -19,9 +19,7 @@ const SKILL_ART := {
 	"quake": preload("res://assets/ui/skill_quake.png"),
 	"ent": preload("res://assets/ui/skill_ent.png"),
 	"flood": preload("res://assets/ui/skill_flood.png"),
-	"domain": preload("res://assets/ui/skill_domain.png"),
 	"swords": preload("res://assets/ui/skill_swords.png"),
-	"alpha": preload("res://assets/ui/skill_alpha.png"),
 }
 
 var game

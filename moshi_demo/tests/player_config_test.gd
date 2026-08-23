@@ -63,17 +63,15 @@ func _ready() -> void:
 	_chk(is_equal_approx(g.QUAKE_RADIUS, pc.quake_radius), "山崩半径 %.0f" % g.QUAKE_RADIUS)
 	_chk(g.ENT_COUNT == pc.ent_count, "树人 %d 个" % g.ENT_COUNT)
 	_chk(is_equal_approx(g.FLOOD_RANGE, pc.flood_range), "水浪射程 %.0f" % g.FLOOD_RANGE)
-	_chk(is_equal_approx(g.DOMAIN_DPS, pc.domain_dps), "领域每秒伤害 %.0f" % g.DOMAIN_DPS)
 	_chk(g.SWORD_INNER + g.SWORD_OUTER == pc.sword_inner + pc.sword_outer,
 		"剑阵 %d 把" % (g.SWORD_INNER + g.SWORD_OUTER))
-	_chk(g.ALPHA_HITS == pc.alpha_hits, "突袭 %d 段" % g.ALPHA_HITS)
 	var cd_ok := true
 	for s in g.skills:
 		var want: float = pc.skill_cd(String(s.id))
 		if want >= 0.0 and not is_equal_approx(float(s.cd), want):
 			cd_ok = false
 			print("     ·· 冷却对不上：%s 期望 %.1f 实得 %.1f" % [String(s.id), want, float(s.cd)])
-	_chk(cd_ok, "七道神纹的冷却全部取自总表")
+	_chk(cd_ok, "五道神纹的冷却全部取自总表")
 	# 神纹全放一遍，确认按总表的数量参数出效果
 	g._cast("thunder")
 	g._cast("ent")

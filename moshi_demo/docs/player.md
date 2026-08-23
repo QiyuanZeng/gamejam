@@ -1,6 +1,6 @@
 # 人物系统速查
 
-人物的血量、冲刺斩、表盘行动点、回溯、**笔墨消耗**、七道神纹的数值，**全部收在一份总表**
+人物的血量、冲刺斩、表盘行动点、回溯、**笔墨消耗**、五道神纹的数值，**全部收在一份总表**
 `res://data/player.tres` 里（资源类型 `PlayerConfig`）。
 **在 Godot 编辑器里双击它，Inspector 里改完 Ctrl+S 就生效，不用碰代码。**
 
@@ -17,7 +17,7 @@
 | 回溯 | 钟表充能时长、回溯格数、重放伤害倍率、标记保留 |
 | 笔墨 | 时间之力上限 / 回复、**每像素墨耗**、子弹时间流逝 |
 | 觉醒 | 点亮空碑的门槛与概率 |
-| 神纹 | 七道技能各自的**冷却**与效果参数 |
+| 神纹 | 五道技能各自的**冷却**与效果参数 |
 
 ---
 
@@ -116,17 +116,16 @@
 
 | 神纹 | 冷却 | 主要参数（子组内） |
 |---|---|---|
-| 时·回溯 | `time_cd` 10 | 效果参数在「回溯」组 |
-| 雷霆万钧 | `thunder_cd` 6 | `thunder_bolts` 6 道 / `thunder_dmg` 20 / `thunder_radius` 82 |
+| 雷霆万钧（古纹·画「雷」） | `thunder_cd` 6 | `thunder_bolts` 6 道 / `thunder_dmg` 20 / `thunder_radius` 82 |
+| 妖木精灵（古纹·画「木」） | `ent_cd` 20 | `ent_count` 4 个 / `ent_life` 12s / `ent_speed` 155 / `ent_reach` 44 / `ent_dmg` 10 / `ent_gap` 0.7s |
 | 山崩地裂 | `quake_cd` 12 | `quake_waves` 6 轮 / `quake_gap` 0.5s / `quake_radius` 155 / `quake_dmg` 12 |
-| 妖木精灵 | `ent_cd` 20 | `ent_count` 4 个 / `ent_life` 12s / `ent_speed` 155 / `ent_reach` 44 / `ent_dmg` 10 / `ent_gap` 0.7s |
 | 水漫金山 | `flood_cd` 10 | `flood_dirs` 8 向 / `flood_speed` 540 / `flood_range` 640 / `flood_width` 34 / `flood_dmg` 16 |
-| 时间领域 | `domain_cd` 16 | `domain_time` 6s / `domain_radius` 195 / `domain_dps` 14 / `domain_charge` 2.0 |
 | 无限剑阵 | `swords_cd` 14 | 内 `sword_inner` 6 + 外 `sword_outer` 12 把 / 半径 115 与 245 / `sword_fall` 0.4s / `sword_radius` 58 / `sword_dmg` 22 |
-| 阿尔法突袭 | `alpha_cd` 12 | `alpha_hits` 8 段 / `alpha_gap` 0.1s / `alpha_radius` 265 / `alpha_dmg` 12 |
 
 > 所有神纹伤害还会再乘一道局外养成的 `skill_power()`（默认 1.0）。
-> 神纹的**笔形**不在这份表里 —— 那是玩家画出来的，在 F2 调试台改，存 `user://spell_strokes.json`。
+> 神纹的**笔形**不在这份表里 —— 古纹的出厂形写在 `spell_match.gd` 的 `default_stroke()`，
+> 玩家改过的形存 `user://spell_strokes.json`，在 F2 调试台改。
+> **施法门槛**（笔多长算数、画多像才认、撞形闸）在 `data/spell.tres`（`SpellConfig`），不在本表。
 
 ---
 
@@ -139,6 +138,8 @@
 | `scripts/main.gd` | `Game`：`_load_player_config()` 在 `_ready` 里把总表灌进本文件的大写量 |
 | `scripts/player.gd` | `Player`：`take_hit(dmg, invuln_time)`，无敌秒数由 Game 按总表传入 |
 | `scripts/spell_match.gd` | 笔形识别与神纹录骨架。冷却由总表覆盖，`SKILL_DEFS` 里的 `cd` 只是兜底 |
+| `data/spell.tres` | **施法门槛表**（`SpellConfig`）：笔长门槛 / 命中相似度 / 撞形闸 |
+| `scripts/spell_config.gd` | `SpellConfig` 资源类：字段定义 + 全局单例，`SpellMatch.load_config()` 灌进识别层 |
 
 ### 为什么 main.gd 里还是一堆大写名
 
