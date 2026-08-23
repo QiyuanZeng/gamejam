@@ -6,61 +6,64 @@ extends RefCounted
 ## 动态：每个采样点带独立年龄（秒）。年龄推进 → 切痕淡出、V 形散波向外扩张、
 ## 涟漪环扩大变淡、泡沫消散。尾部（最早落点）先消失，形成掠过后逐渐愈合的水面。
 ## 参数以 Dictionary 传入；传空字典则用 current，键缺失时回退 DEFAULTS。
+##
+## DEFAULTS 就是**出厂水面**：user://water_style.json 不存在时用它，F1 编辑器的
+## 「恢复默认」也回到它。改这里等于换全局默认水面。
 
 const DEFAULTS := {
 	# —— 接触切痕（掠水瞬时亮痕，柔和不锐利）
-	"cut_width": 2.4,
-	"cut_alpha": 0.42,
-	"cut_life": 0.55,
+	"cut_width": 10.0,
+	"cut_alpha": 0.82,
+	"cut_life": 1.0,
 	# —— 水体尾迹带
-	"width_start": 9.0,
-	"width_end": 3.0,
-	"width_taper": 0.8,
-	"head_soft": 0.22,
-	"spread_speed": 26.0,
-	"body_alpha": 0.30,
-	"halo_scale": 1.9,
-	"halo_alpha": 0.16,
-	"edge_jitter": 0.20,
-	"wobble_amp": 0.8,
-	"wobble_freq": 14.0,
+	"width_start": 40.0,
+	"width_end": 8.7,
+	"width_taper": 0.2,
+	"head_soft": 0.24,
+	"spread_speed": 23.0,
+	"body_alpha": 0.42,
+	"halo_scale": 1.25,
+	"halo_alpha": 0.0,
+	"edge_jitter": 0.32,
+	"wobble_amp": 2.65,
+	"wobble_freq": 48.0,
 	"smooth_iters": 3,
 	# —— 脚印（分段落点，踩水的离散印记）
-	"print_step": 13,
+	"print_step": 11,
 	"print_size": 7.5,
-	"print_stagger": 7.0,
-	"print_alpha": 0.34,
-	"print_squash": 0.58,
+	"print_stagger": 14.5,
+	"print_alpha": 0.6,
+	"print_squash": 0.29,
 	"print_life": 1.8,
 	"print_ring": 0.55,
 	# —— V 形散波（开尔文尾波，掠水标志）
-	"wake_angle": 0.34,
-	"wake_speed": 60.0,
-	"wake_alpha": 0.55,
-	"wake_crest": 1.6,
+	"wake_angle": 1.2,
+	"wake_speed": 0.0,
+	"wake_alpha": 0.4,
+	"wake_crest": 5.3,
 	"wake_arms": 2,
 	# —— 焦散高光
-	"caustic_chance": 0.6,
-	"caustic_alpha": 0.45,
-	"caustic_len_max": 18.0,
+	"caustic_chance": 0.98,
+	"caustic_alpha": 0.6,
+	"caustic_len_max": 16.0,
 	# —— 泡沫
-	"foam_step": 3,
-	"foam_chance": 0.7,
-	"foam_alpha": 0.8,
-	"foam_size_max": 2.8,
-	"foam_spread": 10.0,
+	"foam_step": 2,
+	"foam_chance": 0.92,
+	"foam_alpha": 1.0,
+	"foam_size_max": 1.4,
+	"foam_spread": 19.0,
 	# —— 扩散涟漪环
-	"ripple_step": 20,
-	"ripple_radius": 10.0,
-	"ripple_speed": 46.0,
-	"ripple_alpha": 0.34,
+	"ripple_step": 11,
+	"ripple_radius": 15.0,
+	"ripple_speed": 0.0,
+	"ripple_alpha": 1.0,
 	# —— 生命周期
-	"life_time": 2.6,
-	"fade_curve": 1.5,
-	# —— 配色（浅蓝白水面）
-	"water_color": Color("#A8C8E0"),
-	"foam_color": Color("#FFFFFF"),
-	"surface_color": Color("#DDE9F3"),
+	"life_time": 8.7,
+	"fade_curve": 2.75,
+	# —— 配色（青蓝水面）
+	"water_color": Color("#5F9BE1"),
+	"foam_color": Color("#FFF4C8"),
+	"surface_color": Color("#6AD6EB"),
 }
 
 const SAVE_PATH := "user://water_style.json"

@@ -1,6 +1,6 @@
 class_name SpellLab
 extends CanvasLayer
-## 咒语调试台（F2）：左侧无限墨画布，右侧实时显示本笔的墨耗与 8 技能匹配度。
+## 咒语调试台（F2）：左侧无限墨画布，右侧实时显示本笔的墨耗与 5 神纹匹配度。
 ## 判定全部走 SpellMatch，与实战同一份算法阈值；本台不扣真实 TV、不影响战局。
 
 signal closed
@@ -36,7 +36,7 @@ var drag_i := -1                           # 正在拖的控制点下标
 var dirty := false                         # 编辑后尚未保存
 var reset_armed := false                   # 「全部恢复默认」的二次确认闸
 var feat := {}                             # 当前笔画特征（节流重算）
-var rows: Array = []                       # 8 技能匹配结果，按得分降序
+var rows: Array = []                       # 5 神纹匹配结果，按得分降序
 var _match_t := -9999
 var toast_t := 0.0
 var toast_text := ""
@@ -129,6 +129,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 10
 	font = load("res://assets/fonts/MFYueYuan_Noncommercial-Regular.ttf")
+	SpellMatch.load_config()      # 与实战共用 data/spell.tres 里的那套门槛
 	_load_skills()
 	board = _Board.new()
 	board.lab = self

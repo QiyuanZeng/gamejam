@@ -116,9 +116,9 @@ func _test_wave_table() -> void:
 		if segs[i].until_time < segs[i - 1].until_time:
 			ordered = false
 	_chk(ordered, "波表按 until_time 排好了序")
-	# 提速到位：末段 0.18 秒一只、场上 64 只
+	# 提速到位：末段 0.20 秒一只、场上 64 只
 	var last: WaveData = WaveDB.final_seg()
-	_chk(is_equal_approx(last.interval, 0.18), "末段 interval 提速到 %.2f" % last.interval)
+	_chk(is_equal_approx(last.interval, 0.20), "末段 interval 提速到 %.2f" % last.interval)
 	_chk(last.cap == 64, "末段 cap 拉到 %d" % last.cap)
 	# 首段必须是纯近战开局
 	var first: WaveData = segs[0]

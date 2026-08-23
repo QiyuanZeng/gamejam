@@ -61,7 +61,7 @@ func _process(delta: float) -> void:
 				for s in lab.skills:
 					if bool(SpellMatch.check(feat2, s).ok):
 						any = true
-				_chk(not any, "乱涂圆圈对 8 技能全不命中")
+				_chk(not any, "乱涂圆圈对 5 神纹全不命中")
 				_next(4)
 		4:
 			# 录入：把当前笔形绑进第 3 个技能，且不污染战局技能表

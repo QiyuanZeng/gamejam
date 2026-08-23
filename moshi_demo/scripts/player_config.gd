@@ -1,6 +1,6 @@
 class_name PlayerConfig
 extends Resource
-## 人物总表。人物的血量、冲刺斩、表盘行动点、回溯、笔墨消耗、七道神纹的数值，
+## 人物总表。人物的血量、冲刺斩、表盘行动点、回溯、笔墨消耗、五道神纹的数值，
 ## 全部收在这一份 res://data/player.tres 里，编辑器双击打开，Inspector 里改完存盘即生效。
 ##
 ## 结构：
@@ -10,12 +10,13 @@ extends Resource
 ##   回溯     → 钟表充能、回溯格数、伤害倍率、标记保留
 ##   笔墨     → 时间之力上限/回复、**每像素墨耗**、子弹时间流逝
 ##   觉醒     → 点亮空碑的门槛与概率
-##   神纹     → 七道技能各自的冷却与效果参数
+##   神纹     → 五道技能各自的冷却与效果参数
 ##
 ## **想画更长的线** → 把「笔墨」组的 tv_cost_per_px 调小（1 px 消耗多少墨，越小画得越长），
 ## 或把 tv_max_base 调大、bullet_tv_drain 调小（子弹时间每秒的额外流逝）。
 ##
-## 怪物那边的数值在 res://data/balance.tres（BalanceConfig），两份表互不重叠。
+## 怪物那边的数值在 res://data/balance.tres（BalanceConfig），
+## 施法的识别门槛（笔多长算数、画多像才认）在 res://data/spell.tres（SpellConfig），三份表互不重叠。
 ## 详见 docs/player.md。
 
 const PATH := "res://data/player.tres"
@@ -123,10 +124,6 @@ const PATH := "res://data/player.tres"
 
 @export_group("神纹")
 
-@export_subgroup("时·回溯")
-## 冷却（秒）。
-@export var time_cd: float = 10.0
-
 @export_subgroup("雷霆万钧")
 @export var thunder_cd: float = 6.0
 ## 随机劈几个目标。
@@ -168,16 +165,6 @@ const PATH := "res://data/player.tres"
 @export var flood_width: float = 34.0
 @export var flood_dmg: float = 16.0
 
-@export_subgroup("时间领域")
-@export var domain_cd: float = 16.0
-## 领域驻留时长（秒）。
-@export var domain_time: float = 6.0
-@export var domain_radius: float = 195.0
-## 领域内每秒伤害。
-@export var domain_dps: float = 14.0
-## 站在领域内钟表的额外充能倍率。
-@export var domain_charge: float = 2.0
-
 @export_subgroup("无限剑阵")
 @export var swords_cd: float = 14.0
 ## 内圈剑数。
@@ -191,21 +178,9 @@ const PATH := "res://data/player.tres"
 @export var sword_radius: float = 58.0
 @export var sword_dmg: float = 22.0
 
-@export_subgroup("阿尔法突袭")
-@export var alpha_cd: float = 12.0
-## 消失期间补几刀。
-@export var alpha_hits: int = 8
-## 两刀之间的间隔（秒）。
-@export var alpha_gap: float = 0.1
-## 补刀的选敌半径。
-@export var alpha_radius: float = 265.0
-@export var alpha_dmg: float = 12.0
-
 ## 按技能 id 取冷却。id 对不上返回 -1，调用方保留神纹录里的原值。
 func skill_cd(id: String) -> float:
 	match id:
-		"time":
-			return time_cd
 		"thunder":
 			return thunder_cd
 		"quake":
@@ -214,12 +189,8 @@ func skill_cd(id: String) -> float:
 			return ent_cd
 		"flood":
 			return flood_cd
-		"domain":
-			return domain_cd
 		"swords":
 			return swords_cd
-		"alpha":
-			return alpha_cd
 	return -1.0
 
 static var _inst: PlayerConfig = null

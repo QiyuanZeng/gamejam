@@ -8,14 +8,29 @@ extends RefCounted
 ## 免疫 —— 只认最终落在纸上的形状。代价是丢弃行笔时序，轨迹重合而走法不同的笔形无法区分。
 
 const SAMPLES := 32                     # 重采样点数（比对开销随 n² 增长，32 足够且够快）
-const MIN_LEN := 120.0                  # 笔画长度门槛（px）
-const SCORE_MIN := 0.82                 # 匹配得分门槛（拒识上界 74% 与命中下界 90% 的中点）
-const RMS_REF := 0.35                   # 得分归一基准：rms 达到此值即判 0 分
+
+## —— 施法门槛。默认值只是兜底，开局由 load_config() 从 res://data/spell.tres 覆盖 ——
+## 想调「多长的笔才算数」「画得多像才认」，去改那份表，别改这里。
+static var MIN_LEN := 120.0             # 笔画长度门槛（px）
+static var SCORE_MIN := 0.82            # 匹配得分门槛（拒识上界 74% 与命中下界 90% 的中点）
+static var RMS_REF := 0.35              # 得分归一基准：rms 达到此值即判 0 分
 ## 与已激活神纹的相似度上界：超过就算「跟别人撞了」，不给绑。
-## 策划案原文写 50%，但 $Q 的分数基线本来就高 —— 实测圆/三角/螺旋/星形这些跟「时」的方框
+## 策划案原文写 50%，但 $Q 的分数基线本来就高 —— 实测圆/三角/螺旋/星形这些跟出厂形
 ## 八竿子打不着的形，也能拿 50~70%，按 50% 卡等于把觉醒永久关死（见 tests/shape_diag 实测）。
 ## 取 70%：明显低于 82% 的命中门槛（留 12 点余量，不至于误判成命中），又真能放行陌生形。
-const BIND_MAX_SIM := 0.70
+static var BIND_MAX_SIM := 0.70
+
+## 把施法门槛表灌进来。main / spell_lab 的 _ready 各调一次，两边共用同一份数。
+static func load_config() -> void:
+	apply_config(SpellConfig.get_config())
+
+static func apply_config(cfg: SpellConfig) -> void:
+	if cfg == null:
+		return
+	MIN_LEN = cfg.min_len
+	SCORE_MIN = cfg.score_min
+	RMS_REF = cfg.rms_ref
+	BIND_MAX_SIM = cfg.bind_max_sim
 
 
 ## 神纹录。**古代神纹必须排在最前** —— HUD 的可绑槽列表、调试台的试录键位都锚定
@@ -23,14 +38,11 @@ const BIND_MAX_SIM := 0.70
 ##   古代神纹（ancient）：项目预设，出生即激活，笔形可在 F2 台精修但抹不掉。
 ##   普通神纹（normal） ：空碑，战斗中由玩家的长笔画随机激活并绑形，可在神纹录抹除重绑。
 const SKILL_DEFS := [
-	{"id": "time", "name": "时·回溯", "ancient": true, "cd": 10.0},
 	{"id": "thunder", "name": "雷霆万钧", "ancient": true, "cd": 6.0},
+	{"id": "ent", "name": "妖木精灵", "ancient": true, "cd": 20.0},
 	{"id": "quake", "name": "山崩地裂", "ancient": false, "cd": 12.0},
-	{"id": "ent", "name": "妖木精灵", "ancient": false, "cd": 20.0},
 	{"id": "flood", "name": "水漫金山", "ancient": false, "cd": 10.0},
-	{"id": "domain", "name": "时间领域", "ancient": false, "cd": 16.0},
 	{"id": "swords", "name": "无限剑阵", "ancient": false, "cd": 14.0},
-	{"id": "alpha", "name": "阿尔法突袭", "ancient": false, "cd": 12.0},
 ]
 
 ## 古代神纹 id，按表内顺序。调试台的 1/2 键、恢复默认都据此取，不写死。
@@ -50,16 +62,23 @@ static var _custom_loaded := false
 
 const CUSTOM_PATH := "user://spell_strokes.json"
 
-## 出厂笔形（单笔近似）：「时」取方回起手，「雷」取闪电折返。
-## 两个形状刻意拉开差异 —— 一个是闭合方框、一个是折线闪电，最长弦转正后仍不会互认。
+## 出厂笔形（单笔近似）：「雷」取闪电折返，「木」取一横一竖加撇捺。
+## $Q 只认最终落纸的形状、不认笔序，所以多笔的字要按「一笔连写」写死 —— 回描的那几段
+## 只是让点云在主干上更密，不影响判定。
+## 两个形状刻意拉开差异 —— 一个是三折闪电、一个是十字带撇捺，最长弦转正后仍不会互认。
+## 「木」的捺特意拖得比撇长：最长弦（横左端 → 捺末端）由此唯一，转正角才稳；
+## 左右对称的写法会出现两条等长弦，采样稍有出入就把整个形甩转 40°，直接把匹配打废。
 static func default_stroke(id: String) -> PackedVector2Array:
 	match id:
-		"time":
-			return PackedVector2Array([
-				Vector2(0, 0), Vector2(58, 0), Vector2(58, 46), Vector2(8, 46), Vector2(8, 16)])
 		"thunder":
 			return PackedVector2Array([
 				Vector2(36, 0), Vector2(4, 34), Vector2(30, 34), Vector2(0, 72)])
+		"ent":
+			return PackedVector2Array([
+				Vector2(2, 20), Vector2(62, 20),          # 横
+				Vector2(32, 20), Vector2(32, 80),          # 回描到中点，往下写竖
+				Vector2(32, 44), Vector2(4, 72),           # 回描到交叉点，撇
+				Vector2(32, 44), Vector2(72, 88)])         # 再回交叉点，捺
 	return PackedVector2Array()
 
 ## 当前生效的古代神纹笔形：玩家改过就用改过的，否则回落出厂形。

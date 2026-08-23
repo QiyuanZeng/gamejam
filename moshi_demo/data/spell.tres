@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="SpellConfig" format=3]
+
+[ext_resource type="Script" path="res://scripts/spell_config.gd" id="1_spell_config"]
+
+[resource]
+script = ExtResource("1_spell_config")
+min_len = 120.0
+score_min = 0.78
+rms_ref = 0.35
+bind_max_sim = 0.7
