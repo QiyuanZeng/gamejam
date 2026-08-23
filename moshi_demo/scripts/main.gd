@@ -301,6 +301,7 @@ func _ready() -> void:
 		paper_tex = load("res://assets/bg_game_main.png")
 	bg_layer = _make_layer(-100)
 	bg_layer.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	_build_bg_tiles()
 	ink_layer = _make_layer(-50)
 	fx_layer = _make_layer(50)
 	bg_layer.paint = _paint_bg
@@ -350,6 +351,48 @@ func _make_layer(z: int) -> PaintLayer:
 	l.z_index = z
 	add_child(l)
 	return l
+
+## 背景水面缓存：底纹每块要 70+ 次 draw，视野内 20 多块 → 每帧 45ms，占了空场开销的 97%。
+## 改成把「一块」离屏渲进 SubViewport，主层只贴纹理。4 种变体错开平铺避免明显重复，
+## 轮流刷新维持底纹漂移动画（每帧至多重绘一块）。
+const BG_TILE_VARIANTS := 4
+const BG_TILE_REFRESH := 0.4          # 一轮刷完 4 块所需秒数；底纹漂移很慢，够用
+
+var bg_tiles: Array[SubViewport] = []
+var bg_pads: Array[PaintLayer] = []
+var bg_tile_i := 0
+var bg_refresh_t := 0.0
+
+func _build_bg_tiles() -> void:
+	WaterRenderer.ensure_loaded()
+	var t := WaterRenderer.TILE
+	for k in BG_TILE_VARIANTS:
+		var vp := SubViewport.new()
+		vp.size = Vector2i(int(t.x), int(t.y))
+		vp.disable_3d = true
+		vp.transparent_bg = false
+		vp.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
+		vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+		var pad := PaintLayer.new()
+		var seed_off := k * 31
+		pad.paint = func(c: PaintLayer) -> void:
+			WaterRenderer.draw_water_surface(c, Rect2(Vector2.ZERO, t), {},
+				surface_phase, seed_off)
+		vp.add_child(pad)
+		add_child(vp)
+		bg_tiles.append(vp)
+		bg_pads.append(pad)
+
+func _refresh_bg_tiles(delta: float) -> void:
+	if bg_tiles.is_empty():
+		return
+	bg_refresh_t -= delta
+	if bg_refresh_t > 0.0:
+		return
+	bg_refresh_t = BG_TILE_REFRESH / float(bg_tiles.size())
+	bg_tile_i = (bg_tile_i + 1) % bg_tiles.size()
+	bg_pads[bg_tile_i].queue_redraw()
+	bg_tiles[bg_tile_i].render_target_update_mode = SubViewport.UPDATE_ONCE
 
 func _build_skills() -> void:
 	skills = SpellMatch.build_skills()
@@ -741,10 +784,12 @@ func _bounce_path(from: Vector2, dir: Vector2, dist: float) -> PackedVector2Arra
 		pts.append(pos + d)
 	return pts
 
-## 直线补点：只有两端的路径在 WaterRenderer 里会被首尾锥化吃成零宽（等于看不见），
-## 按 SAMPLE_DIST 铺成和手绘同密度的点列，斩击才留得下水痕。
+## 直线补点：只有两端的路径在 WaterRenderer 里会被首尾锥化吃成零宽（等于看不见）。
+## 锥化按路径比例算，跟点数无关 —— 铺十几个点就够，密到 6px 只是白烧 draw call。
+const SLASH_SAMPLE_DIST := 28.0
+
 func _straight_path(a: Vector2, b: Vector2) -> PackedVector2Array:
-	var n := maxi(2, int(ceil(a.distance_to(b) / SAMPLE_DIST)) + 1)
+	var n := maxi(2, int(ceil(a.distance_to(b) / SLASH_SAMPLE_DIST)) + 1)
 	var out := PackedVector2Array()
 	for i in n:
 		out.append(a.lerp(b, float(i) / float(n - 1)))
@@ -781,11 +826,13 @@ func _begin_draw() -> void:
 	ink_ages = PackedFloat32Array([0.0])
 	AudioMgr.play("draw", 1.2, -8.0)
 
+## 墨尽不再强行收笔：笔干涸后照旧留在子弹时间里，只是再也画不出线，
+## 等玩家自己松开右键才收笔斩击 —— 出刀时机的决定权还给玩家。
 func _update_spell(delta: float) -> void:
 	spell_timer += delta
 	tv = maxf(tv - BULLET_TV_DRAIN * delta, 0.0)
-	if tv < BULLET_EXIT_TV and spell_timer >= BULLET_MIN_TIME:
-		_end_draw()
+	if tv <= 0.0:
+		dry_pen = true
 
 func _sample_ink() -> void:
 	if ink_path.is_empty() or dry_pen:
@@ -1508,6 +1555,7 @@ func _begin_rewind() -> void:
 
 func _update_rewind(delta: float) -> void:
 	if rewind_i < 0 or rewind_i >= rewind_hist.size():
+		_consume_rewind_hist()
 		_begin_burst(true)
 		return
 	if rewind_d == 0.0:
@@ -1532,6 +1580,17 @@ func _update_rewind(delta: float) -> void:
 	if rewind_d >= 1.0:
 		rewind_i -= 1
 		rewind_d = 0.0
+
+## 回溯走完 = 这些轨迹被吃掉了：航道链、地上水痕一并清空。
+## 地图上留着的线必须与「下一次 R 会走的路」严格一致，走过的绝不留在地上。
+func _consume_rewind_hist() -> void:
+	rewind_hist.clear()
+	rewind_i = -1
+	rewind_d = 0.0
+	ink_path = PackedVector2Array()
+	ink_ages = PackedFloat32Array()
+	dash_done = PackedVector2Array()
+	dash_ages = PackedFloat32Array()
 
 func _point_along(path: PackedVector2Array, t: float) -> Vector2:
 	if path.is_empty():
@@ -1679,6 +1738,7 @@ func _update_fx(delta: float) -> void:
 func _update_timers(delta: float) -> void:
 	# 水痕计龄：与编辑器 _Pad._process 同构，逐点变老
 	surface_phase += delta
+	_refresh_bg_tiles(delta)
 	for i in ink_ages.size():
 		ink_ages[i] += delta
 	for i in dash_ages.size():
@@ -1712,20 +1772,38 @@ func _update_timers(delta: float) -> void:
 
 func _paint_bg(l: PaintLayer) -> void:
 	# 底：与 F1 编辑器试笔画布同一套水面（按编辑器画布尺寸平铺，底纹特征大小一致）
-	var vs := get_viewport_rect().size
+	var vs := get_viewport_rect().size / camera.zoom
 	var view := Rect2(camera.get_screen_center_position() - vs * 0.5, vs).grow(WaterRenderer.TILE.x)
-	WaterRenderer.draw_water_surface_tiled(l, Rect2(Vector2.ZERO, ARENA), view, {}, surface_phase)
+	var world := Rect2(Vector2.ZERO, ARENA)
+	if bg_tiles.is_empty():
+		WaterRenderer.draw_water_surface_tiled(l, world, view, {}, surface_phase)
+		return
+	WaterRenderer.ensure_loaded()
+	l.draw_rect(world, WaterRenderer.getc(WaterRenderer.current, "surface_color"))
+	var clip := world.intersection(view)
+	if clip.size.x <= 0.0 or clip.size.y <= 0.0:
+		return
+	var t := WaterRenderer.TILE
+	var i0 := int(floorf(clip.position.x / t.x))
+	var i1 := int(floorf(clip.end.x / t.x))
+	var j0 := int(floorf(clip.position.y / t.y))
+	var j1 := int(floorf(clip.end.y / t.y))
+	for j in range(j0, j1 + 1):
+		for i in range(i0, i1 + 1):
+			var tex: Texture2D = bg_tiles[posmod(i * 7 + j * 13, bg_tiles.size())].get_texture()
+			if tex != null:
+				l.draw_texture_rect(tex, Rect2(Vector2(float(i) * t.x, float(j) * t.y), t), false)
 
 ## 回溯航道：把 rewind_hist 里攒着的每一段实际行进轨迹常驻画出来，
-## 玩家随时能看清「按 R 会沿哪条路倒着走回去」。充能满时提亮加粗并呼吸，
-## 终点（最早那段的起点）套个圈标出落脚处。REWIND 期间交给水痕全量重绘，这里让位。
+## 玩家随时能看清「按 R 会沿哪条路倒着走回去」。充能满 / 回溯中提亮加粗并呼吸，
+## 终点（最早那段的起点）套个圈标出落脚处。
 func _paint_rewind_guide(l: PaintLayer) -> void:
-	if rewind_hist.is_empty() or state == State.REWIND:
+	if rewind_hist.is_empty():
 		return
 	WaterRenderer.ensure_loaded()
 	# 底色是浅蓝水面，泡沫白压根看不见 —— 取水色压深当墨线
 	var base := WaterRenderer.getc(WaterRenderer.current, "water_color").darkened(0.5)
-	var ready := clock_charge >= CLOCK_TIME
+	var ready := clock_charge >= CLOCK_TIME or state == State.REWIND
 	var a := 0.85 if ready else 0.40
 	var w := 3.5 if ready else 2.2
 	if ready:
@@ -1776,12 +1854,14 @@ func _paint_ink(l: PaintLayer) -> void:
 		if dash_done.size() >= 2 and dash_ages.size() == dash_done.size():
 			WaterRenderer.draw_water_path(l, dash_done, dash_ages, 1.0)
 	if state == State.REWIND:
-		# 历史轨迹没有逐点计龄，按「起点最老、终点最新」铺一条等价年龄带
+		# 只给「正在倒着走的那一段」上水痕：整条链子逐段全量重绘要 1.4 万个三角形/帧，
+		# 其余段由常驻航道线交代，视觉信息一点不少。
 		var span := WaterRenderer.getf(WaterRenderer.current, "life_time") * 0.5
-		for path in rewind_hist:
-			if path.size() >= 2:
-				WaterRenderer.draw_water_path(l, path,
-					WaterRenderer.synth_ages(path.size(), 0.0, span), 1.0)
+		if rewind_i >= 0 and rewind_i < rewind_hist.size():
+			var cur: PackedVector2Array = rewind_hist[rewind_i]
+			if cur.size() >= 2:
+				WaterRenderer.draw_water_path(l, cur,
+					WaterRenderer.synth_ages(cur.size(), 0.0, span), 1.0)
 
 func _paint_fx(l: PaintLayer) -> void:
 	for t in trail:

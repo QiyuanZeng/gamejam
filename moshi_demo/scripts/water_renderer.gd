@@ -169,33 +169,64 @@ static func life_of(age: float, life_time: float, curve: float) -> float:
 		return 0.0
 	return pow(clampf(1.0 - age / life_time, 0.0, 1.0), curve)
 
-## 带顶点色的缎带（逐段四边形，避免自交三角化失败，且支持沿路径渐隐）
+## 带顶点色的缎带。整条一次性提交成三角数组 —— 兼容渲染器下每个 draw_* 都是独立
+## canvas item（实测 ~25µs/次），逐段 draw_polygon 会把一条尾迹拆成上千次调用。
 static func ribbon_gradient(c: CanvasItem, pts: PackedVector2Array, widths: Array,
 		cols: Array, scale: float, jitter: float, seed: float) -> void:
 	var m := pts.size()
 	if m < 2:
 		return
-	var left := PackedVector2Array()
-	var right := PackedVector2Array()
+	var verts := PackedVector2Array()
+	var vcols := PackedColorArray()
+	verts.resize(m * 2)
+	vcols.resize(m * 2)
 	for i in m:
 		var dir := tangent(pts, i)
 		var nrm := Vector2(-dir.y, dir.x)
 		var w: float = float(widths[i]) * scale
 		var h := sin(float(i) * 0.41 + seed * 3.1) * 0.55 + sin(float(i) * 0.13 + seed) * 0.45
 		var j := h * w * jitter
-		left.append(pts[i] + nrm * (w + j))
-		right.append(pts[i] - nrm * (w - j))
+		var col: Color = cols[i]
+		verts[i * 2] = pts[i] + nrm * (w + j)
+		verts[i * 2 + 1] = pts[i] - nrm * (w - j)
+		vcols[i * 2] = col
+		vcols[i * 2 + 1] = col
+	var idx := PackedInt32Array()
 	for i in m - 1:
 		var c0: Color = cols[i]
 		var c1: Color = cols[i + 1]
 		if c0.a <= 0.003 and c1.a <= 0.003:
 			continue
-		# 锥化尖端的宽度是亚像素级：画出来看不见，却会让三角化在共线附近失败刷屏
+		# 锥化尖端的宽度是亚像素级：画出来看不见，白占顶点
 		if maxf(float(widths[i]), float(widths[i + 1])) * scale < 0.25:
 			continue
-		# 拆成两个三角形：路径急转时四边形会自交（蝴蝶形），四边形三角化会失败
-		tri(c, left[i], left[i + 1], right[i + 1], c0, c1, c1)
-		tri(c, left[i], right[i + 1], right[i], c0, c1, c0)
+		var b := i * 2
+		idx.append_array(PackedInt32Array([b, b + 2, b + 3, b, b + 3, b + 1]))
+	if idx.is_empty():
+		return
+	RenderingServer.canvas_item_add_triangle_array(c.get_canvas_item(), idx, verts, vcols)
+
+## 批量画圆：几百个泡沫点逐个 draw_circle 同样会把帧时打穿，合成一次三角数组提交。
+static func batch_circles(c: CanvasItem, centers: PackedVector2Array,
+		radii: PackedFloat32Array, cols: PackedColorArray, seg := 8) -> void:
+	if centers.is_empty():
+		return
+	var verts := PackedVector2Array()
+	var vc := PackedColorArray()
+	var idx := PackedInt32Array()
+	for k in centers.size():
+		var base := verts.size()
+		verts.append(centers[k])
+		vc.append(cols[k])
+		for s in seg:
+			var a := TAU * float(s) / float(seg)
+			verts.append(centers[k] + Vector2(cos(a), sin(a)) * radii[k])
+			vc.append(cols[k])
+		for s in seg:
+			idx.append(base)
+			idx.append(base + 1 + s)
+			idx.append(base + 1 + (s + 1) % seg)
+	RenderingServer.canvas_item_add_triangle_array(c.get_canvas_item(), idx, verts, vc)
 
 ## 单个三角形（零面积 / 过扁 / 非法坐标直接丢弃）
 static func tri(c: CanvasItem, a: Vector2, b: Vector2, d: Vector2,
@@ -273,6 +304,26 @@ static func draw_water_surface_tiled(c: CanvasItem, world: Rect2, view: Rect2,
 			var org := world.position + Vector2(float(i) * TILE.x, float(j) * TILE.y)
 			draw_water_surface(c, Rect2(org, TILE), p, phase, (i * 7 + j * 13) * 31)
 
+## 单条尾迹的点数上限。缎带是逐段两个 draw_polygon，点数直接等于每帧 draw 调用数，
+## 不设顶的话一条 400 点的路径经 3 次 Chaikin 会炸到 3000+ 点。
+const MAX_INPUT_PTS := 200
+const MAX_SMOOTH_PTS := 400
+
+## 等距抽稀，首尾必留；ages 同步取样。
+static func decimate(pts: PackedVector2Array, ages: PackedFloat32Array,
+		limit: int) -> Array:
+	var n := pts.size()
+	if n <= limit:
+		return [pts, ages]
+	var out := PackedVector2Array()
+	var out_a := PackedFloat32Array()
+	var has_ages := ages.size() == n
+	for k in limit:
+		var i := int(round(float(k) * float(n - 1) / float(limit - 1)))
+		out.append(pts[i])
+		out_a.append(ages[i] if has_ages else 0.0)
+	return [out, out_a]
+
 ## 主入口：飞鸟掠水尾迹。ages[i] 为对应采样点已存在的秒数（尾部最大）。
 static func draw_water_path(c: CanvasItem, pts: PackedVector2Array,
 		ages: PackedFloat32Array, alpha: float, p: Dictionary = {}) -> void:
@@ -281,13 +332,20 @@ static func draw_water_path(c: CanvasItem, pts: PackedVector2Array,
 	if p.is_empty():
 		ensure_loaded()
 		p = current
-	var res := smooth_with_ages(pts, ages, maxi(geti(p, "smooth_iters"), 0))
+	var cut := decimate(pts, ages, MAX_INPUT_PTS)
+	var in_pts: PackedVector2Array = cut[0]
+	var in_ages: PackedFloat32Array = cut[1]
+	# 平滑迭代按点数自适应降级：Chaikin 每轮翻倍，密路径本来就够顺，不需要再翻
+	var iters := maxi(geti(p, "smooth_iters"), 0)
+	while iters > 0 and in_pts.size() * (1 << iters) > MAX_SMOOTH_PTS:
+		iters -= 1
+	var res := smooth_with_ages(in_pts, in_ages, iters)
 	var sp: PackedVector2Array = res[0]
 	var sa: PackedFloat32Array = res[1]
 	var m := sp.size()
 	if m < 2:
 		return
-	var seed := float(int(pts[0].x) % 977) * 0.37 + float(int(pts[0].y) % 761) * 0.11
+	var seed := float(int(in_pts[0].x) % 977) * 0.37 + float(int(in_pts[0].y) % 761) * 0.11
 	var water := getc(p, "water_color")
 	var foam := getc(p, "foam_color")
 	var life_time := getf(p, "life_time")
@@ -402,6 +460,8 @@ static func draw_water_path(c: CanvasItem, pts: PackedVector2Array,
 	var ca_chance := getf(p, "caustic_chance")
 	var ca_alpha := alpha * getf(p, "caustic_alpha")
 	var ca_len := getf(p, "caustic_len_max")
+	var ca_pts := PackedVector2Array()
+	var ca_cols := PackedColorArray()
 	for i in m:
 		if i % 2 != 0:
 			continue
@@ -417,9 +477,14 @@ static func draw_water_path(c: CanvasItem, pts: PackedVector2Array,
 		var ln := lerpf(ca_len * 0.25, ca_len, h)
 		var a := ca_alpha * lf * (0.35 + 0.65 * h)
 		var mid := sp[i] + off + dir * ln * 0.5 + nrm * (h * 2.0 - 1.0) * 2.4
-		c.draw_line(sp[i] + off, mid, Color(foam.r, foam.g, foam.b, a), 1.0 + h * 0.8)
-		c.draw_line(mid, sp[i] + off + dir * ln,
-			Color(foam.r, foam.g, foam.b, a * 0.8), 1.0 + h * 0.6)
+		ca_pts.append(sp[i] + off)
+		ca_pts.append(mid)
+		ca_cols.append(Color(foam.r, foam.g, foam.b, a))
+		ca_pts.append(mid)
+		ca_pts.append(sp[i] + off + dir * ln)
+		ca_cols.append(Color(foam.r, foam.g, foam.b, a * 0.8))
+	if ca_pts.size() >= 2:
+		c.draw_multiline_colors(ca_pts, ca_cols, 1.4)
 
 	# 6) 泡沫团：随年龄向外飘散并缩小消失
 	var fo_step := maxi(geti(p, "foam_step"), 1)
@@ -427,6 +492,9 @@ static func draw_water_path(c: CanvasItem, pts: PackedVector2Array,
 	var fo_alpha := alpha * getf(p, "foam_alpha")
 	var fo_size := getf(p, "foam_size_max")
 	var fo_spread := getf(p, "foam_spread")
+	var fo_c := PackedVector2Array()
+	var fo_r := PackedFloat32Array()
+	var fo_col := PackedColorArray()
 	for i in m:
 		if i % fo_step != 0:
 			continue
@@ -446,13 +514,21 @@ static func draw_water_path(c: CanvasItem, pts: PackedVector2Array,
 				+ nrm * (float(widths[i]) * 0.55 + hk * fo_spread + spread * sa[i] * 0.5) * side \
 				+ dir * (hk * 2.0 - 1.0) * 4.0
 			var r := lerpf(fo_size * 0.28, fo_size, hk) * (0.35 + 0.65 * lf)
-			c.draw_circle(pos, r, Color(foam.r, foam.g, foam.b, fo_alpha * lf * (0.4 + 0.6 * hk)))
-			c.draw_circle(pos, r * 0.45, Color(foam.r, foam.g, foam.b, fo_alpha * lf * 0.5))
+			fo_c.append(pos)
+			fo_r.append(r)
+			fo_col.append(Color(foam.r, foam.g, foam.b, fo_alpha * lf * (0.4 + 0.6 * hk)))
+			fo_c.append(pos)
+			fo_r.append(r * 0.45)
+			fo_col.append(Color(foam.r, foam.g, foam.b, fo_alpha * lf * 0.5))
+	batch_circles(c, fo_c, fo_r, fo_col, 7)
 
 	# 7) 接触切痕：柔和亮痕，两端随锥化淡入淡出，不再是锐利硬线
 	var cut_life := getf(p, "cut_life")
 	var cut_a := alpha * getf(p, "cut_alpha")
 	var cut_w := getf(p, "cut_width")
+	var cut_pts := PackedVector2Array()
+	var cut_cols := PackedColorArray()
+	var cut_seg_w := cut_w
 	for i in m - 1:
 		var cl0 := life_of(sa[i], cut_life, 1.2)
 		var cl1 := life_of(sa[i + 1], cut_life, 1.2)
@@ -467,9 +543,11 @@ static func draw_water_path(c: CanvasItem, pts: PackedVector2Array,
 		var a1 := cut_a * cl1 * f1
 		if a0 <= 0.004 and a1 <= 0.004:
 			continue
-		var seg_w := cut_w * maxf(f0, f1)
-		c.draw_line(sp[i], sp[i + 1],
-			Color(foam.r, foam.g, foam.b, (a0 + a1) * 0.5), maxf(seg_w, 0.6))
+		cut_pts.append(sp[i])
+		cut_pts.append(sp[i + 1])
+		cut_cols.append(Color(foam.r, foam.g, foam.b, (a0 + a1) * 0.5))
+	if cut_pts.size() >= 2:
+		c.draw_multiline_colors(cut_pts, cut_cols, maxf(cut_seg_w, 0.6))
 
 	# 8) 脚印：沿路径按间隔的离散落点，左右交错，椭圆压扁并按行进方向旋转
 	var pr_step := maxi(geti(p, "print_step"), 1)

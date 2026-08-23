@@ -95,7 +95,7 @@ func _shot() -> void:
 	var ratio := 0.0 if total == 0 else float(on) / float(total)
 	print("hist=%d onscreen_pts=%d ink_hit=%.2f bg=%s" % [g.rewind_hist.size(), total, ratio, str(bg)])
 	print("shot size=%s path=%s" % [str(img.get_size()), path])
-	_chk(total > 40, "enough onscreen path points, got %d" % total)
+	_chk(total > 20, "enough onscreen path points, got %d" % total)
 	_chk(ratio > 0.85, "path pixels visible, got %.2f" % ratio)
 	if fails.is_empty():
 		print("REWIND_SHOT PASS")
