@@ -1,6 +1,6 @@
-extends Control
+﻿extends Control
 ## 登录页（标题屏）「时之回环」。
-## UI 文字烧在背景整图里，本脚本只叠：背景 5 态轮播、开始按钮（双态贴图）。
+## UI 文字烧在背景整图里，本脚本只叠：背景 5 态轮播、开始按钮（双态贴图）、帮助按钮+帮助页弹窗。
 
 const BG_PATHS := [
 	"res://assets/art/login/1.png",
@@ -20,6 +20,8 @@ const BTN_INACTIVE_PATH := "res://assets/art/login/btn_start_inactive.png"
 const BTN_ACTIVE_PATH := "res://assets/art/login/btn_start_active.png"
 ## 开始按钮热区（中心/尺寸为视口百分比）
 const BTN_START := {"x": 0.26, "y": 0.615, "w": 0.42, "h": 0.208}
+
+## 帮助按钮做在战斗 HUD（hud.gd），登录页不放。
 
 var bg_current: TextureRect
 var bg_next: TextureRect
@@ -89,11 +91,18 @@ func _build_start_button() -> void:
 	start_btn.anchor_bottom = BTN_START.y + BTN_START.h * 0.5
 	start_btn.mouse_entered.connect(start_btn.grab_focus)
 	start_btn.mouse_exited.connect(start_btn.release_focus)
+	# 常态压暗一半，hover / 聚焦全亮，整体明暗差一倍
+	start_btn.modulate = Color(1.0, 1.0, 1.0, 0.5)
+	start_btn.mouse_entered.connect(func(): start_btn.modulate = Color(1.0, 1.0, 1.0, 1.0))
+	start_btn.mouse_exited.connect(func(): start_btn.modulate = Color(1.0, 1.0, 1.0, 0.5))
+	start_btn.focus_entered.connect(func(): start_btn.modulate = Color(1.0, 1.0, 1.0, 1.0))
+	start_btn.focus_exited.connect(func(): start_btn.modulate = Color(1.0, 1.0, 1.0, 0.5))
 	start_btn.pressed.connect(_on_start_pressed)
 	add_child(start_btn)
 
 func _on_start_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_accept") and start_btn.has_focus():

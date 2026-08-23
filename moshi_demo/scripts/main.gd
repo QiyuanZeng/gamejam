@@ -5,7 +5,7 @@ extends Node2D
 ## 右键：按住进子弹时间书写（扣 TV），松开沿笔画斩击；笔画匹配咒语则附加释放技能。
 ## 伤害沿用「标记—引爆」模型：掠过只挂标记，终点顿帧统一结算。
 
-enum State { PLAY, SPELL, DASH, BURST, REWIND, GAMEOVER }
+enum State { PLAY, SPELL, DASH, BURST, REWIND, GAMEOVER, TRANSITION }
 
 # ============================== §1 全局 ==============================
 
@@ -568,9 +568,17 @@ func _input(event: InputEvent) -> void:
 			and event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_R]
 		var click: bool = event is InputEventMouseButton and event.pressed
 		if key or click:
-			get_tree().reload_current_scene()
+			# 不直接重开：先播 1 秒下落过渡视频，播完由 hud 自动 reload 场景
+			state = State.TRANSITION
+			hud.play_transition()
+		return
+	if state == State.TRANSITION:
 		return
 	if event is InputEventMouseButton:
+		# 鼠标悬在任何 UI 控件上（问号按钮/帮助页）时点击不进玩法，
+		# 否则点按钮的那一下会先被当成定向斩，人物自己冲出去。
+		if get_viewport().gui_get_hovered_control() != null:
+			return
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			if state == State.PLAY:
 				_dial_slash()
@@ -731,7 +739,7 @@ func _regen(delta: float, f: float) -> void:
 	if clock_charge < CLOCK_TIME:
 		clock_charge = minf(clock_charge + delta * f, CLOCK_TIME)
 		if clock_charge >= CLOCK_TIME:
-			AudioMgr.play("clock", 1.0, -4.0)
+			AudioMgr.play("clock_full", 1.0, -4.0)
 
 # ============================== §3.2 表盘斩击 ==============================
 
@@ -1821,8 +1829,8 @@ func _paint_rewind_guide(l: PaintLayer) -> void:
 	if rewind_hist.is_empty():
 		return
 	WaterRenderer.ensure_loaded()
-	# 留下的字迹用暖米白，和浅蓝水面拉开对比。
-	var base := Color("#FFFED0")
+	# 留下的回溯字迹用亮金色，压住浅蓝水面。
+	var base := Color("#FFE48A")
 	var ready := clock_charge >= CLOCK_TIME or state == State.REWIND
 	var a := 0.85 if ready else 0.40
 	var w := 3.5 if ready else 2.2
