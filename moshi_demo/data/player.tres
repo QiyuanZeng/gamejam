@@ -4,14 +4,29 @@
 
 [resource]
 script = ExtResource("1_player_config")
-dash_speed = 2000.0
+dash_speed = 2500.0
 slash_min_gap = 0.1
 rewind_slots = 10
+rewind_mult = 2.5
 rewind_path_time = 0.2
 tv_max_base = 500.0
 tv_regen_base = 50.0
 tv_cost_per_px = 0.15
-bind_chance = 0.5
-thunder_bolts = 10
+bind_energy_ratio = 0.5
+bind_chance = 0.2
+thunder_bolts = 20
+thunder_dmg = 40.0
+quake_waves = 12
 quake_radius = 500.0
+quake_dmg = 40.0
+ent_count = 5
+ent_dmg = 40.0
+flood_dirs = 12
 flood_range = 1000.0
+flood_dmg = 40.0
+sword_inner = 8
+sword_outer = 16
+sword_r_in = 200.0
+sword_r_out = 400.0
+sword_radius = 80.0
+sword_dmg = 40.0

@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/horned_blob_idle_002.png-c9f2b320811695c65c0f
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/impact_ring_00.png-ab48ce8b93a2a9ee208dad39b8
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

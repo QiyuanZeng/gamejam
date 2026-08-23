@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/bear_walk_004.png-8a3a72aee5cf22e13caf01ecfd7
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.8
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
