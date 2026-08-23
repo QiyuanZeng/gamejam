@@ -5,7 +5,7 @@ extends Node2D
 ## 右键：按住进子弹时间书写（扣 TV），松开沿笔画斩击；笔画匹配咒语则附加释放技能。
 ## 伤害沿用「标记—引爆」模型：掠过只挂标记，终点顿帧统一结算。
 
-enum State { PLAY, SPELL, DASH, BURST, REWIND, LAG, GAMEOVER }
+enum State { PLAY, SPELL, DASH, BURST, REWIND, GAMEOVER }
 
 # ============================== §1 全局 ==============================
 
@@ -121,12 +121,10 @@ const BOMB_DELAY := 0.1
 const BOMB_RADIUS := 90.0
 const BOMB_DMG := 15.0
 
-# ============================== §8 受击 / 时滞 ==============================
+# ============================== §8 受击 ==============================
 
 var HIT_CHARGE_PENALTY := 0.0
 var HIT_MULT_PENALTY := 0.2
-var LAG_TIME := 3.0
-var LAG_MAX := 3
 
 # ============================== §9 计分 ==============================
 
@@ -186,8 +184,6 @@ var score_mult := MULT_BASE
 var kill_streak := 0
 var coins := 0
 var sand := 0
-var lag_count := 0
-var lag_timer := 0.0
 var rating := "C"
 var payout_coins := 0
 var payout_sand := 0
@@ -412,8 +408,6 @@ func _load_player_config() -> void:
 	CONTACT_DMG_MULT = pc.contact_dmg_mult
 	BULLET_DMG_MULT = pc.bullet_dmg_mult
 	HIT_INVULN = pc.hit_invuln
-	LAG_MAX = pc.lag_max
-	LAG_TIME = pc.lag_time
 	HIT_CHARGE_PENALTY = pc.hit_charge_penalty
 	HIT_MULT_PENALTY = pc.hit_mult_penalty
 
@@ -540,7 +534,7 @@ func hour_dir() -> Vector2:
 
 func enemy_speed_factor() -> float:
 	match state:
-		State.PLAY, State.LAG:
+		State.PLAY:
 			return 1.0
 		State.SPELL:
 			return BULLET_FACTOR
@@ -698,21 +692,16 @@ func _process(delta: float) -> void:
 			_update_burst(delta)
 		State.REWIND:
 			_update_rewind(delta)
-		State.LAG:
-			lag_timer -= delta
-			_update_waves(delta, f)
-			if lag_timer <= 0.0:
-				_end_lag()
 		State.GAMEOVER:
 			pass
-	if state == State.PLAY or state == State.SPELL or state == State.LAG:
+	if state == State.PLAY or state == State.SPELL:
 		_check_contact()
 	_separate()
 	_update_status(delta, f)
 	if state != State.BURST:
 		_update_fx(delta)
 	_update_timers(delta)
-	# 本局不再有时间结算：唯一的结束条件是体力（时滞次数）耗尽，见 _enter_lag()
+	# 本局不再有时间结算：唯一的结束条件是血量归零直接结算，见 _on_player_hurt()
 	_update_camera(delta)
 	_redraw_all()
 
@@ -1329,7 +1318,7 @@ func _on_player_hurt() -> void:
 	score_mult = maxf(score_mult - HIT_MULT_PENALTY, MULT_BASE)
 	kill_streak = 0
 	if player.hp <= 0.0:
-		_enter_lag()
+		_settle()
 
 ## 圆形清弹：技能范围内的敌弹一并销毁。返回销毁数量。
 func clear_enemy_bullets_in(pos: Vector2, radius: float) -> int:
@@ -1610,7 +1599,7 @@ func _point_along(path: PackedVector2Array, t: float) -> Vector2:
 		return player.position
 	return SpellMatch.point_along(path, t)
 
-# ============================== §8 受击 / 时滞 ==============================
+# ============================== §8 受击 ==============================
 
 func _check_contact() -> void:
 	if player.invuln > 0.0:
@@ -1624,26 +1613,6 @@ func _check_contact() -> void:
 				e.position += away * 26.0
 				_on_player_hurt()
 			return
-
-func _enter_lag() -> void:
-	lag_count += 1
-	if lag_count > LAG_MAX:
-		_settle()
-		return
-	state = State.LAG
-	lag_timer = LAG_TIME
-	ap = 0.0
-	ink_path = PackedVector2Array()
-	player.invuln = LAG_TIME + 0.5
-	zan_t = 0.6
-	zan_red = true
-	zan_text = "时滞"
-	AudioMgr.play("over", 1.2, -6.0)
-
-func _end_lag() -> void:
-	player.hp = player.max_hp
-	player.invuln = HIT_INVULN
-	state = State.PLAY
 
 # ============================== §9 结算 ==============================
 

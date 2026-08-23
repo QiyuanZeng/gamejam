@@ -4,7 +4,6 @@
 
 [resource]
 script = ExtResource("1_player_config")
-lag_max = 1
 dash_speed = 2000.0
 slash_min_gap = 0.1
 rewind_slots = 10

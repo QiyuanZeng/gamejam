@@ -74,8 +74,6 @@ func _paint(r: Control) -> void:
 		r.draw_rect(Rect2(0, 0, w, h), Color(0.1, 0.12, 0.16, 0.08))
 	if game.state == game.State.REWIND:
 		r.draw_rect(Rect2(0, 0, w, h), Color(0.75, 0.22, 0.17, 0.12))
-	if game.state == game.State.LAG:
-		r.draw_rect(Rect2(0, 0, w, h), Color(0.2, 0.18, 0.16, 0.35))
 	if game.flash_t > 0.0:
 		r.draw_rect(Rect2(0, 0, w, h),
 			Color(1, 1, 1, game.flash_t / game.FLASH_TIME))
@@ -83,11 +81,9 @@ func _paint(r: Control) -> void:
 		r.draw_rect(Rect2(0, 0, w, h),
 			Color(0.75, 0.2, 0.15, 0.22 * clampf(game.hit_flash / 0.25, 0.0, 1.0)))
 	# 血条 / 时间值环 已移到 main.gd `_paint_dial`（与表盘同一 PaintLayer，同层级绘制）
-	# —— 右上：体力 / 斩杀 / 得分 ——
-	# 本局没有时限，唯一的结束条件是体力（时滞次数）耗尽，所以这里常驻显示体力。
-	var stam: int = maxi(game.LAG_MAX - game.lag_count, 0)
-	var stat := "体力 %d/%d    斩 %d    分 %d    ×%.1f" % [
-		stam, game.LAG_MAX, game.kills, int(round(game.score)), game.score_mult]
+	# —— 右上：斩杀 / 得分（时滞已移除：血量归零直接结算） ——
+	var stat := "斩 %d    分 %d    ×%.1f" % [
+		game.kills, int(round(game.score)), game.score_mult]
 	_text(r, Vector2(w - 20.0, 14), stat, 18, UI_TEXT_WHITE, HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
 	_text(r, Vector2(w - 20.0, 38), "已撑 %.0fs" % game.run_time,
 		14, Color(GREY.r, GREY.g, GREY.b, 0.7), HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
@@ -152,10 +148,6 @@ func _paint(r: Control) -> void:
 		else:
 			var zcol := Color(RED.r, RED.g, RED.b, za) if game.zan_red else Color(INK.r, INK.g, INK.b, za)
 			_text_center(r, w * 0.5, h * 0.42, game.zan_text, 150, zcol)
-	# —— 时滞 ——
-	if game.state == game.State.LAG:
-		_text_center(r, w * 0.5, h * 0.60, "时滞 %.1f" % maxf(game.lag_timer, 0.0),
-			26, Color(RED.r, RED.g, RED.b, 0.85))
 	# —— 觉醒选碑面板 ——
 	if game.bind_panel:
 		_paint_bind(r, w, h)

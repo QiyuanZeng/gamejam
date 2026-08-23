@@ -1,5 +1,5 @@
 extends Node
-## 冒烟测试：PLAY→SPELL→DASH→BURST→PLAY→表盘斩→REWIND→时滞→结算。
+## 冒烟测试：PLAY→SPELL→DASH→BURST→PLAY→表盘斩→REWIND→结算。
 ## headless 直调 Game 内部 API + 伪造输入事件，确定性断言。
 
 var g: Game
@@ -124,51 +124,28 @@ func _process(delta: float) -> void:
 				phase = 10
 				t = 0.0
 		10:
-			# 时滞：HP 归零不死亡
-			g.player.invuln = 0.0
-			g.player.hp = 5.0
-			g.score_mult = 1.4
-			_place(1, true)
-			phase = 11
-			t = 0.0
-		11:
-			if g.state == g.State.LAG:
-				_chk(g.lag_count == 1, "hp<=0 -> LAG once, got %d" % g.lag_count)
-				_chk(g.ap == 0.0, "LAG clears AP")
-				_chk(g.score_mult < 1.4, "hit lowers score mult, got %.2f" % g.score_mult)
-				phase = 12
-				t = 0.0
-			elif t > 5.0:
-				_chk(false, "lag timeout, state %d hp %f" % [g.state, g.player.hp])
-				phase = 9
-		12:
-			if g.state == g.State.PLAY:
-				_chk(g.player.hp == g.player.max_hp, "LAG restores HP")
-				phase = 13
-				t = 0.0
-			elif t > 6.0:
-				_chk(false, "lag exit timeout, state %d" % g.state)
-				phase = 9
-		13:
-			# 本局没有时限：run_time 推多远都不该结算
+			# 无时限：run_time 推多远都不该结算
 			g.run_time = 999.0
-			phase = 131
+			phase = 101
 			t = 0.0
-		131:
+		101:
 			if t > 0.4:
 				_chk(g.state != g.State.GAMEOVER, "run_time 到 999 仍不结算（时限已拆）")
-				# 唯一的结束条件：体力（时滞次数）耗尽
-				while g.lag_count <= g.LAG_MAX:
-					g._enter_lag()
-				phase = 14
+				# 时滞已移除：血量归零直接结算
+				g.player.invuln = 0.0
+				g.player.hp = 5.0
+				g.score_mult = 1.4
+				_place(1, true)
+				phase = 11
 				t = 0.0
-		14:
+		11:
 			if g.state == g.State.GAMEOVER:
+				_chk(g.score_mult < 1.4, "hit lowers score mult, got %.2f" % g.score_mult)
 				_chk(g.rating != "", "settle rating %s" % g.rating)
 				_chk(g.payout_coins > 0, "settle coins %d" % g.payout_coins)
 				phase = 9
-			elif t > 2.0:
-				_chk(false, "settle timeout, state %d" % g.state)
+			elif t > 5.0:
+				_chk(false, "hp<=0 应直接结算, state %d hp %f" % [g.state, g.player.hp])
 				phase = 9
 		9:
 			for f in fails:
