@@ -1615,7 +1615,6 @@ func _settle() -> void:
 	payout_coins = int(round((float(coins) + 20.0) * rmul * coin_gain()))
 	payout_sand = sand
 	AudioMgr.play("over", 1.0, 0.0)
-	hud.play_settle_video()
 
 func rating_mult() -> float:
 	for row in RATING_TABLE:
@@ -1770,8 +1769,8 @@ func _paint_rewind_guide(l: PaintLayer) -> void:
 	if rewind_hist.is_empty():
 		return
 	WaterRenderer.ensure_loaded()
-	# 留下的字迹用暖米白，和浅蓝水面拉开对比。
-	var base := Color("#FFFED0")
+	# 底色是浅蓝水面，泡沫白压根看不见 —— 取水色压深当墨线
+	var base := WaterRenderer.getc(WaterRenderer.current, "water_color").darkened(0.5)
 	var ready := clock_charge >= CLOCK_TIME or state == State.REWIND
 	var a := 0.85 if ready else 0.40
 	var w := 3.5 if ready else 2.2

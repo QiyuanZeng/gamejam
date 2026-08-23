@@ -46,10 +46,8 @@ var dial_pointer_tex: Texture2D
 
 var help_btn: TextureButton
 var help_overlay: Control
-var settle_video: VideoStreamPlayer
 var transition_video: VideoStreamPlayer
 
-const SETTLE_VIDEO_PATH := "res://assets/video/settle_bg.ogv"
 const TRANSITION_VIDEO_PATH := "res://assets/video/transition.ogv"
 
 class _Board extends Control:
@@ -74,19 +72,8 @@ func _ready() -> void:
 		_auto_help_done = true
 		_open_help.call_deferred()
 
-## 结算背景视频（board 之下）+ 重开过渡视频（最顶层）。
-## 过渡视频播完自动 reload 场景正式重开。
+## 重开过渡视频（最顶层）。播完自动 reload 场景正式重开。
 func _build_videos() -> void:
-	if ResourceLoader.exists(SETTLE_VIDEO_PATH):
-		settle_video = VideoStreamPlayer.new()
-		settle_video.stream = load(SETTLE_VIDEO_PATH)
-		settle_video.set_anchors_preset(Control.PRESET_FULL_RECT)
-		settle_video.expand = true
-		settle_video.loop = true
-		settle_video.autoplay = false
-		settle_video.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		settle_video.visible = false
-		add_child(settle_video)
 	if ResourceLoader.exists(TRANSITION_VIDEO_PATH):
 		transition_video = VideoStreamPlayer.new()
 		transition_video.stream = load(TRANSITION_VIDEO_PATH)
@@ -98,18 +85,8 @@ func _build_videos() -> void:
 		transition_video.finished.connect(func() -> void: get_tree().reload_current_scene())
 		add_child(transition_video)
 
-## 结算页：背景视频循环播（替代静态背景图）。
-func play_settle_video() -> void:
-	if settle_video == null:
-		return
-	settle_video.visible = true
-	settle_video.play()
-
-## 点击「进入轮回」：结算视频收掉，播 1 秒下落过渡，播完 reload 正式重开。
+## 点击「进入轮回」：播 1 秒下落过渡，播完 reload 正式重开。
 func play_transition() -> void:
-	if settle_video != null:
-		settle_video.visible = false
-		settle_video.stop()
 	if transition_video == null:
 		get_tree().reload_current_scene()
 		return
@@ -374,7 +351,8 @@ func _paint_skills(r: Control, w: float, h: float) -> void:
 			Color(UI_TEXT_WHITE.r, UI_TEXT_WHITE.g, UI_TEXT_WHITE.b, 0.75))
 
 func _paint_settle(r: Control, w: float, h: float) -> void:
-	# 背景换成了循环视频（settle_video，board 之下）；这里只压一层淡调子统一色温。
+	# 静态背景图（视频背景在有机器上花屏，先回退）
+	r.draw_texture_rect(SETTLE_BG, Rect2(0, 0, w, h), false)
 	r.draw_rect(Rect2(0, 0, w, h), Color(0.03, 0.08, 0.17, 0.10))
 
 	# 美术原图是透明大画布；region 只取有效区域，避免空白把版面挤散。
