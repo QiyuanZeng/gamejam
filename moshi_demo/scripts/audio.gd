@@ -21,6 +21,8 @@ func _ready() -> void:
 		add_child(p)
 		_players.append(p)
 	_bgm_player = AudioStreamPlayer.new()
+	# 帮助页会暂停游戏，BGM 照常播
+	_bgm_player.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_bgm_player)
 	# —— 文件音效（v2 外包：童话幻想·银刃天穹星尘）——
 	_sfx["dash"] = _load_variants(

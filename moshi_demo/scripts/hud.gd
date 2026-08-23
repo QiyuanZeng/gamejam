@@ -29,6 +29,15 @@ const ZAN_TEX := preload("res://assets/ui/斩.png")
 const SETTLE_BG := preload("res://assets/ui/Settlement/background.png")
 const SETTLE_TITLE := preload("res://assets/ui/Settlement/title.png")
 const SETTLE_BUTTON := preload("res://assets/ui/Settlement/button.png")
+const HELP_BTN_TEX := preload("res://assets/ui/help/问号-进入按钮.png")
+const HELP_PAGE_TEX := preload("res://assets/ui/help/主帮助页面.png")
+const HELP_CLOSE_TEX := preload("res://assets/ui/help/关闭按钮.png")
+## 帮助页尺寸（原 900×562 的 87%）与关闭按钮位置（贴主图右上角边缘）。
+const HELP_PAGE_SIZE := Vector2(784.0, 489.0)
+const HELP_CLOSE_SIZE := 48.0
+
+## 每次启动游戏只在首个战斗场景自动弹一次帮助页（场景 reload 不重弹）。
+static var _auto_help_done := false
 
 var game
 var font: Font
@@ -36,6 +45,14 @@ var board: Control
 var dial_clock_tex: Texture2D
 var dial_outer_clock_tex: Texture2D
 var dial_pointer_tex: Texture2D
+
+var help_btn: TextureButton
+var help_overlay: Control
+var settle_video: VideoStreamPlayer
+var transition_video: VideoStreamPlayer
+
+const SETTLE_VIDEO_PATH := "res://assets/video/settle_bg.ogv"
+const TRANSITION_VIDEO_PATH := "res://assets/video/transition.ogv"
 
 class _Board extends Control:
 	var hud: HUD
@@ -48,10 +65,144 @@ func _ready() -> void:
 	dial_clock_tex = load("res://assets/ui/hud_top_clock.png")
 	dial_outer_clock_tex = load("res://assets/art/effects/dial_clock.png")
 	dial_pointer_tex = load("res://assets/art/effects/dial_pointer.png")
+	_build_videos()
 	board = _Board.new()
 	board.hud = self
 	board.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(board)
+	_build_help()
+	# 首次作为主场景运行时自动弹帮助页（测试里 Game 是手动 new 的，不弹）
+	if not _auto_help_done and get_tree().current_scene == game:
+		_auto_help_done = true
+		_open_help.call_deferred()
+
+## 结算背景视频（board 之下）+ 重开过渡视频（最顶层）。
+## 过渡视频播完自动 reload 场景正式重开。
+func _build_videos() -> void:
+	if ResourceLoader.exists(SETTLE_VIDEO_PATH):
+		settle_video = VideoStreamPlayer.new()
+		settle_video.stream = load(SETTLE_VIDEO_PATH)
+		settle_video.set_anchors_preset(Control.PRESET_FULL_RECT)
+		settle_video.expand = true
+		settle_video.loop = true
+		settle_video.autoplay = false
+		settle_video.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		settle_video.visible = false
+		add_child(settle_video)
+	if ResourceLoader.exists(TRANSITION_VIDEO_PATH):
+		transition_video = VideoStreamPlayer.new()
+		transition_video.stream = load(TRANSITION_VIDEO_PATH)
+		transition_video.set_anchors_preset(Control.PRESET_FULL_RECT)
+		transition_video.expand = true
+		transition_video.autoplay = false
+		transition_video.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		transition_video.visible = false
+		transition_video.finished.connect(func() -> void: get_tree().reload_current_scene())
+		add_child(transition_video)
+
+## 结算页：背景视频循环播（替代静态背景图）。
+func play_settle_video() -> void:
+	if settle_video == null:
+		return
+	settle_video.visible = true
+	settle_video.play()
+
+## 点击「进入轮回」：结算视频收掉，播 1 秒下落过渡，播完 reload 正式重开。
+func play_transition() -> void:
+	if settle_video != null:
+		settle_video.visible = false
+		settle_video.stop()
+	if transition_video == null:
+		get_tree().reload_current_scene()
+		return
+	transition_video.visible = true
+	transition_video.play()
+
+func _process(_delta: float) -> void:
+	# 结算 / 过渡时藏起问号入口，别飘在结算视频上
+	if help_btn == null or game == null:
+		return
+	help_btn.visible = game.state != game.State.GAMEOVER \
+		and game.state != game.State.TRANSITION
+
+func _build_help() -> void:
+	help_btn = TextureButton.new()
+	help_btn.texture_normal = HELP_BTN_TEX
+	help_btn.ignore_texture_size = true
+	help_btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	help_btn.anchor_left = 1.0
+	help_btn.anchor_right = 1.0
+	help_btn.anchor_top = 0.0
+	help_btn.anchor_bottom = 0.0
+	help_btn.offset_left = -96.0
+	help_btn.offset_right = -24.0
+	help_btn.offset_top = 24.0
+	help_btn.offset_bottom = 96.0
+	help_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	help_btn.pressed.connect(_open_help)
+	add_child(help_btn)
+
+func _open_help() -> void:
+	if help_overlay == null:
+		_build_help_overlay()
+	get_tree().paused = true
+	help_overlay.visible = true
+
+func _close_help() -> void:
+	if help_overlay == null or not help_overlay.visible:
+		return
+	help_overlay.visible = false
+	get_tree().paused = false
+
+## 点帮助页任意位置都算关闭（只认鼠标按下；gui_input 里鼠标移动也来，不能全关）。
+func _on_help_click(ev: InputEvent) -> void:
+	if ev is InputEventMouseButton and ev.pressed:
+		_close_help()
+
+func _build_help_overlay() -> void:
+	help_overlay = Control.new()
+	help_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	help_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	# 点击任意处关闭
+	help_overlay.gui_input.connect(_on_help_click)
+	# 半透明遮罩：挡住底下游戏输入；点击穿透给 overlay 统一处理关闭
+	var dim := ColorRect.new()
+	dim.color = Color(0.03, 0.05, 0.10, 0.78)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	help_overlay.add_child(dim)
+	# 帮助页整图：居中（原 900×562 的 72%）
+	var page := TextureRect.new()
+	page.texture = HELP_PAGE_TEX
+	page.ignore_texture_size = true
+	page.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.set_anchors_preset(Control.PRESET_CENTER)
+	page.offset_left = -HELP_PAGE_SIZE.x * 0.5
+	page.offset_right = HELP_PAGE_SIZE.x * 0.5
+	page.offset_top = -HELP_PAGE_SIZE.y * 0.5
+	page.offset_bottom = HELP_PAGE_SIZE.y * 0.5
+	help_overlay.add_child(page)
+	# 关闭按钮：贴在帮助页右上角边缘（中心对齐页面顶角）
+	var close_btn := TextureButton.new()
+	close_btn.texture_normal = HELP_CLOSE_TEX
+	close_btn.ignore_texture_size = true
+	close_btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	close_btn.anchor_left = 1.0
+	close_btn.anchor_right = 1.0
+	close_btn.anchor_top = 0.0
+	close_btn.anchor_bottom = 0.0
+	var page_right: float = 1152.0 * 0.5 + HELP_PAGE_SIZE.x * 0.5
+	var page_top: float = 648.0 * 0.5 - HELP_PAGE_SIZE.y * 0.5
+	# anchor_right=1 时 offset 相对右边缘，须减视口宽换算成负偏移
+	close_btn.offset_left = page_right - HELP_CLOSE_SIZE * 0.5 - 1152.0
+	close_btn.offset_right = page_right + HELP_CLOSE_SIZE * 0.5 - 1152.0
+	close_btn.offset_top = page_top - HELP_CLOSE_SIZE * 0.5
+	close_btn.offset_bottom = page_top + HELP_CLOSE_SIZE * 0.5
+	close_btn.pressed.connect(_close_help)
+	help_overlay.add_child(close_btn)
+	help_overlay.visible = false
+	add_child(help_overlay)
 
 func request_redraw() -> void:
 	if board != null:
@@ -69,6 +220,12 @@ func _paint(r: Control) -> void:
 		return
 	var w := 1152.0
 	var h := 648.0
+	# —— 结算 / 过渡：战斗 HUD 全部不画，防技能栏等穿帮到结算页上 ——
+	if game.state == game.State.TRANSITION:
+		return
+	if game.state == game.State.GAMEOVER:
+		_paint_settle(r, w, h)
+		return
 	# —— 全屏调子 ——
 	if game.state == game.State.SPELL:
 		r.draw_rect(Rect2(0, 0, w, h), Color(0.1, 0.12, 0.16, 0.08))
@@ -84,8 +241,8 @@ func _paint(r: Control) -> void:
 	# —— 右上：斩杀 / 得分（时滞已移除：血量归零直接结算） ——
 	var stat := "斩 %d    分 %d    ×%.1f" % [
 		game.kills, int(round(game.score)), game.score_mult]
-	_text(r, Vector2(w - 20.0, 14), stat, 18, UI_TEXT_WHITE, HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
-	_text(r, Vector2(w - 20.0, 38), "已撑 %.0fs" % game.run_time,
+	_text(r, Vector2(w - 112.0, 14), stat, 18, UI_TEXT_WHITE, HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
+	_text(r, Vector2(w - 112.0, 38), "已撑 %.0fs" % game.run_time,
 		14, Color(GREY.r, GREY.g, GREY.b, 0.7), HORIZONTAL_ALIGNMENT_RIGHT, 420.0)
 	# —— 顶部中央：回溯充能钟 ——
 	var c := Vector2(w * 0.5, 76.0)
@@ -153,9 +310,7 @@ func _paint(r: Control) -> void:
 	# —— 觉醒选碑面板 ——
 	if game.bind_panel:
 		_paint_bind(r, w, h)
-	# —— 结算 ——
-	if game.state == game.State.GAMEOVER:
-		_paint_settle(r, w, h)
+	# 结算已提前在 _paint 开头处理（GAMEOVER 时战斗 HUD 不画）
 
 ## 觉醒面板：只列还空着的碑，序号就是要按的键。
 func _paint_skill_art(r: Control, w: float, h: float) -> void:
@@ -221,7 +376,7 @@ func _paint_skills(r: Control, w: float, h: float) -> void:
 			Color(UI_TEXT_WHITE.r, UI_TEXT_WHITE.g, UI_TEXT_WHITE.b, 0.75))
 
 func _paint_settle(r: Control, w: float, h: float) -> void:
-	r.draw_texture_rect(SETTLE_BG, Rect2(0, 0, w, h), false)
+	# 背景换成了循环视频（settle_video，board 之下）；这里只压一层淡调子统一色温。
 	r.draw_rect(Rect2(0, 0, w, h), Color(0.03, 0.08, 0.17, 0.10))
 
 	# 美术原图是透明大画布；region 只取有效区域，避免空白把版面挤散。
