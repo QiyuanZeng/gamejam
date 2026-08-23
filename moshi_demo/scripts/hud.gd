@@ -46,9 +46,6 @@ var dial_pointer_tex: Texture2D
 
 var help_btn: TextureButton
 var help_overlay: Control
-var transition_video: VideoStreamPlayer
-
-const TRANSITION_VIDEO_PATH := "res://assets/video/transition.ogv"
 
 class _Board extends Control:
 	var hud: HUD
@@ -61,7 +58,6 @@ func _ready() -> void:
 	dial_clock_tex = load("res://assets/ui/hud_top_clock.png")
 	dial_outer_clock_tex = load("res://assets/art/effects/dial_clock.png")
 	dial_pointer_tex = load("res://assets/art/effects/dial_pointer.png")
-	_build_videos()
 	board = _Board.new()
 	board.hud = self
 	board.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -72,33 +68,11 @@ func _ready() -> void:
 		_auto_help_done = true
 		_open_help.call_deferred()
 
-## 重开过渡视频（最顶层）。播完自动 reload 场景正式重开。
-func _build_videos() -> void:
-	if ResourceLoader.exists(TRANSITION_VIDEO_PATH):
-		transition_video = VideoStreamPlayer.new()
-		transition_video.stream = load(TRANSITION_VIDEO_PATH)
-		transition_video.set_anchors_preset(Control.PRESET_FULL_RECT)
-		transition_video.expand = true
-		transition_video.autoplay = false
-		transition_video.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		transition_video.visible = false
-		transition_video.finished.connect(func() -> void: get_tree().reload_current_scene())
-		add_child(transition_video)
-
-## 点击「进入轮回」：播 1 秒下落过渡，播完 reload 正式重开。
-func play_transition() -> void:
-	if transition_video == null:
-		get_tree().reload_current_scene()
-		return
-	transition_video.visible = true
-	transition_video.play()
-
 func _process(_delta: float) -> void:
-	# 结算 / 过渡时藏起问号入口，别飘在结算视频上
+	# 结算时藏起问号入口，别飘在结算页上
 	if help_btn == null or game == null:
 		return
-	help_btn.visible = game.state != game.State.GAMEOVER \
-		and game.state != game.State.TRANSITION
+	help_btn.visible = game.state != game.State.GAMEOVER
 
 func _build_help() -> void:
 	help_btn = TextureButton.new()
@@ -195,9 +169,7 @@ func _paint(r: Control) -> void:
 		return
 	var w := 1152.0
 	var h := 648.0
-	# —— 结算 / 过渡：战斗 HUD 全部不画，防技能栏等穿帮到结算页上 ——
-	if game.state == game.State.TRANSITION:
-		return
+	# —— 结算：战斗 HUD 全部不画，防技能栏等穿帮到结算页上 ——
 	if game.state == game.State.GAMEOVER:
 		_paint_settle(r, w, h)
 		return

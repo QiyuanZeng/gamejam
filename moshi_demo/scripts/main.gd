@@ -5,7 +5,7 @@ extends Node2D
 ## 右键：按住进子弹时间书写（扣 TV），松开沿笔画斩击；笔画匹配咒语则附加释放技能。
 ## 伤害沿用「标记—引爆」模型：掠过只挂标记，终点顿帧统一结算。
 
-enum State { PLAY, SPELL, DASH, BURST, REWIND, GAMEOVER, TRANSITION }
+enum State { PLAY, SPELL, DASH, BURST, REWIND, GAMEOVER }
 
 # ============================== §1 全局 ==============================
 
@@ -568,11 +568,7 @@ func _input(event: InputEvent) -> void:
 			and event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_R]
 		var click: bool = event is InputEventMouseButton and event.pressed
 		if key or click:
-			# 不直接重开：先播 1 秒下落过渡视频，播完由 hud 自动 reload 场景
-			state = State.TRANSITION
-			hud.play_transition()
-		return
-	if state == State.TRANSITION:
+			get_tree().reload_current_scene()
 		return
 	if event is InputEventMouseButton:
 		# 鼠标悬在任何 UI 控件上（问号按钮/帮助页）时点击不进玩法，
