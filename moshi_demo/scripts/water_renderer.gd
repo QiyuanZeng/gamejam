@@ -60,10 +60,10 @@ const DEFAULTS := {
 	# —— 生命周期
 	"life_time": 8.7,
 	"fade_curve": 2.75,
-	# —— 配色（青蓝水面）
-	"water_color": Color("#5F9BE1"),
-	"foam_color": Color("#FFF4C8"),
-	"surface_color": Color("#6AD6EB"),
+	# —— 配色（淡白水面：沿用合并前的白底观感，远程的其他水面参数保留）
+	"water_color": Color("#A8C8E0"),
+	"foam_color": Color("#FFFFFF"),
+	"surface_color": Color("#DDE9F3"),
 }
 
 const SAVE_PATH := "user://water_style.json"
