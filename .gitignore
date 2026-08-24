@@ -16,6 +16,15 @@ smoke_out*.txt
 build/
 *.exe
 moshi_demo/tests/out/
+# 导出的可执行包与 web 包，体积上百 MB，不入库
+bao2/
+game/
+game.zip
+web.zip
+*.tpz
+
+# 临时 diff
+diff_*.txt
 
 # 本机工具与配置：.tools 下是克隆来的第三方仓库（自带 .git），不入库
 .tools/
