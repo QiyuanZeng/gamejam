@@ -210,7 +210,7 @@ script = ExtResource("1_e7bv1")
 id = "splitter_bomber_shard"
 display_name = "磐妖碎块"
 behavior = 3
-hp = 5.0
+hp = 20.0
 speed = 105.0
 dmg = 1.0
 radius = 16.0
@@ -266,6 +266,7 @@ note = "远程晶哨与分裂磐妖入场，首只精英露面。战场开始有
 script = ExtResource("3_njojm")
 id = "seg4_elite"
 until_time = 27.0
+interval = 2.0
 cap = 30
 mix = {
 "charger_fast": 0.18,
